@@ -221,6 +221,14 @@ def test_wrapped_enum_members_are_marked(samplepkg: Module) -> None:
         assert sections[0].value.contents == message
 
 
+def test_the_class_form_of_the_wrapper_is_recognized(samplepkg: Module) -> None:
+    """`frequenz-core` accepts `DeprecatedMember(...)` too, and it reads the same."""
+    member = attribute(samplepkg, "statuses.TaskStatus.WAITING")
+    assert "deprecated" in member.labels
+    assert member.deprecated == "WAITING is deprecated, use OPEN instead"
+    assert str(member.value) == "1"
+
+
 def test_a_wrapped_enum_member_shows_its_real_value(samplepkg: Module) -> None:
     """The documentation says `PENDING = 1`, not the wrapper call."""
     assert str(attribute(samplepkg, "statuses.TaskStatus.PENDING").value) == "1"

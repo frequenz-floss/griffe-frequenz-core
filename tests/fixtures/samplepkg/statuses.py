@@ -3,7 +3,7 @@
 
 """An enum with deprecated members, and members that only look deprecated."""
 
-from frequenz.core.enum import Enum, deprecated_member
+from frequenz.core.enum import DeprecatedMember, Enum, deprecated_member
 
 _MESSAGE = "CANCELLED is deprecated, use CLOSED instead"
 
@@ -27,3 +27,6 @@ class TaskStatus(Enum):
 
     CANCELLED = deprecated_member(1, _MESSAGE)
     """A member whose message Griffe cannot read, so it stays unmarked."""
+
+    WAITING = DeprecatedMember(1, "WAITING is deprecated, use OPEN instead")
+    """A member using the class form of the wrapper rather than the function."""

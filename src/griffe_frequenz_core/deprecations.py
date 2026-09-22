@@ -91,7 +91,9 @@ class DeprecationsExtension(Extension):
     ```
 
     Such a member is marked and its rendered value is rewritten from the wrapper
-    call back to the real value, so the documentation shows `PENDING = 1`.
+    call back to the real value, so the documentation shows `PENDING = 1`. The
+    `DeprecatedMember(1, "...")` form `frequenz-core` also accepts is recognized
+    too: a class and a function are both read as a call.
 
     Warning:
         Enum messages, alias names, and alias targets must be string literals
@@ -129,6 +131,14 @@ class DeprecationsExtension(Extension):
         The paths this extension matches are options rather than constants on
         purpose: if `frequenz-core` renames a helper, point the option at the new
         path instead of waiting for a release of this package.
+
+    Note:
+        There is one deliberate difference from `griffe-warnings-deprecated`:
+        given an empty `title`, it promotes the message into the admonition's
+        title, and this extension does not. The message here carries a rendered
+        cross-reference to the target, which does not belong in a title, and the
+        title is also what decides whether a docstring already documents its own
+        deprecation. Please do not "fix" this into a bug.
     """
 
     # Every option is a key in `mkdocs.yml`, so they have to stay flat.
@@ -143,6 +153,7 @@ class DeprecationsExtension(Extension):
         ),
         member_wrapper_functions: Sequence[str] = (
             "frequenz.core.enum.deprecated_member",
+            "frequenz.core.enum.DeprecatedMember",
         ),
         default_message: str = "{old} is deprecated. Use {new} instead.",
         show_target: bool = True,
@@ -156,8 +167,9 @@ class DeprecationsExtension(Extension):
             label: The label added to deprecated objects, or `None` to add none.
             alias_table_functions: The fully qualified paths of the functions that
                 build a module `__getattr__` out of an alias table.
-            member_wrapper_functions: The fully qualified paths of the functions
-                that wrap an enum member's value to deprecate it.
+            member_wrapper_functions: The fully qualified paths of the callables
+                that wrap an enum member's value to deprecate it. A class works
+                as well as a function, since both are read as a call.
             default_message: The message template used when the alias table call
                 does not pass a `message` of its own. It must stay in step with
                 the default of the function it stands in for, since that is what
@@ -175,7 +187,7 @@ class DeprecationsExtension(Extension):
         self.alias_table_functions = frozenset(alias_table_functions)
         """The paths of the functions that build a `__getattr__` from an alias table."""
         self.member_wrapper_functions = frozenset(member_wrapper_functions)
-        """The paths of the functions that wrap a deprecated enum member's value."""
+        """The paths of the callables that wrap a deprecated enum member's value."""
         self.default_message = default_message
         """The message template used when the alias table call passes none."""
         self.show_target = show_target
