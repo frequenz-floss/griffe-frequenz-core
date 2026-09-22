@@ -3,9 +3,10 @@
 
 """Tests for the deprecations extension.
 
-The fixtures under `fixtures/` import `frequenz-core` helpers but are never run:
-Griffe resolves those paths from the import statements alone, so `frequenz-core`
-does not have to be installed, and deliberately is not.
+The fixtures under `fixtures/` refer to `frequenz-core` helpers but are never
+run. Griffe resolves those paths from import statements without importing
+`frequenz-core`; only the compatibility tests import the installed test
+dependency.
 """
 
 import logging
