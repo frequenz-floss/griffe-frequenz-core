@@ -1,0 +1,350 @@
+name: CI
+
+on:
+  merge_group:
+  push:
+    # We need to explicitly include tags because otherwise when adding
+    # `branches-ignore` it will only trigger on branches.
+    tags:
+      - '*'
+    branches-ignore:
+      # Ignore pushes to merge queues.
+      # We only want to test the merge commit (`merge_group` event), the hashes
+      # in the push were already tested by the PR checks
+      - 'gh-readonly-queue/**'
+      - 'dependabot/**'
+  workflow_dispatch:
+
+permissions:
+  # Read repository contents for checkout and dependency resolution only.
+  contents: read
+
+env:
+  # Please make sure this version is included in the `matrix`, as the
+  # `matrix` section can't use `env`, so it must be entered manually
+  DEFAULT_PYTHON_VERSION: '3.11'
+  # It would be nice to be able to also define a DEFAULT_UBUNTU_VERSION
+  # but sadly `env` can't be used either in `runs-on`.
+
+jobs:
+  nox:
+    name: Test with nox
+    strategy:
+      fail-fast: false
+      matrix:
+        platform:
+          - ubuntu-24.04
+          - ubuntu-24.04-arm
+        python:
+          - "3.11"
+          - "3.12"
+        nox-session:
+          # To speed things up a bit we use the special ci_checks_max session
+          # that uses the same venv to run multiple linting sessions
+          - "ci_checks_max"
+          - "pytest_min"
+    runs-on: ${{ matrix.platform }}
+
+    steps:
+      - name: Run nox
+        uses: frequenz-floss/gh-action-nox@dff549a59033ed078a375a32b1f8f17beb7df690 # v1.1.2
+        with:
+          python-version: ${{ matrix.python }}
+          nox-session: ${{ matrix.nox-session }}
+
+  # This job runs if all the `nox` matrix jobs ran and succeeded.
+  # It is only used to have a single job that we can require in branch
+  # protection rules, so we don't have to update the protection rules each time
+  # we add or remove a job from the matrix.
+  nox-all:
+    # The job name should match the name of the `nox` job.
+    name: Test with nox
+    needs: ["nox"]
+    # We skip this job only if nox was also skipped
+    if: always() && needs.nox.result != 'skipped'
+    runs-on: ubuntu-slim
+    # Drop token permissions: this job only checks matrix status from `needs`.
+    permissions: {}
+    env:
+      DEPS_RESULT: ${{ needs.nox.result }}
+    steps:
+      - name: Check matrix job result
+        run: test "$DEPS_RESULT" = "success"
+
+  build:
+    name: Build distribution packages
+    # Since this is a pure Python package, we only need to build it once. If it
+    # had any architecture specific code, we would need to build it for each
+    # architecture.
+    runs-on: ubuntu-24.04
+
+    steps:
+      - name: Setup Git
+        uses: frequenz-floss/gh-action-setup-git@f9d86a01228ee1cadaac5224d4d7626f1eb23f90 # v1.0.0
+
+      - name: Fetch sources
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          submodules: true
+
+      - name: Setup Python
+        uses: frequenz-floss/gh-action-setup-python-with-deps@29d63cb1d7ce634b2f4b925044b1b193e1d5bddc # v1.0.6
+        with:
+          python-version: ${{ env.DEFAULT_PYTHON_VERSION }}
+          dependencies: build
+
+      - name: Build the source and binary distribution
+        run: python -Im build
+
+      - name: Upload distribution files
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: dist-packages
+          path: dist/
+          if-no-files-found: error
+
+  test-installation:
+    name: Test package installation
+    needs: ["build"]
+    strategy:
+      fail-fast: false
+      matrix:
+        platform:
+          - ubuntu-24.04
+          - ubuntu-24.04-arm
+        python:
+          - "3.11"
+          - "3.12"
+    runs-on: ${{ matrix.platform }}
+
+    steps:
+      - name: Setup Git
+        uses: frequenz-floss/gh-action-setup-git@f9d86a01228ee1cadaac5224d4d7626f1eb23f90 # v1.0.0
+
+      - name: Print environment (debug)
+        run: env
+
+      - name: Download package
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: dist-packages
+          path: dist
+
+      # This is necessary for the `pip` caching in the setup-python action to work
+      - name: Fetch the pyproject.toml file for this action hash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          REF: ${{ github.sha }}
+        run: |
+          set -ux
+          gh api \
+              -X GET \
+              -H "Accept: application/vnd.github.raw" \
+              "/repos/$REPO/contents/pyproject.toml?ref=$REF" \
+            > pyproject.toml
+
+      - name: Setup Python
+        uses: frequenz-floss/gh-action-setup-python-with-deps@29d63cb1d7ce634b2f4b925044b1b193e1d5bddc # v1.0.6
+        with:
+          python-version: ${{ matrix.python }}
+          dependencies: dist/*.whl
+
+      - name: Print installed packages (debug)
+        run: python -Im pip freeze
+
+  # This job runs if all the `test-installation` matrix jobs ran and succeeded.
+  # It is only used to have a single job that we can require in branch
+  # protection rules, so we don't have to update the protection rules each time
+  # we add or remove a job from the matrix.
+  test-installation-all:
+    # The job name should match the name of the `test-installation` job.
+    name: Test package installation
+    needs: ["test-installation"]
+    # We skip this job only if test-installation was also skipped
+    if: always() && needs.test-installation.result != 'skipped'
+    runs-on: ubuntu-slim
+    # Drop token permissions: this job only checks matrix status from `needs`.
+    permissions: {}
+    env:
+      DEPS_RESULT: ${{ needs.test-installation.result }}
+    steps:
+      - name: Check matrix job result
+        run: test "$DEPS_RESULT" = "success"
+
+  test-docs:
+    name: Test documentation website generation
+    if: github.event_name != 'push'
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Setup Git
+        uses: frequenz-floss/gh-action-setup-git@f9d86a01228ee1cadaac5224d4d7626f1eb23f90 # v1.0.0
+
+      - name: Fetch sources
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          submodules: true
+
+      - name: Setup Python
+        uses: frequenz-floss/gh-action-setup-python-with-deps@29d63cb1d7ce634b2f4b925044b1b193e1d5bddc # v1.0.6
+        with:
+          python-version: ${{ env.DEFAULT_PYTHON_VERSION }}
+          dependencies: .[dev-mkdocs]
+
+      - name: Generate the documentation
+        env:
+          MIKE_VERSION: gh-${{ github.job }}
+        run: |
+          # mike is installed as a console script, not a runnable module.
+          # Run the installed script under isolated mode to avoid importing from
+          # the workspace when building docs from checked-out code.
+          python -I "$(command -v mike)" deploy "$MIKE_VERSION"
+          python -I "$(command -v mike)" set-default "$MIKE_VERSION"
+
+      - name: Upload site
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: docs-site
+          path: site/
+          if-no-files-found: error
+
+  publish-docs:
+    name: Publish documentation website to GitHub pages
+    needs: ["nox-all", "test-installation-all"]
+    if: github.event_name == 'push'
+    runs-on: ubuntu-24.04
+    permissions:
+      # Push generated documentation updates to the `gh-pages` branch.
+      contents: write
+    steps:
+      - name: Setup Git
+        uses: frequenz-floss/gh-action-setup-git@f9d86a01228ee1cadaac5224d4d7626f1eb23f90 # v1.0.0
+
+      - name: Fetch sources
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          submodules: true
+
+      - name: Setup Python
+        uses: frequenz-floss/gh-action-setup-python-with-deps@29d63cb1d7ce634b2f4b925044b1b193e1d5bddc # v1.0.6
+        with:
+          python-version: ${{ env.DEFAULT_PYTHON_VERSION }}
+          dependencies: .[dev-mkdocs]
+
+      - name: Calculate and check version
+        id: mike-version
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_REPO: ${{ github.repository }}
+          GIT_REF: ${{ github.ref }}
+          GIT_SHA: ${{ github.sha }}
+        run: |
+          python -Im frequenz.repo.config.cli.version.mike.info
+
+      - name: Fetch the gh-pages branch
+        if: steps.mike-version.outputs.version
+        run: git fetch origin gh-pages --depth=1
+
+      - name: Build site
+        if: steps.mike-version.outputs.version
+        env:
+          VERSION: ${{ steps.mike-version.outputs.version }}
+          TITLE: ${{ steps.mike-version.outputs.title }}
+          ALIASES: ${{ steps.mike-version.outputs.aliases }}
+          # This is not ideal, we need to define all these variables here
+          # because we need to calculate all the repository version information
+          # to be able to show the correct versions in the documentation when
+          # building it.
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_REPO: ${{ github.repository }}
+          GIT_REF: ${{ github.ref }}
+          GIT_SHA: ${{ github.sha }}
+        run: |
+          # Collect aliases into an array to avoid accidental (or malicious)
+          # shell injection when passing them to mike.
+          aliases=()
+          if test -n "$ALIASES"; then
+            read -r -a aliases <<<"$ALIASES"
+          fi
+          # mike is installed as a console script, not a runnable module.
+          # Run the installed script under isolated mode to avoid importing from
+          # the workspace when building docs from checked-out code.
+          python -I "$(command -v mike)" \
+            deploy --update-aliases --title "$TITLE" "$VERSION" "${aliases[@]}"
+
+      - name: Sort site versions
+        if: steps.mike-version.outputs.version
+        run: |
+          git checkout gh-pages
+          python -Im frequenz.repo.config.cli.version.mike.sort versions.json
+          git commit -a -m "Sort versions.json"
+
+      - name: Publish site
+        if: steps.mike-version.outputs.version
+        run: |
+          git push origin gh-pages
+
+  create-github-release:
+    name: Create GitHub release
+    needs: ["publish-docs"]
+    # Create a release only on tags creation
+    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
+    permissions:
+      # Create GitHub releases and upload distribution artifacts.
+      contents: write
+    runs-on: ubuntu-slim
+    steps:
+      - name: Download distribution files
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: dist-packages
+          path: dist
+
+      - name: Download RELEASE_NOTES.md
+        run: |
+          set -ux
+          gh api \
+              -X GET \
+              -f ref=$REF \
+              -H "Accept: application/vnd.github.raw" \
+              "/repos/$REPOSITORY/contents/RELEASE_NOTES.md" \
+            > RELEASE_NOTES.md
+        env:
+          REF: ${{ github.ref }}
+          REPOSITORY: ${{ github.repository }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Create GitHub release
+        run: |
+          set -ux
+          extra_opts=()
+          if echo "$REF_NAME" | grep -- -; then extra_opts+=(--prerelease); fi
+          gh release create \
+            -R "$REPOSITORY" \
+            --notes-file RELEASE_NOTES.md \
+            --generate-notes \
+            "${extra_opts[@]}" \
+            "$REF_NAME" \
+            dist/*
+        env:
+          REF_NAME: ${{ github.ref_name }}
+          REPOSITORY: ${{ github.repository }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  publish-to-pypi:
+    name: Publish packages to PyPI
+    needs: ["create-github-release"]
+    runs-on: ubuntu-24.04
+    permissions:
+      # For trusted publishing. See:
+      # https://blog.pypi.org/posts/2023-04-20-introducing-trusted-publishers/
+      id-token: write
+    steps:
+      - name: Download distribution files
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: dist-packages
+          path: dist
+
+      - name: Publish the Python distribution to PyPI
+        uses: pypa/gh-action-pypi-publish@dc37677b2e1c63e2034f94d8a5b11f265b73ba33 # v1.14.2

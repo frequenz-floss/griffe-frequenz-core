@@ -1,0 +1,62 @@
+name: Test PR
+
+on:
+  pull_request:
+
+permissions:
+  # Read repository contents for checkout and dependency resolution only.
+  contents: read
+
+env:
+  # Please make sure this version is included in the `matrix`, as the
+  # `matrix` section can't use `env`, so it must be entered manually
+  DEFAULT_PYTHON_VERSION: '3.11'
+  # It would be nice to be able to also define a DEFAULT_UBUNTU_VERSION
+  # but sadly `env` can't be used either in `runs-on`.
+
+jobs:
+  nox:
+    name: Test with nox
+    runs-on: ubuntu-24.04
+
+    steps:
+      - name: Run nox
+        uses: frequenz-floss/gh-action-nox@dff549a59033ed078a375a32b1f8f17beb7df690 # v1.1.2
+        with:
+          python-version: "3.11"
+          nox-session: ci_checks_max
+
+  test-docs:
+    name: Test documentation website generation
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Setup Git
+        uses: frequenz-floss/gh-action-setup-git@f9d86a01228ee1cadaac5224d4d7626f1eb23f90 # v1.0.0
+
+      - name: Fetch sources
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          submodules: true
+
+      - name: Setup Python
+        uses: frequenz-floss/gh-action-setup-python-with-deps@29d63cb1d7ce634b2f4b925044b1b193e1d5bddc # v1.0.6
+        with:
+          python-version: ${{ env.DEFAULT_PYTHON_VERSION }}
+          dependencies: .[dev-mkdocs]
+
+      - name: Generate the documentation
+        env:
+          MIKE_VERSION: gh-${{ github.job }}
+        run: |
+          # mike is installed as a console script, not a runnable module.
+          # Run the installed script under isolated mode to avoid importing from
+          # the workspace when building docs from checked-out code.
+          python -I "$(command -v mike)" deploy "$MIKE_VERSION"
+          python -I "$(command -v mike)" set-default "$MIKE_VERSION"
+
+      - name: Upload site
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: docs-site
+          path: site/
+          if-no-files-found: error
