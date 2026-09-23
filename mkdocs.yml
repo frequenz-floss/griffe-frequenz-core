@@ -118,7 +118,6 @@ plugins:
             - https://mkdocstrings.github.io/griffe/objects.inv
             - https://mkdocstrings.github.io/objects.inv
             - https://mkdocstrings.github.io/python/objects.inv
-            - https://typing-extensions.readthedocs.io/en/stable/objects.inv
   # Note this plugin must be loaded after mkdocstrings to be able to use macros
   # inside docstrings.
   - macros:
