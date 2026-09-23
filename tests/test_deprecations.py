@@ -282,6 +282,67 @@ def test_a_non_literal_alias_entry_is_skipped_loudly(
     assert any("is not a pair of static strings" in r.message for r in caplog.records)
 
 
+def test_an_alias_table_in_a_constant_is_skipped_loudly(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """A whole table held in a constant loses every alias, so it must be logged."""
+    with caplog.at_level(logging.DEBUG, logger=_LOGGER):
+        package = load()
+    member = attribute(package, "constant.Thing")
+    assert not member.deprecated
+    assert "deprecated" not in member.labels
+    assert any(
+        record.message
+        == "samplepkg.constant: the alias table `_ALIASES` is not a dict literal, "
+        "leaving every alias in it unmarked"
+        for record in caplog.records
+    )
+
+
+@pytest.mark.parametrize(
+    ("arguments", "logged"),
+    [
+        (
+            "__name__, aliases=ALIASES",
+            "the alias table `ALIASES` is not a dict literal",
+        ),
+        ("*ARGS", "the alias table argument cannot be found"),
+        ("*ARGS, {'Thing': 'pkg.new'}", "the alias table argument cannot be found"),
+        ("__name__, **KWARGS", "the alias table argument cannot be found"),
+        ("__name__", "the alias table argument cannot be found"),
+    ],
+)
+def test_an_unreadable_alias_table_is_skipped_loudly(
+    caplog: pytest.LogCaptureFixture, arguments: str, logged: str
+) -> None:
+    """Every way of passing the table that cannot be read is reported."""
+    code = (
+        "from frequenz.core.warnings import deprecated_aliases\n"
+        f"__getattr__ = deprecated_aliases({arguments})\n"
+    )
+    with (
+        caplog.at_level(logging.DEBUG, logger=_LOGGER),
+        griffe.temporary_visited_module(
+            code, extensions=griffe.load_extensions(DeprecationsExtension())
+        ) as module,
+    ):
+        assert "Thing" not in module.members
+    assert any(logged in record.message for record in caplog.records)
+
+
+def test_only_the_table_argument_is_read() -> None:
+    """A dict in any other position is not taken for the table."""
+    code = (
+        "from frequenz.core.warnings import deprecated_aliases\n"
+        "__getattr__ = deprecated_aliases({'Wrong': 'pkg.new'}, {'Right': 'pkg.new'})\n"
+    )
+    with griffe.temporary_visited_module(
+        code, extensions=griffe.load_extensions(DeprecationsExtension())
+    ) as module:
+        assert "Right" in module.members
+        assert "Wrong" not in module.members
+
+
 def test_the_defaults_match_griffe_warnings_deprecated() -> None:
     """Configured beside the decorator extension, both render the same."""
     extension = DeprecationsExtension()

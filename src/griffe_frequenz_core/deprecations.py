@@ -31,6 +31,8 @@ from griffe import (
     ExprDict,
     ExprKeyword,
     ExprName,
+    ExprVarKeyword,
+    ExprVarPositional,
     Extension,
     Module,
     get_logger,
@@ -52,6 +54,42 @@ def _literal(node: Any) -> Any:
         return ast.literal_eval(str(node))
     except (ValueError, SyntaxError, TypeError):
         return None
+
+
+def _alias_table_arguments(call: ExprCall) -> tuple[Any, Any]:
+    """Find the alias table and the message among the arguments of a call.
+
+    The call is read with the signature of `deprecated_aliases(module, aliases, *,
+    message=...)`, so the table is the second positional argument or `aliases=`,
+    and the message can only be `message=`. Anything else is ignored.
+
+    Args:
+        call: The alias table call to read.
+
+    Returns:
+        The expressions passed as the table and as the message, each `None` if it
+        cannot be found. The table cannot be found when it is not passed at all,
+        or when a `*args` before it or a `**kwargs` hide where it is.
+    """
+    table: Any = None
+    message: Any = None
+    position: int | None = 0
+    for argument in call.arguments:
+        if isinstance(argument, ExprKeyword):
+            if argument.name == "aliases":
+                table = argument.value
+            elif argument.name == "message":
+                message = argument.value
+        elif isinstance(argument, ExprVarPositional):
+            # Whatever follows no longer has a position that can be counted.
+            position = None
+        elif isinstance(argument, ExprVarKeyword):
+            continue
+        elif position is not None:
+            if position == 1:
+                table = argument
+            position += 1
+    return table, message
 
 
 class DeprecationsExtension(Extension):
@@ -99,8 +137,10 @@ class DeprecationsExtension(Extension):
         Enum messages, alias names, and alias targets must be string literals
         written directly in the call. A non-literal enum message or alias entry
         leaves that member unmarked; a non-literal alias-table `message` instead
-        falls back to `default_message`. Each of these cases is logged at debug
-        level, which `mkdocs -v` shows.
+        falls back to `default_message`. The alias table itself must be a dict
+        literal passed as the second positional argument or as `aliases=`; one
+        held in a constant leaves every alias in it unmarked. Each of these
+        cases is logged at debug level, which `mkdocs -v` shows.
 
     Enable it under the mkdocstrings Python handler, alongside the decorator one:
 
@@ -166,7 +206,10 @@ class DeprecationsExtension(Extension):
                 admonition without one.
             label: The label added to deprecated objects, or `None` to add none.
             alias_table_functions: The fully qualified paths of the functions that
-                build a module `__getattr__` out of an alias table.
+                build a module `__getattr__` out of an alias table. Their calls
+                are read as if they had the signature of `deprecated_aliases()`:
+                the table is the second positional argument or `aliases=`, and
+                the message is `message=`.
             member_wrapper_functions: The fully qualified paths of the callables
                 that wrap an enum member's value to deprecate it. A class works
                 as well as a function, since both are read as a call.
@@ -278,9 +321,6 @@ class DeprecationsExtension(Extension):
     ) -> tuple[dict[str, str], str]:
         """Extract the alias table and the message template from a call.
 
-        Both the positional and the keyword form are accepted, since the function
-        being called takes the table either way.
-
         Args:
             mod: The module the call was found in, used to report what is skipped.
             call: The alias table call to read.
@@ -289,37 +329,47 @@ class DeprecationsExtension(Extension):
             The table mapping each deprecated name to its target, and the message
             template to use for all of them.
         """
-        table: dict[str, str] = {}
+        table_node, message_node = _alias_table_arguments(call)
+
         message = self.default_message
-        for argument in call.arguments:
-            node = argument
-            if isinstance(argument, ExprKeyword):
-                if argument.name == "message":
-                    if isinstance(text := _literal(argument.value), str):
-                        message = text
-                    else:
-                        _logger.debug(
-                            "%s: `message` is not a static string, "
-                            "falling back to the default template",
-                            mod.path,
-                        )
-                    continue
-                if argument.name != "aliases":
-                    continue
-                node = argument.value
-            if isinstance(node, ExprDict):
-                for key, value in zip(node.keys, node.values):
-                    name, target = _literal(key), _literal(value)
-                    if isinstance(name, str) and isinstance(target, str):
-                        table[name] = target
-                    else:
-                        _logger.debug(
-                            "%s: alias table entry %s: %s is not a pair of static "
-                            "strings, skipping it",
-                            mod.path,
-                            key,
-                            value,
-                        )
+        if message_node is not None:
+            if isinstance(text := _literal(message_node), str):
+                message = text
+            else:
+                _logger.debug(
+                    "%s: `message` is not a static string, "
+                    "falling back to the default template",
+                    mod.path,
+                )
+
+        table: dict[str, str] = {}
+        if table_node is None:
+            _logger.debug(
+                "%s: the alias table argument cannot be found, "
+                "leaving every alias unmarked",
+                mod.path,
+            )
+            return table, message
+        if not isinstance(table_node, ExprDict):
+            _logger.debug(
+                "%s: the alias table `%s` is not a dict literal, "
+                "leaving every alias in it unmarked",
+                mod.path,
+                table_node,
+            )
+            return table, message
+        for key, value in zip(table_node.keys, table_node.values):
+            name, target = _literal(key), _literal(value)
+            if isinstance(name, str) and isinstance(target, str):
+                table[name] = target
+            else:
+                _logger.debug(
+                    "%s: alias table entry %s: %s is not a pair of static "
+                    "strings, skipping it",
+                    mod.path,
+                    key,
+                    value,
+                )
         return table, message
 
     def _mark(self, member: Attribute, text: str) -> None:

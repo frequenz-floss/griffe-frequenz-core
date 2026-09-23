@@ -189,6 +189,10 @@ documented when the call can be understood from the syntax tree alone:
   unmarked, an alias table entry with such a name or target is skipped, and an
   alias table with such a `message` falls back to the `default_message`
   option, so its documentation no longer matches the runtime warning.
+- The alias table must be a dict literal written in the call, passed as the
+  second positional argument or as `aliases=`. A table held in a constant, as in
+  `deprecated_aliases(__name__, ALIASES)`, cannot be read, and every alias in it
+  is left unmarked.
 - The arguments of `deprecated_member()` and `DeprecatedMember` must be
   positional. `deprecated_member(1, message="...")` is not recognized, and the
   member is left unmarked.
@@ -218,6 +222,10 @@ extensions:
         - frequenz.core.warnings.deprecated_aliases
         - mypkg.compat.moved_to
 ```
+
+A helper of your own is read with the signature of `deprecated_aliases()`: the
+table is its second positional argument or `aliases=`, and the message is
+`message=`.
 
 They are options so that, if `frequenz-core` renames or moves a helper, you can
 point them at the new path without waiting for a release of this package. For
