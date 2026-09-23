@@ -193,10 +193,9 @@ documented when the call can be understood from the syntax tree alone:
   second positional argument or as `aliases=`. A table held in a constant, as in
   `deprecated_aliases(__name__, ALIASES)`, cannot be read, and every alias in it
   is left unmarked.
-- The arguments of `deprecated_member()` and `DeprecatedMember` must be
-  positional and written out. `deprecated_member(1, message="...")` and
-  `deprecated_member(*ARGS)` are not recognized, and the member is left
-  unmarked.
+- The arguments of `deprecated_member()` and `DeprecatedMember` must be written
+  out, positionally or by keyword. `deprecated_member(*ARGS)` is not
+  recognized, and the member is left unmarked.
 
 Each case the extension skips is logged at debug level, which
 `mkdocs build --verbose` shows.
@@ -224,9 +223,11 @@ extensions:
         - mypkg.compat.moved_to
 ```
 
-A helper of your own is read with the signature of `deprecated_aliases()`: the
-table is its second positional argument or `aliases=`, and the message is
-`message=`.
+A helper of your own is read with the signature of the one it stands in for.
+For an alias table that is `deprecated_aliases()`: the table is its second
+positional argument or `aliases=`, and the message is `message=`. For an enum
+member wrapper it is `deprecated_member(value, message)`, each passed
+positionally or by keyword.
 
 They are options so that, if `frequenz-core` renames or moves a helper, you can
 point them at the new path without waiting for a release of this package. For

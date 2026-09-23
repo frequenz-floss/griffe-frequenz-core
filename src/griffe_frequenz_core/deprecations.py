@@ -92,6 +92,39 @@ def _alias_table_arguments(call: ExprCall) -> tuple[Any, Any]:
     return table, message
 
 
+def _wrapper_arguments(call: ExprCall) -> tuple[Any, Any] | None:
+    """Find the value and the message among the arguments of an enum wrapper call.
+
+    The call is bound the way Python binds `deprecated_member(value, message)`,
+    so each may be passed positionally or by keyword. Unpacking must already have
+    been ruled out, since a `*args` or `**kwargs` would be read as a plain
+    argument.
+
+    Args:
+        call: The wrapper call to read.
+
+    Returns:
+        The expressions passed as the value and as the message, or `None` if
+        the call does not bind exactly those two: one is missing or passed
+        twice, or there is an extra argument.
+    """
+    parameters = ("value", "message")
+    positions = iter(parameters)
+    bound: dict[str, Any] = {}
+    for argument in call.arguments:
+        name: str | None
+        if isinstance(argument, ExprKeyword):
+            name, node = argument.name, argument.value
+        else:
+            name, node = next(positions, None), argument
+        if name is None or name not in parameters or name in bound:
+            return None
+        bound[name] = node
+    if len(bound) != 2:
+        return None
+    return bound["value"], bound["message"]
+
+
 class DeprecationsExtension(Extension):
     """Mark the deprecations `frequenz-core` expresses through a call.
 
@@ -140,8 +173,8 @@ class DeprecationsExtension(Extension):
         falls back to `default_message`. The alias table itself must be a dict
         literal passed as the second positional argument or as `aliases=`; one
         held in a constant leaves every alias in it unmarked. The value and the
-        message of an enum member wrapper must be passed positionally and
-        written out, not as keywords or unpacked from `*args`. Each of these
+        message of an enum member wrapper must be written out, positionally or
+        by keyword, not unpacked from `*args` or `**kwargs`. Each of these
         cases is logged at debug level, which `mkdocs -v` shows.
 
     Enable it under the mkdocstrings Python handler, alongside the decorator one:
@@ -214,7 +247,9 @@ class DeprecationsExtension(Extension):
                 the message is `message=`.
             member_wrapper_functions: The fully qualified paths of the callables
                 that wrap an enum member's value to deprecate it. A class works
-                as well as a function, since both are read as a call.
+                as well as a function, since both are read as a call. Their
+                calls are read as if they had the signature of
+                `deprecated_member(value, message)`.
             default_message: The message template used when the alias table call
                 does not pass a `message` of its own. It must stay in step with
                 the default of the function it stands in for, since that is what
@@ -300,17 +335,16 @@ class DeprecationsExtension(Extension):
                     member.path,
                 )
                 continue
-            if len(value.arguments) != 2 or any(
-                isinstance(argument, ExprKeyword) for argument in value.arguments
-            ):
+            arguments = _wrapper_arguments(value)
+            if arguments is None:
                 _logger.debug(
                     "%s: the deprecation wrapper does not take exactly a value "
-                    "and a message as positional arguments, leaving the member "
-                    "unmarked",
+                    "and a message, leaving the member unmarked",
                     member.path,
                 )
                 continue
-            text = _literal(value.arguments[1])
+            real_value, message = arguments
+            text = _literal(message)
             if not isinstance(text, str):
                 _logger.debug(
                     "%s: deprecation message is not a static string, "
@@ -319,7 +353,7 @@ class DeprecationsExtension(Extension):
                 )
                 continue
             # Show the member's real value, not the wrapper call.
-            member.value = value.arguments[0]
+            member.value = real_value
             self._mark(member, text)
 
     def _alias_table_call(self, mod: Module) -> ExprCall | None:

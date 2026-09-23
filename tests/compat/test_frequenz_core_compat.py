@@ -21,9 +21,12 @@ Only `deprecated_member` is covered. `frequenz-core 1.4.0` has no
 to run.
 """
 
+import inspect
 import warnings
 from pathlib import Path
+from typing import Any
 
+import frequenz.core.enum
 import griffe
 import pytest
 
@@ -104,6 +107,20 @@ def test_admonition_is_rendered(task_status: griffe.Class) -> None:
     assert [section.kind for section in sections[1:]] == [
         griffe.DocstringSectionKind.text
     ]
+
+
+@pytest.mark.parametrize(
+    "wrapper",
+    [frequenz.core.enum.deprecated_member, frequenz.core.enum.DeprecatedMember],
+)
+def test_wrapper_parameters_are_value_and_message(wrapper: Any) -> None:
+    """The keyword names the extension binds are the ones core really takes.
+
+    The extension reads `deprecated_member(value=..., message=...)` by those two
+    names, so a rename in core would leave keyword calls unmarked.
+    """
+    bound = inspect.signature(wrapper).bind(value=1, message="Gone")
+    assert bound.arguments == {"value": 1, "message": "Gone"}
 
 
 def test_plain_member_is_left_alone(task_status: griffe.Class) -> None:

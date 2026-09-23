@@ -259,14 +259,36 @@ def test_a_non_literal_enum_message_is_skipped_loudly(
 
 
 @pytest.mark.parametrize(
+    "arguments",
+    ["1, message='Gone'", "value=1, message='Gone'", "message='Gone', value=1"],
+)
+def test_enum_wrapper_keyword_arguments_are_understood(arguments: str) -> None:
+    """The value and the message may be passed by keyword, in any order."""
+    code = (
+        "from frequenz.core.enum import Enum, deprecated_member\n"
+        "class Status(Enum):\n"
+        f"    A = deprecated_member({arguments})\n"
+    )
+    with griffe.temporary_visited_module(
+        code, extensions=griffe.load_extensions(DeprecationsExtension())
+    ) as module:
+        member = attribute(module, "Status.A")
+        assert member.deprecated == "Gone"
+        assert "deprecated" in member.labels
+        assert str(member.value) == "1"
+
+
+@pytest.mark.parametrize(
     ("arguments", "logged"),
     [
         ("*ARGS, 'Gone'", "arguments are unpacked"),
         ("*ARGS", "arguments are unpacked"),
         ("1, 'Gone', **KWARGS", "arguments are unpacked"),
-        ("1, message='Gone'", "does not take exactly a value and a message"),
-        ("value=1, message='Gone'", "does not take exactly a value and a message"),
         ("1", "does not take exactly a value and a message"),
+        ("message='Gone'", "does not take exactly a value and a message"),
+        ("1, 'Gone', 2", "does not take exactly a value and a message"),
+        ("1, value=2, message='Gone'", "does not take exactly a value and a message"),
+        ("1, msg='Gone'", "does not take exactly a value and a message"),
     ],
 )
 def test_an_unreadable_enum_wrapper_call_is_skipped_loudly(
