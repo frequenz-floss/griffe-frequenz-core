@@ -139,7 +139,9 @@ class DeprecationsExtension(Extension):
         leaves that member unmarked; a non-literal alias-table `message` instead
         falls back to `default_message`. The alias table itself must be a dict
         literal passed as the second positional argument or as `aliases=`; one
-        held in a constant leaves every alias in it unmarked. Each of these
+        held in a constant leaves every alias in it unmarked. The value and the
+        message of an enum member wrapper must be passed positionally and
+        written out, not as keywords or unpacked from `*args`. Each of these
         cases is logged at debug level, which `mkdocs -v` shows.
 
     Enable it under the mkdocstrings Python handler, alongside the decorator one:
@@ -285,7 +287,28 @@ class DeprecationsExtension(Extension):
                 continue
             if value.canonical_path not in self.member_wrapper_functions:
                 continue
-            if len(value.arguments) < 2:
+            # Positions mean nothing once an argument is unpacked: in
+            # `deprecated_member(*ARGS, "...")` the second argument is the
+            # message, but the first is not the value.
+            if any(
+                isinstance(argument, (ExprVarPositional, ExprVarKeyword))
+                for argument in value.arguments
+            ):
+                _logger.debug(
+                    "%s: the deprecation wrapper's arguments are unpacked, "
+                    "leaving the member unmarked",
+                    member.path,
+                )
+                continue
+            if len(value.arguments) != 2 or any(
+                isinstance(argument, ExprKeyword) for argument in value.arguments
+            ):
+                _logger.debug(
+                    "%s: the deprecation wrapper does not take exactly a value "
+                    "and a message as positional arguments, leaving the member "
+                    "unmarked",
+                    member.path,
+                )
                 continue
             text = _literal(value.arguments[1])
             if not isinstance(text, str):

@@ -194,8 +194,9 @@ documented when the call can be understood from the syntax tree alone:
   `deprecated_aliases(__name__, ALIASES)`, cannot be read, and every alias in it
   is left unmarked.
 - The arguments of `deprecated_member()` and `DeprecatedMember` must be
-  positional. `deprecated_member(1, message="...")` is not recognized, and the
-  member is left unmarked.
+  positional and written out. `deprecated_member(1, message="...")` and
+  `deprecated_member(*ARGS)` are not recognized, and the member is left
+  unmarked.
 
 Each case the extension skips is logged at debug level, which
 `mkdocs build --verbose` shows.
