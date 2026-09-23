@@ -4,7 +4,7 @@
 [build-system]
 requires = [
   "setuptools == 84.0.0",
-  "setuptools_scm[toml] == 10.2.1",
+  "setuptools_scm[toml] == 10.2.3",
   "frequenz-repo-config[lib] == 0.19.0",
 ]
 build-backend = "setuptools.build_meta"
@@ -56,17 +56,17 @@ dev-mkdocs = [
   "mkdocs-macros-plugin == 1.5.0",
   "mkdocs-material == 9.7.7",
   "mkdocstrings[python] == 1.0.6",
-  "mkdocstrings-python == 2.0.5",
+  "mkdocstrings-python == 2.0.8",
   "frequenz-repo-config[lib] == 0.19.0",
 ]
 dev-mypy = [
-  "mypy == 2.3.0",
+  "mypy == 2.3.1",
   "types-Markdown == 3.10.2.20260712",
   # For checking the noxfile, docs/ script, and tests
   "griffe-frequenz-core[dev-mkdocs,dev-noxfile,dev-pytest]",
 ]
 dev-noxfile = [
-  "nox == 2026.8.10",
+  "nox == 2026.8.17",
   "frequenz-repo-config[lib] == 0.19.0",
 ]
 dev-pylint = [
@@ -76,7 +76,7 @@ dev-pylint = [
 ]
 dev-pytest = [
   "pytest == 9.1.1",
-  "pylint == 4.0.7",       # We need this to check for the examples
+  "pylint == 4.0.8",       # We need this to check for the examples
   "frequenz-repo-config[extra-lint-examples] == 0.19.0",
   "pytest-mock == 3.15.1",
   "pytest-asyncio == 1.4.0",
