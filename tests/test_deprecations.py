@@ -28,6 +28,7 @@ from griffe_frequenz_core.deprecations import DeprecationsExtension
 _FIXTURES = Path(__file__).parent / "fixtures"
 
 _ALIASES = "frequenz.core.warnings.deprecated_aliases"
+_ALIAS_CLASS = "frequenz.core.warnings.DeprecatedAlias"
 _MEMBERS = "frequenz.core.enum.deprecated_member"
 _LOGGER = "griffe_frequenz_core.deprecations"
 
@@ -107,18 +108,40 @@ def test_every_alias_in_the_table_is_marked(samplepkg: Module) -> None:
         assert isinstance(member.deprecated, str)
 
 
-def test_default_message_names_both_ends(samplepkg: Module) -> None:
-    """Ensure the default template includes the old and the new path."""
+def test_since_gets_the_default_message(samplepkg: Module) -> None:
+    """Ensure an entry with `since` gets the default notice, linking the target."""
     member = attribute(samplepkg, "oldmod.MAX_WIDGETS")
     assert member.deprecated == (
-        "`samplepkg.oldmod.MAX_WIDGETS` is deprecated. Use "
-        '<autoref identifier="samplepkg.newmod.MAX_WIDGETS" optional>'
-        "<code>samplepkg.newmod.MAX_WIDGETS</code></autoref> instead."
+        "Deprecated since v1.4.0. Use [`samplepkg.newmod.MAX_WIDGETS`][] instead."
     )
 
 
+def test_an_alias_message_is_only_the_runtime_warning(samplepkg: Module) -> None:
+    """Ensure the notice doesn't use the message, which is only for the runtime warning.
+
+    Without `since`, the notice can't say since which version it is deprecated, so
+    it only says what to use instead.
+    """
+    member = attribute(samplepkg, "oldmod2.Thing")
+    assert member.deprecated == (
+        "Deprecated. Use [`samplepkg.newmod.Widget`][] instead."
+    )
+    assert len(admonitions(member)) == 1
+
+
+def test_every_alias_has_its_own_message(samplepkg: Module) -> None:
+    """Ensure each entry gets its own notice, so each can say its own version."""
+    for name, version in (
+        ("Widget", "v1.2.0"),
+        ("Doohickey", "v1.3.0"),
+        ("MAX_WIDGETS", "v1.4.0"),
+    ):
+        member = attribute(samplepkg, f"oldmod.{name}")
+        assert str(member.deprecated).startswith(f"Deprecated since {version}. Use ")
+
+
 def test_a_renamed_alias_points_at_its_new_name(samplepkg: Module) -> None:
-    """Ensure a `module:name` target points to the new name."""
+    """Ensure an entry with `new_name` points to the new name."""
     member = attribute(samplepkg, "oldmod.Doohickey")
     assert member.value == ExprName("samplepkg.newmod.Gadget")
     assert "samplepkg.newmod.Gadget" in str(member.deprecated)
@@ -146,7 +169,7 @@ def test_a_handwritten_admonition_is_left_alone(samplepkg: Module) -> None:
     member = attribute(samplepkg, "oldmod.Widget")
     sections = admonitions(member)
     assert len(sections) == 1
-    assert "deprecated since v1.2.0" in sections[0].value.contents
+    assert "see the migration guide" in sections[0].value.contents
     # The label and the field are still set, only the docstring is kept as is.
     assert "deprecated" in member.labels
     assert isinstance(member.deprecated, str)
@@ -162,18 +185,13 @@ def test_a_handwritten_numpy_section_is_left_alone() -> None:
     assert "deprecated" in member.labels
 
 
-def test_the_keyword_form_is_understood(samplepkg: Module) -> None:
-    """Ensure the table can be passed as `aliases=` instead of positionally."""
+def test_helpers_imported_through_a_module_alias_are_recognized(
+    samplepkg: Module,
+) -> None:
+    """Ensure `w.deprecated_aliases` and `w.DeprecatedAlias` resolve to the real paths."""
     member = attribute(samplepkg, "oldmod2.Thing")
     assert "deprecated" in member.labels
     assert member.value == ExprName("samplepkg.newmod.Widget")
-
-
-def test_the_calls_own_message_wins(samplepkg: Module) -> None:
-    """Ensure the call's `message` is used, so the docs match the runtime warning."""
-    member = attribute(samplepkg, "oldmod2.Thing")
-    assert str(member.deprecated).startswith("`samplepkg.oldmod2.Thing` moved to ")
-    assert str(member.deprecated).endswith(" in v2.0.0 and will be removed in v3.0.0.")
 
 
 def test_an_alias_hidden_from_type_checkers_is_created(samplepkg: Module) -> None:
@@ -183,12 +201,37 @@ def test_an_alias_hidden_from_type_checkers_is_created(samplepkg: Module) -> Non
     assert member.value == ExprName("samplepkg.newmod.Widget")
 
 
-def test_an_unknown_target_is_linked_optionally(samplepkg: Module) -> None:
-    """Ensure an unknown target gets an optional link, so strict builds don't fail."""
-    member = attribute(samplepkg, "edge.Outside")
-    assert '<autoref identifier="some.external.pkg.Thing" optional>' in str(
-        member.deprecated
+def test_an_alias_declared_by_an_import_is_documented_as_an_attribute() -> None:
+    """Ensure `from new import New as Old` for type checkers is replaced, not skipped."""
+    code = (
+        "from typing import TYPE_CHECKING\n"
+        "from frequenz.core.warnings import DeprecatedAlias, deprecated_aliases\n"
+        "if TYPE_CHECKING:\n"
+        "    from pkg.new import New as Old\n"
+        "else:\n"
+        "    __getattr__ = deprecated_aliases(\n"
+        "        __name__,\n"
+        "        DeprecatedAlias('Old', new_module='pkg.new', new_name='New', "
+        "since='v1'),\n"
+        "    )\n"
     )
+    with griffe.temporary_visited_module(
+        code, extensions=griffe.load_extensions(DeprecationsExtension())
+    ) as module:
+        member = attribute(module, "Old")
+        assert "deprecated" in member.labels
+        assert member.value == ExprName("pkg.new.New")
+        assert len(admonitions(member)) == 1
+
+
+def test_an_unknown_target_is_still_referenced(samplepkg: Module) -> None:
+    """Ensure an unknown target is still linked, so the broken link is reported.
+
+    `mkdocs-autorefs` then warns about it, instead of silently showing the link as
+    plain text.
+    """
+    member = attribute(samplepkg, "edge.Outside")
+    assert "[`some.external.pkg.Thing`][]" in str(member.deprecated)
 
 
 def test_an_unrelated_module_getattr_is_untouched(samplepkg: Module) -> None:
@@ -323,34 +366,43 @@ def test_an_unreadable_enum_wrapper_call_is_skipped_loudly(
     )
 
 
-def test_a_non_literal_alias_message_falls_back(
+def test_a_non_literal_alias_message_is_not_needed(
     caplog: pytest.LogCaptureFixture,
 ) -> None:
-    """Ensure an alias with a non-literal `message` is marked with the default one."""
+    """Ensure a non-literal message doesn't matter, because it's never read."""
     with caplog.at_level(logging.DEBUG, logger=_LOGGER):
         package = load()
     member = attribute(package, "nonliteral.Thing")
+    assert member.deprecated == "Deprecated. Use [`samplepkg.newmod.Widget`][] instead."
     assert "deprecated" in member.labels
-    assert str(member.deprecated).startswith(
-        "`samplepkg.nonliteral.Thing` is deprecated. Use "
-    )
-    assert any("`message` isn't a string literal" in r.message for r in caplog.records)
+    assert not any("message=_MESSAGE" in record.message for record in caplog.records)
 
 
-def test_a_non_literal_alias_entry_is_skipped_loudly(
+def test_a_non_literal_alias_name_is_skipped_loudly(
     caplog: pytest.LogCaptureFixture,
 ) -> None:
     """Ensure an entry with a non-literal name is skipped, and it's logged."""
     with caplog.at_level(logging.DEBUG, logger=_LOGGER):
         package = load()
     assert "Lost" not in package["nonliteral"].members
-    assert any("isn't a pair of string literals" in r.message for r in caplog.records)
+    assert any(
+        "DeprecatedAlias(_LOST, " in record.message
+        and "isn't a string literal" in record.message
+        for record in caplog.records
+    )
 
 
-def test_an_alias_table_in_a_constant_is_skipped_loudly(
+def test_a_skipped_entry_does_not_affect_the_others(samplepkg: Module) -> None:
+    """Ensure entries are read one by one, so the readable one is still marked."""
+    member = attribute(samplepkg, "nonliteral.Kept")
+    assert "deprecated" in member.labels
+    assert str(member.deprecated).startswith("Deprecated since v1.0.0. Use ")
+
+
+def test_an_alias_entry_in_a_constant_is_skipped_loudly(
     caplog: pytest.LogCaptureFixture,
 ) -> None:
-    """Ensure a table in a constant is logged, because none of its aliases are marked."""
+    """Ensure an entry in a constant is logged, because it can't be read."""
     with caplog.at_level(logging.DEBUG, logger=_LOGGER):
         package = load()
     member = attribute(package, "constant.Thing")
@@ -358,31 +410,87 @@ def test_an_alias_table_in_a_constant_is_skipped_loudly(
     assert "deprecated" not in member.labels
     assert any(
         record.message
-        == "samplepkg.constant: the alias table `_ALIASES` isn't a dict literal, "
-        "so none of its aliases are marked"
+        == "samplepkg.constant: the alias entry `_THING` isn't a call to a known "
+        "alias class, so it's skipped"
         for record in caplog.records
     )
+
+
+_ENTRY = "DeprecatedAlias('Thing', new_module='pkg.new', since='v1')"
 
 
 @pytest.mark.parametrize(
     ("arguments", "logged"),
     [
+        ("__name__, *ENTRIES", "the alias entries in `*ENTRIES` are unpacked"),
         (
-            "__name__, aliases=ALIASES",
-            "the alias table `ALIASES` isn't a dict literal",
+            "__name__, {'Thing': 'pkg.new'}",
+            "isn't a call to a known alias class",
         ),
-        ("*ARGS", "the alias table argument can't be found"),
-        ("*ARGS, {'Thing': 'pkg.new'}", "the alias table argument can't be found"),
-        ("__name__, **KWARGS", "the alias table argument can't be found"),
-        ("__name__", "the alias table argument can't be found"),
+        (
+            "__name__, Moved('Thing', new_module='pkg.new', message='{old} gone.')",
+            "isn't a call to a known alias class",
+        ),
+        (
+            "__name__, DeprecatedAlias(*ARGS, new_module='pkg.new', message='Gone')",
+            "are unpacked, so it's skipped",
+        ),
+        (
+            "__name__, DeprecatedAlias('Thing', **KWARGS)",
+            "are unpacked, so it's skipped",
+        ),
+        (
+            "__name__, DeprecatedAlias('Thing', new_module='pkg.new')",
+            "needs a positional name",
+        ),
+        (
+            "__name__, DeprecatedAlias('Thing', message='{old} gone.')",
+            "needs a positional name",
+        ),
+        (
+            "__name__, DeprecatedAlias('Thing', new_module=None, new_name=None, "
+            "message='{old} gone.')",
+            "needs a positional name",
+        ),
+        (
+            "__name__, DeprecatedAlias(name='Thing', new_module='pkg.new', message='Gone')",
+            "needs a positional name",
+        ),
+        (
+            "__name__, DeprecatedAlias('Thing', 'pkg.new', message='Gone')",
+            "needs a positional name",
+        ),
+        (
+            "__name__, DeprecatedAlias('Thing', new_module='pkg.new', message='Gone', "
+            "since='v1')",
+            "needs a positional name",
+        ),
+        (
+            "__name__, DeprecatedAlias('Thing', new_module='pkg.new', since='v1', "
+            "until='v2')",
+            "needs a positional name",
+        ),
+        (
+            "__name__, DeprecatedAlias('Thing', new_module='pkg.new', since=SINCE)",
+            "isn't a string literal",
+        ),
+        (
+            "__name__, DeprecatedAlias('Thing', new_module=TARGET, message='Gone')",
+            "isn't a string literal",
+        ),
+        (
+            "__name__, DeprecatedAlias('Thing', new_name=NAME, message='Gone')",
+            "isn't a string literal",
+        ),
     ],
 )
-def test_an_unreadable_alias_table_is_skipped_loudly(
+def test_an_unreadable_alias_entry_is_skipped_loudly(
     caplog: pytest.LogCaptureFixture, arguments: str, logged: str
 ) -> None:
-    """Ensure every alias table that can't be read is logged."""
+    """Ensure every alias entry that can't be read is logged."""
     code = (
-        "from frequenz.core.warnings import deprecated_aliases\n"
+        "from frequenz.core.warnings import DeprecatedAlias, deprecated_aliases\n"
+        "from mypkg.compat import Moved\n"
         f"__getattr__ = deprecated_aliases({arguments})\n"
     )
     with (
@@ -395,16 +503,112 @@ def test_an_unreadable_alias_table_is_skipped_loudly(
     assert any(logged in record.message for record in caplog.records)
 
 
-def test_only_the_table_argument_is_read() -> None:
-    """Ensure a dict in another position isn't used as the table."""
+@pytest.mark.parametrize(
+    "arguments",
+    [
+        f"__name__, {_ENTRY}",
+        f"__name__, {_ENTRY}, category=FutureWarning, stacklevel=3",
+        f"__name__, {_ENTRY}, **KWARGS",
+        f"*ARGS, {_ENTRY}",
+        f"__name__, *ENTRIES, {_ENTRY}",
+    ],
+)
+def test_entries_written_out_are_read_whatever_surrounds_them(arguments: str) -> None:
+    """Ensure keywords and unpacking around an entry don't hide it."""
     code = (
-        "from frequenz.core.warnings import deprecated_aliases\n"
-        "__getattr__ = deprecated_aliases({'Wrong': 'pkg.new'}, {'Right': 'pkg.new'})\n"
+        "from frequenz.core.warnings import DeprecatedAlias, deprecated_aliases\n"
+        f"__getattr__ = deprecated_aliases({arguments})\n"
     )
     with griffe.temporary_visited_module(
         code, extensions=griffe.load_extensions(DeprecationsExtension())
     ) as module:
-        assert "Right" in module.members
+        member = attribute(module, "Thing")
+        assert "deprecated" in member.labels
+        assert (
+            member.deprecated == "Deprecated since v1. Use [`pkg.new.Thing`][] instead."
+        )
+
+
+@pytest.mark.parametrize(
+    ("entry", "new"),
+    [
+        ("DeprecatedAlias('Thing', new_name='Other', since='v1')", "Other"),
+        (
+            "DeprecatedAlias('Thing', new_module=None, new_name='Other', since='v1')",
+            "Other",
+        ),
+        (
+            "DeprecatedAlias('Thing', new_module='pkg.new', new_name=None, "
+            "since='v1', message=None)",
+            None,
+        ),
+    ],
+    ids=["in-place", "in-place-explicit-none", "explicit-none"],
+)
+def test_a_missing_new_module_or_name_defaults_as_at_runtime(
+    entry: str, new: str | None
+) -> None:
+    """Ensure missing `new_module` and `new_name` default to the same as at runtime.
+
+    Without `new_module`, the target is in the module of the alias, and without
+    `new_name`, it has the same name. Passing `None` is the same as not passing
+    the argument, like at runtime. A target in the same module is linked using
+    only its name.
+    """
+    code = (
+        "from frequenz.core.warnings import DeprecatedAlias, deprecated_aliases\n"
+        f"__getattr__ = deprecated_aliases(__name__, {entry})\n"
+    )
+    with griffe.temporary_visited_module(
+        code, extensions=griffe.load_extensions(DeprecationsExtension())
+    ) as module:
+        path = f"{module.path}.{new}" if new else "pkg.new.Thing"
+        link = f"[`{new}`][{path}]" if new else f"[`{path}`][]"
+        member = attribute(module, "Thing")
+        assert member.value == ExprName(path)
+        assert member.deprecated == f"Deprecated since v1. Use {link} instead."
+
+
+def test_since_is_inserted_as_written() -> None:
+    """Ensure `since` is inserted as written, because it's a value, not a template."""
+    code = (
+        "from frequenz.core.warnings import DeprecatedAlias, deprecated_aliases\n"
+        "__getattr__ = deprecated_aliases(\n"
+        "    __name__, DeprecatedAlias('Thing', new_module='pkg.new', since='{v1}')\n"
+        ")\n"
+    )
+    with griffe.temporary_visited_module(
+        code, extensions=griffe.load_extensions(DeprecationsExtension())
+    ) as module:
+        member = attribute(module, "Thing")
+        assert str(member.deprecated).startswith("Deprecated since {v1}. Use ")
+
+
+def test_a_bad_default_message_is_skipped_loudly(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """Ensure a template with unknown fields doesn't mark `since` entries, and is logged."""
+    with caplog.at_level(logging.DEBUG, logger=_LOGGER):
+        package = load(default_message="{old} is gone in {version}.")
+    assert not attribute(package, "oldmod.MAX_WIDGETS").deprecated
+    assert any(
+        "samplepkg.oldmod.MAX_WIDGETS: " in record.message
+        and "can only use {old}, {new}, {new_link} and {since}" in record.message
+        for record in caplog.records
+    )
+
+
+def test_the_module_argument_is_not_an_entry() -> None:
+    """Ensure the module argument isn't read as an entry, even if it looks like one."""
+    code = (
+        "from frequenz.core.warnings import DeprecatedAlias, deprecated_aliases\n"
+        f"__getattr__ = deprecated_aliases({_ENTRY.replace('Thing', 'Wrong')}, "
+        f"{_ENTRY})\n"
+    )
+    with griffe.temporary_visited_module(
+        code, extensions=griffe.load_extensions(DeprecationsExtension())
+    ) as module:
+        assert "Thing" in module.members
         assert "Wrong" not in module.members
 
 
@@ -442,15 +646,25 @@ def test_show_target_keeps_the_private_name_when_off() -> None:
 
 def test_the_default_message_is_configurable() -> None:
     """Ensure the default message can be changed."""
-    package = load(default_message="{old} is gone, see {new}.")
+    package = load(
+        default_message="{old} is gone since {since}, see {new} or {new_link}."
+    )
     member = attribute(package, "oldmod.MAX_WIDGETS")
-    assert str(member.deprecated).startswith("`samplepkg.oldmod.MAX_WIDGETS` is gone,")
+    assert member.deprecated == (
+        "samplepkg.oldmod.MAX_WIDGETS is gone since v1.4.0, see "
+        "samplepkg.newmod.MAX_WIDGETS or [`samplepkg.newmod.MAX_WIDGETS`][]."
+    )
+    # An entry without `since` can't use the template.
+    assert attribute(package, "oldmod2.Thing").deprecated == (
+        "Deprecated. Use [`samplepkg.newmod.Widget`][] instead."
+    )
 
 
 def test_only_the_configured_paths_match() -> None:
     """Ensure only the configured paths are recognized."""
     package = load(
         alias_table_functions=["mypkg.compat.moved_to"],
+        alias_classes=["mypkg.compat.Moved"],
         member_wrapper_functions=["mypkg.compat.retired"],
     )
     assert "deprecated" not in attribute(package, "oldmod.Widget").labels
@@ -464,7 +678,27 @@ def test_extra_paths_can_be_added() -> None:
     """Ensure a project can add its own helpers to the frequenz-core ones."""
     package = load(
         alias_table_functions=[_ALIASES, "mypkg.compat.moved_to"],
+        alias_classes=[_ALIAS_CLASS, "mypkg.compat.Moved"],
         member_wrapper_functions=[_MEMBERS, "mypkg.compat.retired"],
     )
     assert "deprecated" in attribute(package, "oldmod.Widget").labels
     assert "deprecated" in attribute(package, "statuses.TaskStatus.PENDING").labels
+
+
+def test_only_the_configured_alias_classes_match() -> None:
+    """Ensure only entries created by the configured alias classes are read."""
+    code = (
+        "from frequenz.core.warnings import DeprecatedAlias, deprecated_aliases\n"
+        "from mypkg.compat import Moved\n"
+        "__getattr__ = deprecated_aliases(\n"
+        "    __name__,\n"
+        "    Moved('Mine', new_module='pkg.new', message='{old} gone.'),\n"
+        "    DeprecatedAlias('Core', new_module='pkg.new', message='{old} gone.'),\n"
+        ")\n"
+    )
+    extension = DeprecationsExtension(alias_classes=["mypkg.compat.Moved"])
+    with griffe.temporary_visited_module(
+        code, extensions=griffe.load_extensions(extension)
+    ) as module:
+        assert "deprecated" in attribute(module, "Mine").labels
+        assert "Core" not in module.members
