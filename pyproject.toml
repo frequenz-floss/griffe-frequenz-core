@@ -27,9 +27,13 @@ classifiers = [
   "Typing :: Typed",
 ]
 requires-python = ">= 3.11, < 4"
-# TODO(cookiecutter): Remove and add more dependencies if appropriate
 dependencies = [
-  "typing-extensions >= 4.16.0, < 5",
+  # The Griffe library, whose distribution is named `griffelib` since 2.0 while
+  # the import package stayed `griffe`. The `griffe` distribution is now a
+  # meta-package pinning `griffelib` and `griffecli` to one exact version, which
+  # a library must not force on anyone. This is also what mkdocstrings-python
+  # and griffe-warnings-deprecated depend on.
+  "griffelib >= 2.0.0, < 3",
 ]
 dynamic = ["version"]
 
@@ -81,6 +85,11 @@ dev-pytest = [
   "pytest-mock == 3.15.1",
   "pytest-asyncio == 1.4.0",
   "async-solipsism == 0.9",
+  # Test-only, and never a runtime dependency: `tests/compat/` runs the real
+  # helpers to check that what we document is what a user is told at runtime.
+  # The exact pin is the record of the last core release actually tested
+  # against, so Dependabot bumping it is the signal that the contract moved.
+  "frequenz-core == 1.4.0",
 ]
 dev = [
   "griffe-frequenz-core[dev-mkdocs,dev-flake8,dev-formatting,dev-mkdocs,dev-mypy,dev-noxfile,dev-pylint,dev-pytest]",
@@ -127,6 +136,22 @@ ignore-docstrings = ['yes']
 ignore-imports = ['no']
 min-similarity-lines = 40
 
+[tool.pylint.main]
+# The test fixtures are not code, they are input for Griffe to read statically.
+# They import packages that are deliberately not installed, and some of them do
+# not even exist, so there is nothing for a type checker or a linter to say
+# about them that the tests do not already check. Black, isort and flake8 still
+# go over them, since those need nothing resolved.
+ignore-paths = ["tests/fixtures/.*"]
+
+[tool.pylint.typecheck]
+# This package matches the frequenz-core helpers by name and never imports
+# them, so frequenz-core is deliberately not a runtime dependency. The
+# docstring examples still have to import it to show the shapes being
+# documented, and those are linted with pylint (see
+# `src/griffe_frequenz_core/conftest.py`).
+ignored-modules = ["frequenz.core", "frequenz.core.*"]
+
 [tool.pylint.messages_control]
 disable = [
   "too-few-public-methods",
@@ -139,6 +164,15 @@ disable = [
   "no-member",
   "no-name-in-module",
   "possibly-used-before-assignment",
+  # The docstring example linter (see `src/griffe_frequenz_core/conftest.py`)
+  # prepends every example with a wildcard import of the module the docstring
+  # came from. This package is flat rather than namespaced, so pylint resolves
+  # that import to the very file it is reading, and reports every example as
+  # importing itself and every name an example defines as a redefinition of it.
+  # Neither is real, and mypy reports genuine redefinitions anyway
+  # (`no-redef`).
+  "import-self",
+  "function-redefined",
   # Checked by flake8
   "f-string-without-interpolation",
   "line-too-long",
@@ -170,6 +204,8 @@ required_plugins = ["pytest-asyncio", "pytest-mock"]
 [tool.mypy]
 explicit_package_bases = true
 namespace_packages = true
+# See the comment on pylint's `ignore-paths` above.
+exclude = ["^tests/fixtures/"]
 # This option disables mypy cache, and it is sometimes useful to enable it if
 # you are getting weird intermittent error, or error in the CI but not locally
 # (or vice versa). In particular errors saying that type: ignore is not
