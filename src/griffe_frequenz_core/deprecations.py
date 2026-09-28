@@ -28,7 +28,6 @@ from griffe import (
     DocstringSectionAdmonition,
     DocstringSectionKind,
     ExprCall,
-    ExprDict,
     ExprKeyword,
     ExprName,
     ExprVarKeyword,
@@ -56,40 +55,54 @@ def _literal(node: Any) -> Any:
         return None
 
 
-def _alias_table_arguments(call: ExprCall) -> tuple[Any, Any]:
-    """Find the alias table and the message among the arguments of a call.
+def _alias_entry_arguments(
+    call: ExprCall,
+) -> tuple[Any, Any, Any, Any, Any] | None:
+    """Find the name, where it points, and `since` or the message of an alias entry.
 
-    The call is read with the signature of `deprecated_aliases(module, aliases, *,
-    message=...)`, so the table is the second positional argument or `aliases=`,
-    and the message can only be `message=`. Anything else is ignored.
+    The call is bound the way Python binds `DeprecatedAlias(name, /, *,
+    new_module=None, new_name=None, since=None, message=None)`, with at least one
+    of `new_module` and `new_name` and exactly one of `since` and `message`, so
+    the name must be passed positionally and the rest by keyword. A keyword passed
+    as `None` counts as not passed, as it does at runtime. Unpacking must already
+    have been ruled out, since a `*args` or `**kwargs` would be read as a plain
+    argument.
 
     Args:
-        call: The alias table call to read.
+        call: The alias entry call to read.
 
     Returns:
-        The expressions passed as the table and as the message, each `None` if it
-        cannot be found. The table cannot be found when it is not passed at all,
-        or when a `*args` before it or a `**kwargs` hide where it is.
+        The expressions passed as the name, `new_module`, `new_name`, `since` and
+            the message, with `None` for the ones not passed, or `None` if the
+            call does not bind that way: an argument is missing or passed twice,
+            passed the wrong way, neither `new_module` nor `new_name` is passed,
+            both or neither of `since` and `message` are passed, or there is an
+            extra argument.
     """
-    table: Any = None
-    message: Any = None
-    position: int | None = 0
+    keywords = ("new_module", "new_name", "since", "message")
+    name: Any = None
+    bound: dict[str, Any] = {}
     for argument in call.arguments:
         if isinstance(argument, ExprKeyword):
-            if argument.name == "aliases":
-                table = argument.value
-            elif argument.name == "message":
-                message = argument.value
-        elif isinstance(argument, ExprVarPositional):
-            # Whatever follows no longer has a position that can be counted.
-            position = None
-        elif isinstance(argument, ExprVarKeyword):
-            continue
-        elif position is not None:
-            if position == 1:
-                table = argument
-            position += 1
-    return table, message
+            if argument.name not in keywords or argument.name in bound:
+                return None
+            if str(argument.value) != "None":
+                bound[argument.name] = argument.value
+        elif name is None:
+            name = argument
+        else:
+            return None
+    if name is None or not ("new_module" in bound or "new_name" in bound):
+        return None
+    if ("since" in bound) == ("message" in bound):
+        return None
+    return (
+        name,
+        bound.get("new_module"),
+        bound.get("new_name"),
+        bound.get("since"),
+        bound.get("message"),
+    )
 
 
 def _wrapper_arguments(call: ExprCall) -> tuple[Any, Any] | None:
@@ -125,7 +138,8 @@ def _wrapper_arguments(call: ExprCall) -> tuple[Any, Any] | None:
     return bound["value"], bound["message"]
 
 
-class DeprecationsExtension(Extension):
+# Every option is a key in `mkdocs.yml`, so they have to stay flat.
+class DeprecationsExtension(Extension):  # pylint: disable=too-many-instance-attributes
     """Mark the deprecations `frequenz-core` expresses through a call.
 
     Two shapes are recognized, and both end up with the same treatment as a
@@ -138,18 +152,24 @@ class DeprecationsExtension(Extension):
     ```python
     from typing import TYPE_CHECKING, TypeAlias
 
-    from frequenz.core.warnings import deprecated_aliases
+    from frequenz.core.warnings import DeprecatedAlias, deprecated_aliases
 
     if TYPE_CHECKING:
         from mypkg.newmod import Widget as _Widget
 
         Widget: TypeAlias = _Widget  # plus its usual attribute docstring
     else:
-        __getattr__ = deprecated_aliases(__name__, {"Widget": "mypkg.newmod"})
+        __getattr__ = deprecated_aliases(
+            __name__,
+            DeprecatedAlias("Widget", new_module="mypkg.newmod", since="v1.2.0"),
+        )
     ```
 
-    Every name in that table is marked, whether or not it is declared for type
-    checkers. A target written as `"module:name"` renames as well as moves.
+    Every alias in that table is marked, whether or not it is declared for type
+    checkers. An entry giving `since` gets `default_message`, which says since
+    which version the alias is deprecated, and one giving `message` gets its own.
+    An entry giving `new_name` renames as well as moves, and one without
+    `new_module` points at another name in its own module.
 
     The second is an enum member whose value is wrapped:
 
@@ -167,15 +187,15 @@ class DeprecationsExtension(Extension):
     too: a class and a function are both read as a call.
 
     Warning:
-        Enum messages, alias names, and alias targets must be string literals
-        written directly in the call. A non-literal enum message or alias entry
-        leaves that member unmarked; a non-literal alias-table `message` instead
-        falls back to `default_message`. The alias table itself must be a dict
-        literal passed as the second positional argument or as `aliases=`; one
-        held in a constant leaves every alias in it unmarked. The value and the
-        message of an enum member wrapper must be written out, positionally or
-        by keyword, not unpacked from `*args` or `**kwargs`. Each of these
-        cases is logged at debug level, which `mkdocs -v` shows.
+        Enum messages, and alias names, `new_module`, `new_name`, `since` values
+        and messages must be string literals written directly in the call, and a non-literal one
+        leaves that member or alias unmarked. Each alias must be a
+        `DeprecatedAlias(...)` call written directly among the arguments of
+        `deprecated_aliases()`; one held in a constant, or entries unpacked from
+        `*args`, are left unmarked. The arguments of an enum member wrapper or
+        of a `DeprecatedAlias` must be written out too, not unpacked from
+        `*args` or `**kwargs`. Each of these cases is logged at debug level,
+        which `mkdocs -v` shows.
 
     Enable it under the mkdocstrings Python handler, alongside the decorator one:
 
@@ -200,6 +220,9 @@ class DeprecationsExtension(Extension):
                       alias_table_functions:
                         - frequenz.core.warnings.deprecated_aliases
                         - mypkg.compat.moved_to
+                      alias_classes:
+                        - frequenz.core.warnings.DeprecatedAlias
+                        - mypkg.compat.Moved
     ```
 
     Note:
@@ -226,11 +249,12 @@ class DeprecationsExtension(Extension):
         alias_table_functions: Sequence[str] = (
             "frequenz.core.warnings.deprecated_aliases",
         ),
+        alias_classes: Sequence[str] = ("frequenz.core.warnings.DeprecatedAlias",),
         member_wrapper_functions: Sequence[str] = (
             "frequenz.core.enum.deprecated_member",
             "frequenz.core.enum.DeprecatedMember",
         ),
-        default_message: str = "{old} is deprecated. Use {new} instead.",
+        default_message: str = "{old} is deprecated since {since}. Use {new} instead.",
         show_target: bool = True,
     ) -> None:
         """Initialize the extension.
@@ -242,18 +266,26 @@ class DeprecationsExtension(Extension):
             label: The label added to deprecated objects, or `None` to add none.
             alias_table_functions: The fully qualified paths of the functions that
                 build a module `__getattr__` out of an alias table. Their calls
-                are read as if they had the signature of `deprecated_aliases()`:
-                the table is the second positional argument or `aliases=`, and
-                the message is `message=`.
+                are read as if they had the signature of
+                `deprecated_aliases(module, /, *aliases)`: every positional
+                argument after the module is an alias entry, and keyword
+                arguments are ignored.
+            alias_classes: The fully qualified paths of the callables that build
+                one alias entry. Their calls are read as if they had the
+                signature of `DeprecatedAlias(name, /, *, new_module=None,
+                new_name=None, since=None, message=None)`, with at least one of
+                `new_module` and `new_name`, and exactly one of `since` and
+                `message`.
             member_wrapper_functions: The fully qualified paths of the callables
                 that wrap an enum member's value to deprecate it. A class works
                 as well as a function, since both are read as a call. Their
                 calls are read as if they had the signature of
                 `deprecated_member(value, message)`.
-            default_message: The message template used when the alias table call
-                does not pass a `message` of its own. It must stay in step with
-                the default of the function it stands in for, since that is what
-                the runtime warning says. `{old}` and `{new}` are substituted.
+            default_message: The message template for an alias entry that gives
+                `since` instead of a message of its own. `{old}`, `{new}` and
+                `{since}` are substituted. It must stay in step with the wording
+                of the class it stands in for, since that is what the runtime
+                warning says.
             show_target: Whether to render an alias' value as the target it points
                 at, rather than the private name imported for type checkers.
         """
@@ -266,10 +298,12 @@ class DeprecationsExtension(Extension):
         """The label added to deprecated objects."""
         self.alias_table_functions = frozenset(alias_table_functions)
         """The paths of the functions that build a `__getattr__` from an alias table."""
+        self.alias_classes = frozenset(alias_classes)
+        """The paths of the callables that build one alias entry."""
         self.member_wrapper_functions = frozenset(member_wrapper_functions)
         """The paths of the callables that wrap a deprecated enum member's value."""
         self.default_message = default_message
-        """The message template used when the alias table call passes none."""
+        """The message template for an alias entry that gives `since`."""
         self.show_target = show_target
         """Whether to render an alias' value as the target it points at."""
 
@@ -283,17 +317,10 @@ class DeprecationsExtension(Extension):
         call = self._alias_table_call(mod)
         if call is None:
             return
-        table, message = self._table_and_message(mod, call)
-        for name, target in table.items():
-            target_module, _, target_name = target.partition(":")
-            path = f"{target_module}.{target_name or name}"
-            # An `optional` autoref degrades to plain text when the target is in
-            # neither the documentation nor an inventory, instead of failing a
-            # strict build.
-            link = (
-                f'<autoref identifier="{path}" optional><code>{path}</code></autoref>'
-            )
-            text = message.format(old=f"`{mod.path}.{name}`", new=link)
+        for name, path, since, message in self._alias_entries(mod, call):
+            text = self._alias_message(f"{mod.path}.{name}", path, since, message)
+            if text is None:
+                continue
 
             member = mod.members.get(name)
             if not isinstance(member, Attribute):
@@ -308,6 +335,45 @@ class DeprecationsExtension(Extension):
             if self.show_target:
                 member.value = ExprName(path)
             self._mark(member, text)
+
+    def _alias_message(
+        self, old: str, new: str, since: str | None, message: str | None
+    ) -> str | None:
+        """Render the deprecation message of one alias entry.
+
+        Args:
+            old: The fully qualified path of the alias.
+            new: The fully qualified path of its target.
+            since: The version the alias is deprecated since, if it gives one.
+            message: The alias' own message template, if it gives one instead.
+
+        Returns:
+            The message, or `None` if its template cannot be formatted.
+        """
+        # An `optional` autoref degrades to plain text when the target is in
+        # neither the documentation nor an inventory, instead of failing a strict
+        # build.
+        link = f'<autoref identifier="{new}" optional><code>{new}</code></autoref>'
+        fields = {"old": f"`{old}`", "new": link}
+        if message is None:
+            # `since` is a value, not part of the template, so it is inserted as
+            # written, braces included, as at runtime.
+            template, fields["since"] = self.default_message, str(since)
+        else:
+            template = message
+        try:
+            return template.format(**fields)
+        except (AttributeError, IndexError, KeyError, ValueError):
+            _logger.debug(
+                "%s: the deprecation message %r is not a template with only %s, "
+                "leaving the alias unmarked",
+                old,
+                template,
+                " and ".join(
+                    ", ".join(f"{{{field}}}" for field in fields).rsplit(", ", 1)
+                ),
+            )
+            return None
 
     def on_class_members(self, *, cls: Class, **kwargs: Any) -> None:
         """Mark every wrapped enum member of the class, if it has any.
@@ -373,61 +439,112 @@ class DeprecationsExtension(Extension):
             return value
         return None
 
-    def _table_and_message(
+    def _alias_entries(
         self, mod: Module, call: ExprCall
-    ) -> tuple[dict[str, str], str]:
-        """Extract the alias table and the message template from a call.
+    ) -> list[tuple[str, str, str | None, str | None]]:
+        """Extract the alias entries from an alias table call.
+
+        The first positional argument is the module name and is skipped. Every
+        other positional argument must be an alias entry call, and keyword
+        arguments are ignored, since none of them can carry an entry.
 
         Args:
             mod: The module the call was found in, used to report what is skipped.
             call: The alias table call to read.
 
         Returns:
-            The table mapping each deprecated name to its target, and the message
-            template to use for all of them.
+            The name, the fully qualified path of the symbol it points at, `since`
+                and message template of every entry that could be read, in the
+                order they were written. Exactly one of `since` and the message is
+                `None`.
         """
-        table_node, message_node = _alias_table_arguments(call)
-
-        message = self.default_message
-        if message_node is not None:
-            if isinstance(text := _literal(message_node), str):
-                message = text
-            else:
+        entries: list[tuple[str, str, str | None, str | None]] = []
+        module_seen = False
+        for argument in call.arguments:
+            if isinstance(argument, (ExprKeyword, ExprVarKeyword)):
+                continue
+            if isinstance(argument, ExprVarPositional):
+                # Only `module` could be hidden in there, so it is not skipped
+                # anymore: a module name is never an entry anyway.
+                module_seen = True
                 _logger.debug(
-                    "%s: `message` is not a static string, "
-                    "falling back to the default template",
+                    "%s: the alias entries in `%s` are unpacked, "
+                    "leaving them unmarked",
                     mod.path,
+                    argument,
                 )
+                continue
+            if not module_seen:
+                module_seen = True
+                continue
+            entry = self._alias_entry(mod, argument)
+            if entry is not None:
+                entries.append(entry)
+        return entries
 
-        table: dict[str, str] = {}
-        if table_node is None:
+    def _alias_entry(
+        self, mod: Module, node: Any
+    ) -> tuple[str, str, str | None, str | None] | None:
+        """Extract the name, where it points, and `since` or the message of one entry.
+
+        Args:
+            mod: The module the entry was found in, used to report what is skipped.
+            node: The expression passed as the entry.
+
+        Returns:
+            The name, the fully qualified path of the symbol it points at, `since`
+                and message template of the entry, exactly one of the last two
+                `None`, or `None` if the entry cannot be read.
+        """
+        if not (
+            isinstance(node, ExprCall) and node.canonical_path in self.alias_classes
+        ):
             _logger.debug(
-                "%s: the alias table argument cannot be found, "
-                "leaving every alias unmarked",
+                "%s: the alias entry `%s` is not a call to a known alias class, "
+                "skipping it",
                 mod.path,
+                node,
             )
-            return table, message
-        if not isinstance(table_node, ExprDict):
+            return None
+        if any(
+            isinstance(argument, (ExprVarPositional, ExprVarKeyword))
+            for argument in node.arguments
+        ):
             _logger.debug(
-                "%s: the alias table `%s` is not a dict literal, "
-                "leaving every alias in it unmarked",
+                "%s: the arguments of the alias entry `%s` are unpacked, "
+                "skipping it",
                 mod.path,
-                table_node,
+                node,
             )
-            return table, message
-        for key, value in zip(table_node.keys, table_node.values):
-            name, target = _literal(key), _literal(value)
-            if isinstance(name, str) and isinstance(target, str):
-                table[name] = target
-            else:
-                _logger.debug(
-                    "%s: alias table entry %s: %s is not a pair of static "
-                    "strings, skipping it",
-                    mod.path,
-                    key,
-                    value,
-                )
-        return table, message
+            return None
+        arguments = _alias_entry_arguments(node)
+        if arguments is None:
+            _logger.debug(
+                "%s: the alias entry `%s` does not take exactly a positional "
+                "name, `new_module`, `new_name` or both, and either `since` or a "
+                "`message`, skipping it",
+                mod.path,
+                node,
+            )
+            return None
+        values: list[Any] = [
+            None if argument is None else _literal(argument) for argument in arguments
+        ]
+        if any(
+            argument is not None and not isinstance(value, str)
+            for argument, value in zip(arguments, values)
+        ):
+            _logger.debug(
+                "%s: an argument of the alias entry `%s` is not a static string, "
+                "skipping it",
+                mod.path,
+                node,
+            )
+            return None
+        name, new_module, new_name, since, message = values
+        # Without `new_module` the symbol is still in this module, and without
+        # `new_name` it kept its name, as at runtime.
+        return name, f"{new_module or mod.path}.{new_name or name}", since, message
 
     def _mark(self, member: Attribute, text: str) -> None:
         """Flag one member as deprecated and give it the admonition.
