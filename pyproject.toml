@@ -89,7 +89,9 @@ dev-pytest = [
   # helpers to check that what we document is what a user is told at runtime.
   # The exact pin is the record of the last core release actually tested
   # against, so Dependabot bumping it is the signal that the contract moved.
-  "frequenz-core == 1.4.0",
+  # WIP: becomes the released `frequenz-core == 1.5.0` pin, which is the first
+  # release with `frequenz.core.warnings`.
+  "frequenz-core @ git+https://github.com/frequenz-floss/frequenz-core-python.git@698529ef97cd0be984f50b7f4c25936b20d8e153",
 ]
 dev = [
   "griffe-frequenz-core[dev-mkdocs,dev-flake8,dev-formatting,dev-mkdocs,dev-mypy,dev-noxfile,dev-pylint,dev-pytest]",
