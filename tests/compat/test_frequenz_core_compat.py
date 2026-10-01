@@ -16,23 +16,25 @@ reformatting the message, because the extension reads it out of the syntax
 tree and never executes it. That is precisely the drift that would leave the
 documentation quietly saying something no user ever sees.
 
-Only `deprecated_member` is covered. `frequenz-core 1.4.0` has no
-`frequenz.core.warnings` module, so there is no released `deprecated_aliases`
-to run.
+The alias messages are documented with markup the runtime warning does not
+have: the old path as code and the new one as a link. Those comparisons strip
+that markup from the documented text and nothing else.
 """
 
 import inspect
+import re
 import warnings
 from pathlib import Path
 from typing import Any
 
 import frequenz.core.enum
+import frequenz.core.warnings
 import griffe
 import pytest
 
 from griffe_frequenz_core.deprecations import DeprecationsExtension
 
-from . import fixture_enum
+from . import fixture_aliases, fixture_enum
 
 _FIXTURES = Path(__file__).parent
 
@@ -135,3 +137,133 @@ def test_plain_member_is_left_alone(task_status: griffe.Class) -> None:
         _ = fixture_enum.TaskStatus.OPEN
 
     assert not caught
+
+
+def _plain(documented: str) -> str:
+    """Strip the markup the extension adds around the two paths in a message.
+
+    Args:
+        documented: The documented deprecation message.
+
+    Returns:
+        The message as the runtime warning would say it.
+    """
+    text = re.sub(
+        r'<autoref identifier="[^"]*" optional><code>([^<]*)</code></autoref>',
+        r"\1",
+        documented,
+    )
+    return re.sub(r"`([^`]*)`", r"\1", text)
+
+
+@pytest.fixture(name="aliases_module", scope="module")
+def aliases_module_fixture() -> griffe.Module:
+    """Load the alias fixture with the extension applied, under its runtime name.
+
+    The runtime warning fills `{old}` from the module's `__name__`, so Griffe
+    has to know the module by the same dotted path pytest imported it as.
+
+    Returns:
+        The fixture module as Griffe sees it.
+    """
+    name = fixture_aliases.__name__
+    search_path = Path(fixture_aliases.__file__).parents[name.count(".")]
+    module = griffe.load(
+        name,
+        search_paths=[search_path],
+        extensions=griffe.load_extensions(DeprecationsExtension()),
+        docstring_parser=griffe.Parser.google,
+    )
+    assert isinstance(module, griffe.Module)
+    return module
+
+
+def _alias_warning(name: str) -> warnings.WarningMessage:
+    """Reach a deprecated alias and capture the warning it emits.
+
+    Args:
+        name: The alias to reach.
+
+    Returns:
+        The single warning the real `frequenz-core` raised.
+    """
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter("always")
+        _ = getattr(fixture_aliases, name)
+
+    assert len(caught) == 1, f"expected exactly one warning, got {len(caught)}"
+    return caught[0]
+
+
+@pytest.mark.parametrize(
+    ("name", "target"),
+    [
+        ("Decimal", "decimal.Decimal"),
+        ("Rational", "fractions.Fraction"),
+        ("Gadget", f"{fixture_aliases.__name__}.Widget"),
+    ],
+)
+def test_real_alias_helper_is_recognized(
+    aliases_module: griffe.Module, name: str, target: str
+) -> None:
+    """The extension finds every `DeprecatedAlias` written against real core."""
+    alias = aliases_module[name]
+
+    assert alias.deprecated
+    assert "deprecated" in alias.labels
+    assert alias.value == griffe.ExprName(target)
+
+
+@pytest.mark.parametrize("name", ["Decimal", "Rational", "Gadget"])
+def test_documented_alias_message_matches_runtime_warning(
+    aliases_module: griffe.Module, name: str
+) -> None:
+    """Each alias documents exactly its own runtime warning, markup aside.
+
+    Compares the two sources against each other rather than against a third
+    copy in this file, so the test cannot pass by agreeing with a stale
+    expectation. `Decimal` gives `since`, so this is what checks that the
+    `default_message` option matches core's own wording, and `Rational` gives a
+    message of its own, so this also checks that each alias is documented with
+    its own. `Gadget` gives no `new_module`, so this also checks that both
+    resolve it to the module defining the alias.
+    """
+    warning = _alias_warning(name)
+
+    assert str(warning.message) == _plain(str(aliases_module[name].deprecated))
+    assert issubclass(warning.category, DeprecationWarning)
+
+
+def test_alias_entry_parameters_match_the_extension() -> None:
+    """`DeprecatedAlias` takes the name by position and the rest by keyword.
+
+    The extension binds `DeprecatedAlias(name, /, *, new_module=None,
+    new_name=None, since=None, message=None)`, so a change in how core takes any
+    of them would leave entries unmarked.
+    """
+    parameters = inspect.signature(frequenz.core.warnings.DeprecatedAlias).parameters
+    assert {name: parameter.kind for name, parameter in parameters.items()} == {
+        "name": inspect.Parameter.POSITIONAL_ONLY,
+        "new_module": inspect.Parameter.KEYWORD_ONLY,
+        "new_name": inspect.Parameter.KEYWORD_ONLY,
+        "since": inspect.Parameter.KEYWORD_ONLY,
+        "message": inspect.Parameter.KEYWORD_ONLY,
+    }
+
+
+def test_alias_table_takes_entries_after_the_module() -> None:
+    """`deprecated_aliases()` takes the module, then the entries, by position.
+
+    The extension reads every positional argument after the first as an entry
+    and ignores keywords, which is only right with this parameter layout.
+    """
+    parameters = list(
+        inspect.signature(frequenz.core.warnings.deprecated_aliases).parameters.values()
+    )
+    assert [parameter.kind for parameter in parameters[:2]] == [
+        inspect.Parameter.POSITIONAL_ONLY,
+        inspect.Parameter.VAR_POSITIONAL,
+    ]
+    assert all(
+        parameter.kind is inspect.Parameter.KEYWORD_ONLY for parameter in parameters[2:]
+    )
