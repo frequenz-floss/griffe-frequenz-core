@@ -89,7 +89,7 @@ dev-pytest = [
   # helpers to check that the documentation matches the runtime warnings. We pin
   # the exact version we last tested with, so when Dependabot bumps it, we know
   # we need to check that the extension still works with the new release.
-  "frequenz-core == 1.4.0",
+  "frequenz-core == 1.5.0",
 ]
 dev = [
   "griffe-frequenz-core[dev-mkdocs,dev-flake8,dev-formatting,dev-mkdocs,dev-mypy,dev-noxfile,dev-pylint,dev-pytest]",
