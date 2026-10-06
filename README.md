@@ -76,9 +76,12 @@ helper. If you need a different notice, you can write one yourself using a
 `Deprecated:` section in the docstring. A hand-written notice always takes
 priority.
 
-If the extension can't read an argument, it leaves that information out of the
-notice. If it can't read any of it, the notice only says that the object will be
-removed in a future release.
+Sometimes the extension can't get all the information it needs. For example, it
+might not be able to read an argument from the source code, or the helper might
+only have the runtime warning. In that case, it still adds a notice with
+whatever information is available, but also logs a warning. This makes
+`mkdocs build --strict` fail, so you can fix the documentation by writing the
+missing notice yourself.
 
 If you use a different admonition style for deprecations, you can change the
 `kind` option. For example:
@@ -183,8 +186,9 @@ A few other things worth knowing:
   deprecated name. It links the replacement using code formatting.
 - **The `message` argument only affects runtime warnings.** It doesn't change
   the documentation notice. If an entry has a `message` instead of `since`, the
-  notice only says what to use instead. To say more, write a `Deprecated:`
-  section in the docstring under `TYPE_CHECKING`.
+  notice only says what to use instead, and the extension logs a warning. To
+  fix this, write a `Deprecated:` section in the docstring under
+  `TYPE_CHECKING`.
 - **Replacement links use normal cross-references.** If a link can't be
   resolved, `mkdocs-autorefs` reports it. For replacements in another project,
   add that project's `objects.inv` URL to the Python handler's `inventories`.
@@ -213,18 +217,20 @@ class TaskStatus(Enum):
     WAITING = DeprecatedMember(1, "WAITING is deprecated, use OPEN instead")
 ```
 
-The extension marks both members using their message as written. It also shows
-their actual value instead of the wrapper. For example, the documentation shows
-`PENDING = 1`, not the call to `deprecated_member()`.
+The extension marks both members and shows their actual value instead of the
+wrapper. For example, the documentation shows `PENDING = 1`, not the call to
+`deprecated_member()`.
+
+The wrapper only has the runtime warning, so you should write the notice by
+hand. Otherwise, the extension shows the runtime warning as the notice,
+rendered as Markdown, and logs a warning.
 
 If the message comes from a variable or a function call, the extension can't
 read it. It still marks the member as deprecated and shows its value without the
-wrapper, but it uses a generic message:
+wrapper. If you didn't write a notice by hand, it uses a generic notice and logs
+a warning:
 
 > Deprecated. It will be removed in a future release.
-
-If the generic message isn't enough, write the message as a string literal, or
-write a notice by hand. The extension always keeps a hand-written notice.
 
 ### Hand-written admonitions
 
@@ -233,9 +239,8 @@ explain how to migrate to a new API or link to a migration guide.
 
 You can do this by adding a deprecation admonition to the object's docstring.
 
-If the extension finds one, it leaves the docstring as it is, instead of adding
-another admonition. It still adds the `deprecated` label and fills in the
-`deprecated` field.
+If the extension finds one, it doesn't add another admonition. It still adds
+the `deprecated` label and fills in the `deprecated` field.
 
 It recognizes two kinds of hand-written admonitions:
 
@@ -256,6 +261,9 @@ if TYPE_CHECKING:
     """
 ```
 
+Use a hand-written notice whenever the extension can't generate a complete one,
+or when you want to give readers more information.
+
 ### Known limitations
 
 Griffe reads Python source code without running it. This means the extension
@@ -272,12 +280,12 @@ Here are the main limitations:
   read, and the alias value is only shown as the target if the extension can
   read the target. The `message` argument is never read for module aliases.
 
-- **Enum messages need literal strings.** The extension can only show the
-  message if it's a string literal. Constants, function calls, f-strings, and
-  strings joined with `+` aren't evaluated. Adjacent string literals are fine,
-  because Python joins them automatically. If the message isn't a literal, the
-  member is still marked as deprecated and its value is shown without the
-  wrapper, but with a generic message.
+- **Enum messages need literal strings.** If there is no hand-written notice,
+  the extension can only show the message if it's a string literal. Constants,
+  function calls, f-strings, and strings joined with `+` aren't evaluated.
+  Adjacent string literals are fine, because Python joins them automatically.
+  If the message isn't a literal, the member is still marked as deprecated and
+  its value is shown without the wrapper, but with a generic notice.
 
 - **Alias entries must appear directly in the call.** Each entry must be a
   `DeprecatedAlias(...)` call inside `deprecated_aliases()`. Entries stored in
@@ -297,8 +305,30 @@ Here are the main limitations:
   keyword arguments mean only the alias name can be read. If positional
   arguments are unpacked, the alias isn't marked at all.
 
-The extension logs every case it skips at debug level. You can see these logs
-with `mkdocs build --verbose`.
+- **The extension doesn't validate your code.** It matches arguments the same
+  way Python would when calling the function. If the arguments don't match the
+  function's signature, the call is skipped. But the extension doesn't check
+  whether the argument values are valid. That's a job for your tests, which
+  should catch invalid calls when the module is imported.
+
+All these limitations produce warnings when they affect the generated
+documentation. This lets `mkdocs build --strict` catch problems instead of
+silently generating incomplete documentation.
+
+For example, you'll get a warning if:
+
+- A notice is missing the deprecation version or replacement.
+- A runtime warning is used as the documentation notice.
+- A deprecated value can't be shown correctly.
+- A deprecation can't be marked at all.
+
+Writing your own deprecation admonition fixes warnings about missing or
+incomplete notices, but not other problems.
+
+If you want to know why the extension couldn't read something, run
+`mkdocs build --verbose`. The extension logs those details at debug level.
+
+Broken links to replacements are reported separately by `mkdocs-autorefs`.
 
 ### Options
 

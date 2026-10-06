@@ -264,6 +264,10 @@ class DeprecationsExtension(Extension):  # pylint: disable=too-many-instance-att
     accepts `DeprecatedMember(1, "...")`, and the extension recognizes it too:
     calling a class or a function looks the same.
 
+    The wrapper only has the runtime warning, so you should write the notice by
+    hand, as a `Deprecated:` section in the member's docstring. Otherwise, the
+    extension shows the runtime warning as the notice.
+
     Warning:
         Griffe never runs the code, so the extension can only read string
         literals written directly in the call. If it can't read something, it
@@ -290,9 +294,15 @@ class DeprecationsExtension(Extension):  # pylint: disable=too-many-instance-att
           constant or unpacked from `*args`.
         - The name isn't a string literal.
         - The positional arguments of the entry are unpacked.
+        - The arguments don't match the ones of the runtime helper. The
+          extension doesn't check the argument values, though.
 
-        The extension logs each of these cases at debug level, which you can
-        see with `mkdocs -v`.
+        The extension logs a warning in all these cases, so a strict build
+        fails. It also logs a warning if a notice doesn't say since which
+        version the object is deprecated and what to use instead, or if it
+        shows the runtime warning. If you wrote the notice by hand, these
+        warnings about the notice aren't logged. You can see why something
+        couldn't be read with `mkdocs -v`, which shows the debug logs.
 
     To enable it, add it to the mkdocstrings Python handler, together with
     `griffe-warnings-deprecated`:
@@ -419,7 +429,7 @@ class DeprecationsExtension(Extension):  # pylint: disable=too-many-instance-att
         if call is None:
             return
         for entry in self._alias_entries(mod, call):
-            text, generic = self._alias_notice(f"{mod.path}.{entry.name}", entry)
+            text, problem = self._alias_notice(f"{mod.path}.{entry.name}", entry)
 
             member = mod.members.get(entry.name)
             if not isinstance(member, Attribute):
@@ -434,11 +444,19 @@ class DeprecationsExtension(Extension):  # pylint: disable=too-many-instance-att
                 member = Attribute(entry.name, parent=mod)
                 mod.set_member(entry.name, member)
 
-            if self.show_target and entry.new is not None:
-                member.value = ExprName(entry.new)
-            self._mark(member, text, generic=generic)
+            if self.show_target:
+                if entry.new is None:
+                    _logger.warning(
+                        "%s.%s: the target of the alias can't be read, so its "
+                        "value is shown as written",
+                        mod.path,
+                        entry.name,
+                    )
+                else:
+                    member.value = ExprName(entry.new)
+            self._mark(member, text, problem=problem, generic=problem is not None)
 
-    def _alias_notice(self, old: str, entry: _AliasEntry) -> tuple[str, bool]:
+    def _alias_notice(self, old: str, entry: _AliasEntry) -> tuple[str, str | None]:
         """Build the notice for one alias entry.
 
         The notice only uses `since` and the target. The entry's `message` is only
@@ -451,7 +469,9 @@ class DeprecationsExtension(Extension):  # pylint: disable=too-many-instance-att
             entry: The information read from the entry.
 
         Returns:
-            The notice, and whether it's a generic notice.
+            The notice, and why it's incomplete, or `None` if it's complete. A
+                notice is complete if it says everything the deprecations guide
+                asks for.
         """
         link = None if entry.new is None else _link(entry.new, local=entry.local)
         if entry.since is not None and link is not None:
@@ -462,16 +482,13 @@ class DeprecationsExtension(Extension):  # pylint: disable=too-many-instance-att
                     self.default_message.format(
                         old=old, new=entry.new, new_link=link, since=entry.since
                     ),
-                    False,
+                    None,
                 )
             except (AttributeError, IndexError, KeyError, ValueError):
-                _logger.debug(
-                    "%s: the `default_message` option %r can only use {old}, "
-                    "{new}, {new_link} and {since}, so a generic notice is used",
-                    old,
-                    self.default_message,
+                return _generic_message(since=entry.since, new_link=link), (
+                    "the `default_message` option can only use {old}, {new}, "
+                    "{new_link} and {since}, so a generic notice is shown"
                 )
-                return _generic_message(since=entry.since, new_link=link), True
         missing = []
         if entry.since is None:
             missing.append(
@@ -480,10 +497,9 @@ class DeprecationsExtension(Extension):  # pylint: disable=too-many-instance-att
             )
         if link is None:
             missing.append("what to use instead, because the target can't be read")
-        _logger.debug(
-            "%s: the notice can't say %s", old, ", and it can't say ".join(missing)
+        return _generic_message(since=entry.since, new_link=link), (
+            f"the notice can't say {', nor '.join(missing)}"
         )
-        return _generic_message(since=entry.since, new_link=link), True
 
     def on_class_members(self, *, cls: Class, **kwargs: Any) -> None:
         """Mark every wrapped enum member of the class, if it has any.
@@ -506,18 +522,24 @@ class DeprecationsExtension(Extension):  # pylint: disable=too-many-instance-att
                 isinstance(argument, (ExprVarPositional, ExprVarKeyword))
                 for argument in value.arguments
             ):
-                _logger.debug(
+                _logger.warning(
                     "%s: the deprecation wrapper's arguments are unpacked, so "
-                    "the member is marked with a generic message",
+                    "its value is shown as the whole call",
                     member.path,
                 )
-                self._mark(member, _generic_message(), generic=True)
+                self._mark(
+                    member,
+                    _generic_message(),
+                    problem="the deprecation message can't be read, so a generic "
+                    "notice is shown",
+                    generic=True,
+                )
                 continue
             arguments = _wrapper_arguments(value)
             if arguments is None:
                 # This call would fail at runtime, so it doesn't deprecate
                 # anything.
-                _logger.debug(
+                _logger.warning(
                     "%s: the deprecation wrapper's arguments don't match "
                     "`deprecated_member(value, message)`, so the member isn't "
                     "marked",
@@ -530,14 +552,27 @@ class DeprecationsExtension(Extension):  # pylint: disable=too-many-instance-att
             member.value = real_value
             text = _literal(message)
             if isinstance(text, str):
-                self._mark(member, text)
+                # The wrapper only has the runtime warning. We show it because
+                # it's all we have, but it's written for a terminal.
+                self._mark(
+                    member,
+                    text,
+                    problem="there is no notice written for the documentation, "
+                    "so the runtime warning is shown instead",
+                )
                 continue
             _logger.debug(
                 "%s: the deprecation message isn't a string literal, so the "
-                "member is marked with a generic message",
+                "member is marked with a generic notice",
                 member.path,
             )
-            self._mark(member, _generic_message(), generic=True)
+            self._mark(
+                member,
+                _generic_message(),
+                problem="the deprecation message isn't a string literal, so a "
+                "generic notice is shown",
+                generic=True,
+            )
 
     def _alias_table_call(self, mod: Module) -> ExprCall | None:
         """Return the module's alias table call, if it has one.
@@ -580,7 +615,7 @@ class DeprecationsExtension(Extension):  # pylint: disable=too-many-instance-att
                 # Only `module` could be in there, so we stop skipping the first
                 # argument. A module name is never an entry anyway.
                 module_seen = True
-                _logger.debug(
+                _logger.warning(
                     "%s: the alias entries in `%s` are unpacked, so they aren't "
                     "marked",
                     mod.path,
@@ -613,7 +648,7 @@ class DeprecationsExtension(Extension):  # pylint: disable=too-many-instance-att
         if not (
             isinstance(node, ExprCall) and node.canonical_path in self.alias_classes
         ):
-            _logger.debug(
+            _logger.warning(
                 "%s: the alias entry `%s` isn't a call to a known alias class, "
                 "so it's skipped",
                 mod.path,
@@ -621,7 +656,7 @@ class DeprecationsExtension(Extension):  # pylint: disable=too-many-instance-att
             )
             return None
         if any(isinstance(argument, ExprVarPositional) for argument in node.arguments):
-            _logger.debug(
+            _logger.warning(
                 "%s: the arguments of the alias entry `%s` are unpacked, so "
                 "it's skipped",
                 mod.path,
@@ -633,7 +668,7 @@ class DeprecationsExtension(Extension):  # pylint: disable=too-many-instance-att
         arguments = _alias_entry_arguments(node)
         if arguments is None:
             # This call would fail at runtime, so it doesn't deprecate anything.
-            _logger.debug(
+            _logger.warning(
                 "%s: the alias entry `%s` needs a positional name, `new_module`, "
                 "`new_name` or both, and exactly one of `since` and `message`, so "
                 "it's skipped",
@@ -644,7 +679,7 @@ class DeprecationsExtension(Extension):  # pylint: disable=too-many-instance-att
         name_node, *other_nodes = arguments
         name = _string(name_node)
         if name is None:
-            _logger.debug(
+            _logger.warning(
                 "%s: the name of the alias entry `%s` isn't a string literal, so "
                 "it's skipped",
                 mod.path,
@@ -697,7 +732,7 @@ class DeprecationsExtension(Extension):  # pylint: disable=too-many-instance-att
         ]
         name = _literal(positional[0]) if len(positional) == 1 else None
         if not isinstance(name, str):
-            _logger.debug(
+            _logger.warning(
                 "%s: the arguments of the alias entry `%s` are unpacked, so "
                 "it's skipped",
                 mod.path,
@@ -712,24 +747,42 @@ class DeprecationsExtension(Extension):  # pylint: disable=too-many-instance-att
         )
         return _AliasEntry(name, None, False, None)
 
-    def _mark(self, member: Attribute, text: str, *, generic: bool = False) -> None:
-        """Mark one member as deprecated and add the admonition.
+    def _mark(
+        self,
+        member: Attribute,
+        text: str,
+        *,
+        problem: str | None = None,
+        generic: bool = False,
+    ) -> None:
+        """Mark one member as deprecated and add its notice.
 
         Args:
             member: The member to mark.
-            text: The deprecation message.
-            generic: Whether `text` is the generic message. If it is, and another
+            text: The notice.
+            problem: Why the notice is incomplete, if it is. It's logged as a
+                warning, unless there is a hand-written notice.
+            generic: Whether `text` is the generic notice. If it is, and another
                 extension already set a message, that message is used instead,
-                also in the admonition.
+                also as the notice.
         """
         if generic and isinstance(member.deprecated, str):
-            # Another extension could read the message, so we show that one.
-            text = member.deprecated
+            # Another extension could read the message, so we show that one,
+            # and nothing is missing from the docs.
+            text, problem = member.deprecated, None
         member.deprecated = text
         if self.label:
             member.labels.add(self.label)
         if self._already_marked(member):
             return
+        if problem is not None:
+            # The documentation says less than the guide asks for, so a strict
+            # build should fail.
+            _logger.warning(
+                "%s: %s. Write a `Deprecated:` section in the docstring to fix this.",
+                member.path,
+                problem,
+            )
         if member.docstring is None:
             member.docstring = Docstring("", parent=member)
         member.docstring.parsed.insert(
