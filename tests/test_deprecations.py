@@ -31,6 +31,7 @@ _ALIASES = "frequenz.core.warnings.deprecated_aliases"
 _ALIAS_CLASS = "frequenz.core.warnings.DeprecatedAlias"
 _MEMBERS = "frequenz.core.enum.deprecated_member"
 _LOGGER = "griffe_frequenz_core.deprecations"
+_GENERIC = "Deprecated. It will be removed in a future release."
 
 
 def load(
@@ -285,19 +286,115 @@ def test_other_enum_members_are_untouched(samplepkg: Module) -> None:
         assert admonitions(member) == []
 
 
-def test_a_non_literal_enum_message_is_skipped_loudly(
+def test_a_non_literal_enum_message_gets_a_generic_notice(
     caplog: pytest.LogCaptureFixture,
 ) -> None:
-    """Ensure a member with its message in a constant isn't marked, and it's logged."""
+    """Ensure a member with its message in a constant gets a generic notice, and is logged."""
     with caplog.at_level(logging.DEBUG, logger=_LOGGER):
         package = load()
     member = attribute(package, "statuses.TaskStatus.CANCELLED")
-    assert not member.deprecated
-    assert "deprecated" not in member.labels
+    generic = _GENERIC
+    assert member.deprecated == generic
+    assert "deprecated" in member.labels
+    assert [section.value.contents for section in admonitions(member)] == [generic]
     assert any(
         "CANCELLED" in record.message and "isn't a string literal" in record.message
         for record in caplog.records
     )
+    assert str(member.value) == "1"
+
+
+@pytest.mark.parametrize(
+    ("wrapper", "value", "message"),
+    [
+        ("deprecated_member(7, _member_message('A'))", "7", None),
+        ("deprecated_member(value=7, message=_member_message('A'))", "7", None),
+        ("deprecated_member(message=_member_message('A'), value=7)", "7", None),
+        ("deprecated_member(7, _MESSAGE)", "7", None),
+        ("deprecated_member(_BASE + 1, _MESSAGE)", "_BASE + 1", None),
+        ("DeprecatedMember(7, _member_message('A'))", "7", None),
+        ("deprecated_member(7, 'Gone')", "7", "Gone"),
+        ("DeprecatedMember(message='Gone', value=7)", "7", "Gone"),
+    ],
+)
+def test_an_enum_wrapper_unwraps_its_value_whatever_the_message(
+    wrapper: str, value: str, message: str | None
+) -> None:
+    """Ensure the value is shown as written, even if the message can't be read.
+
+    In all cases, the hand-written notice is used instead of the generic one, and
+    it appears only once.
+    """
+    code = (
+        "from frequenz.core.enum import DeprecatedMember, Enum, deprecated_member\n"
+        "class Status(Enum):\n"
+        f"    A = {wrapper}\n"
+        '    """A status.\n\n    Deprecated:\n        Use B instead.\n    """\n'
+    )
+    with griffe.temporary_visited_module(
+        code,
+        docstring_parser=Parser.google,
+        extensions=griffe.load_extensions(DeprecationsExtension()),
+    ) as module:
+        member = attribute(module, "Status.A")
+        assert str(member.value) == value
+        assert member.deprecated == (_GENERIC if message is None else message)
+        assert "deprecated" in member.labels
+        sections = admonitions(member)
+        assert len(sections) == 1
+        assert sections[0].title == "Deprecated"
+        assert sections[0].value.contents == "Use B instead."
+
+
+@pytest.mark.parametrize(("label", "added"), [("old", {"old"}), (None, set())])
+def test_a_non_literal_enum_message_uses_the_configured_label(
+    label: str | None, added: set[str]
+) -> None:
+    """Ensure the `label` option is used with a generic notice too."""
+    code = (
+        "from frequenz.core.enum import Enum, deprecated_member\n"
+        "class Status(Enum):\n"
+        "    A = deprecated_member(7, _member_message('A'))\n"
+    )
+    with griffe.temporary_visited_module(
+        code, extensions=griffe.load_extensions(DeprecationsExtension(label=label))
+    ) as module:
+        member = attribute(module, "Status.A")
+        assert member.deprecated == _GENERIC
+        assert member.labels & {"old", "deprecated"} == added
+        assert len(admonitions(member)) == 1
+
+
+def test_a_non_literal_enum_message_keeps_an_existing_message() -> None:
+    """Ensure a message found by another extension is used instead of the generic one.
+
+    The admonition says the same as the field, so they never disagree.
+    """
+
+    class Earlier(griffe.Extension):
+        """An extension that runs first and finds a message."""
+
+        def on_attribute_instance(self, *, attr: Attribute, **kwargs: Any) -> None:
+            """Give every attribute a message.
+
+            Args:
+                attr: The attribute just created.
+                **kwargs: Other arguments passed by Griffe, not used.
+            """
+            attr.deprecated = "Use B."
+
+    code = (
+        "from frequenz.core.enum import Enum, deprecated_member\n"
+        "class Status(Enum):\n"
+        "    A = deprecated_member(7, _MESSAGE)\n"
+    )
+    with griffe.temporary_visited_module(
+        code,
+        extensions=griffe.load_extensions(Earlier(), DeprecationsExtension()),
+    ) as module:
+        member = attribute(module, "Status.A")
+        assert member.deprecated == "Use B."
+        assert [section.value.contents for section in admonitions(member)] == ["Use B."]
 
 
 @pytest.mark.parametrize(
@@ -320,12 +417,40 @@ def test_enum_wrapper_keyword_arguments_are_understood(arguments: str) -> None:
         assert str(member.value) == "1"
 
 
+@pytest.mark.parametrize("arguments", ["*ARGS, 'Gone'", "*ARGS", "1, 'Gone', **KWARGS"])
+def test_an_unpacked_enum_wrapper_call_is_marked_as_written(
+    caplog: pytest.LogCaptureFixture, arguments: str
+) -> None:
+    """Ensure wrapper calls with unpacked arguments get a generic notice.
+
+    `*ARGS, 'Gone'` is the tricky one. If we just counted positions, `'Gone'`
+    would look like a valid message, and the member would be documented as
+    `A = *ARGS`.
+    """
+    code = (
+        "from frequenz.core.enum import Enum, deprecated_member\n"
+        "class Status(Enum):\n"
+        f"    A = deprecated_member({arguments})\n"
+    )
+    with (
+        caplog.at_level(logging.DEBUG, logger=_LOGGER),
+        griffe.temporary_visited_module(
+            code, extensions=griffe.load_extensions(DeprecationsExtension())
+        ) as module,
+    ):
+        member = attribute(module, "Status.A")
+        assert member.deprecated == _GENERIC
+        assert "deprecated" in member.labels
+        assert str(member.value) == f"deprecated_member({arguments})"
+    assert any(
+        "Status.A" in record.message and "arguments are unpacked" in record.message
+        for record in caplog.records
+    )
+
+
 @pytest.mark.parametrize(
     ("arguments", "logged"),
     [
-        ("*ARGS, 'Gone'", "arguments are unpacked"),
-        ("*ARGS", "arguments are unpacked"),
-        ("1, 'Gone', **KWARGS", "arguments are unpacked"),
         ("1", "don't match `deprecated_member(value, message)`"),
         ("message='Gone'", "don't match `deprecated_member(value, message)`"),
         ("1, 'Gone', 2", "don't match `deprecated_member(value, message)`"),
@@ -339,12 +464,7 @@ def test_enum_wrapper_keyword_arguments_are_understood(arguments: str) -> None:
 def test_an_unreadable_enum_wrapper_call_is_skipped_loudly(
     caplog: pytest.LogCaptureFixture, arguments: str, logged: str
 ) -> None:
-    """Ensure wrapper calls that can't be read don't mark the member, and are logged.
-
-    `*ARGS, 'Gone'` is the tricky one. If we just counted positions, `'Gone'`
-    would look like a valid message, and the member would be documented as
-    `A = *ARGS`.
-    """
+    """Ensure a call that would fail at runtime doesn't mark the member, and is logged."""
     code = (
         "from frequenz.core.enum import Enum, deprecated_member\n"
         "class Status(Enum):\n"

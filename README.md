@@ -76,6 +76,9 @@ helper. If you need a different notice, you can write one yourself using a
 `Deprecated:` section in the docstring. A hand-written notice always takes
 priority.
 
+If the extension can't read the message of an enum member, it uses a generic
+message instead.
+
 If you use a different admonition style for deprecations, you can change the
 `kind` option. For example:
 
@@ -213,6 +216,15 @@ The extension marks both members using their message as written. It also shows
 their actual value instead of the wrapper. For example, the documentation shows
 `PENDING = 1`, not the call to `deprecated_member()`.
 
+If the message comes from a variable or a function call, the extension can't
+read it. It still marks the member as deprecated and shows its value without the
+wrapper, but it uses a generic message:
+
+> Deprecated. It will be removed in a future release.
+
+If the generic message isn't enough, write the message as a string literal, or
+write a notice by hand. The extension always keeps a hand-written notice.
+
 ### Hand-written admonitions
 
 Sometimes the generated notice isn't enough. For example, you might want to
@@ -247,17 +259,22 @@ if TYPE_CHECKING:
 
 Griffe reads Python source code without running it. This means the extension
 can't evaluate variables, call functions, or work out values that are only
-known at runtime. It only documents a deprecation if it can understand the call
-just by reading it.
+known at runtime. Sometimes it can still mark an object as deprecated, even if
+it can't read all the arguments of the call.
 
 Here are the main limitations:
 
-- **Messages and alias arguments need literal strings.** Enum messages, and
-  the alias name, `new_module`, `new_name`, and `since`, must be written as
-  string literals in the call. Constants, f-strings, and strings joined with
-  `+` aren't evaluated. Adjacent string literals are fine, because Python joins
-  them automatically. If an argument isn't a literal, the enum member or the
-  alias isn't marked. The `message` argument is never read for module aliases.
+- **Module aliases need literal strings.** The alias name, `new_module`,
+  `new_name`, and `since` must be written as string literals in the call. If
+  one isn't a literal, the alias isn't marked. The `message` argument is never
+  read for module aliases.
+
+- **Enum messages need literal strings.** The extension can only show the
+  message if it's a string literal. Constants, function calls, f-strings, and
+  strings joined with `+` aren't evaluated. Adjacent string literals are fine,
+  because Python joins them automatically. If the message isn't a literal, the
+  member is still marked as deprecated and its value is shown without the
+  wrapper, but with a generic message.
 
 - **Alias entries must appear directly in the call.** Each entry must be a
   `DeprecatedAlias(...)` call inside `deprecated_aliases()`. Entries stored in
@@ -272,7 +289,9 @@ Here are the main limitations:
 - **Arguments can't be unpacked.** Calls to `deprecated_member()`,
   `DeprecatedMember`, and `DeprecatedAlias` must use explicit arguments, not
   `*args` or `**kwargs`. For example, a member defined as
-  `deprecated_member(*ARGS)` isn't marked.
+  `deprecated_member(*ARGS)` is still marked as deprecated, with a generic
+  message, but its value is shown as the whole call. An alias entry with
+  unpacked arguments isn't marked.
 
 The extension logs every case it skips at debug level. You can see these logs
 with `mkdocs build --verbose`.

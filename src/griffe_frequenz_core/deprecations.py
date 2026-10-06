@@ -72,6 +72,20 @@ def _link(new: str, *, local: bool) -> str:
     return f"[`{new}`][]"
 
 
+def _generic_message() -> str:
+    """Return the message to use when the real message can't be read.
+
+    The message is shown in the documentation of the deprecated object, so it
+    doesn't need to say which object is deprecated. It also doesn't say since
+    which version the object is deprecated or what to use instead, because the
+    extension doesn't know.
+
+    Returns:
+        The generic message.
+    """
+    return "Deprecated. It will be removed in a future release."
+
+
 def _alias_entry_arguments(
     call: ExprCall,
 ) -> tuple[Any, Any, Any, Any, Any] | None:
@@ -217,14 +231,22 @@ class DeprecationsExtension(Extension):  # pylint: disable=too-many-instance-att
         Griffe never runs the code, so the extension can only read what is
         written directly in the call:
 
-        - Enum messages, and the alias name, `new_module`, `new_name` and `since`
-          must be string literals. If one isn't a literal, that member or alias
-          isn't marked.
+        - The alias name, `new_module`, `new_name` and `since` must be string
+          literals. If one isn't a literal, that alias isn't marked. The
+          `message` of an alias is never read.
+        - If an enum member's message isn't a literal, the member is still
+          marked, but with a generic message: "Deprecated. It will be removed
+          in a future release." Its value is still shown without the wrapper,
+          for example `CANCELLED = 1`.
+        - If the enum wrapper's arguments are unpacked from `*args` or
+          `**kwargs`, the member also gets the generic message. Its value is
+          shown as the whole wrapper call, because the extension can't tell
+          which argument is the value.
         - Each alias must be a `DeprecatedAlias(...)` call written directly in
           the `deprecated_aliases()` call. If it's stored in a constant, or the
-          entries are unpacked from `*args`, they aren't marked.
-        - The arguments of an enum member wrapper or of a `DeprecatedAlias`
-          must be written explicitly, not unpacked from `*args` or `**kwargs`.
+          entries are unpacked from `*args`, they aren't marked. The same
+          happens if the arguments of a `DeprecatedAlias` are unpacked from
+          `*args` or `**kwargs`.
 
         The extension logs each of these cases at debug level, which you can
         see with `mkdocs -v`.
@@ -427,19 +449,23 @@ class DeprecationsExtension(Extension):  # pylint: disable=too-many-instance-att
                 continue
             # Once an argument is unpacked, we can't tell which argument is
             # which. In `deprecated_member(*ARGS, "...")`, for example, the
-            # first argument isn't necessarily the value.
+            # first argument isn't necessarily the value. The member is still
+            # deprecated, so we mark it, but we leave the call as written.
             if any(
                 isinstance(argument, (ExprVarPositional, ExprVarKeyword))
                 for argument in value.arguments
             ):
                 _logger.debug(
                     "%s: the deprecation wrapper's arguments are unpacked, so "
-                    "the member isn't marked",
+                    "the member is marked with a generic message",
                     member.path,
                 )
+                self._mark(member, _generic_message(), generic=True)
                 continue
             arguments = _wrapper_arguments(value)
             if arguments is None:
+                # This call would fail at runtime, so it doesn't deprecate
+                # anything.
                 _logger.debug(
                     "%s: the deprecation wrapper's arguments don't match "
                     "`deprecated_member(value, message)`, so the member isn't "
@@ -448,17 +474,19 @@ class DeprecationsExtension(Extension):  # pylint: disable=too-many-instance-att
                 )
                 continue
             real_value, message = arguments
-            text = _literal(message)
-            if not isinstance(text, str):
-                _logger.debug(
-                    "%s: the deprecation message isn't a string literal, so the "
-                    "member isn't marked",
-                    member.path,
-                )
-                continue
-            # Show the member's actual value, not the wrapper call.
+            # Show the member's actual value, not the wrapper call, even if we
+            # can't read the message. We know the value either way.
             member.value = real_value
-            self._mark(member, text)
+            text = _literal(message)
+            if isinstance(text, str):
+                self._mark(member, text)
+                continue
+            _logger.debug(
+                "%s: the deprecation message isn't a string literal, so the "
+                "member is marked with a generic message",
+                member.path,
+            )
+            self._mark(member, _generic_message(), generic=True)
 
     def _alias_table_call(self, mod: Module) -> ExprCall | None:
         """Return the module's alias table call, if it has one.
@@ -593,13 +621,19 @@ class DeprecationsExtension(Extension):  # pylint: disable=too-many-instance-att
             since,
         )
 
-    def _mark(self, member: Attribute, text: str) -> None:
+    def _mark(self, member: Attribute, text: str, *, generic: bool = False) -> None:
         """Mark one member as deprecated and add the admonition.
 
         Args:
             member: The member to mark.
             text: The deprecation message.
+            generic: Whether `text` is the generic message. If it is, and another
+                extension already set a message, that message is used instead,
+                also in the admonition.
         """
+        if generic and isinstance(member.deprecated, str):
+            # Another extension could read the message, so we show that one.
+            text = member.deprecated
         member.deprecated = text
         if self.label:
             member.labels.add(self.label)
