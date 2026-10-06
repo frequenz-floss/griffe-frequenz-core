@@ -166,23 +166,26 @@ def test_the_admonition_goes_first(samplepkg: Module) -> None:
 
 
 def test_a_handwritten_admonition_is_left_alone(samplepkg: Module) -> None:
-    """Ensure a hand-written admonition is kept as written."""
+    """Ensure a hand-written admonition is kept, and moved to the top."""
     member = attribute(samplepkg, "oldmod.Widget")
     sections = admonitions(member)
     assert len(sections) == 1
     assert "see the migration guide" in sections[0].value.contents
-    # The label and the field are still set, only the docstring is kept as is.
+    # It's moved to where a generated one would go, before the summary.
+    assert member.docstring is not None
+    assert member.docstring.parsed[0] is sections[0]
+    # The label and the field are still set, but the hand-written text is kept.
     assert "deprecated" in member.labels
     assert isinstance(member.deprecated, str)
 
 
 def test_a_handwritten_numpy_section_is_left_alone() -> None:
-    """Ensure a hand-written numpy `Deprecated` section is kept as written."""
+    """Ensure a hand-written numpy `Deprecated` section is kept, and moved to the top."""
     member = attribute(load("numpymod", parser=Parser.numpy), "Widget")
     assert not admonitions(member)
     assert member.docstring is not None
     kinds = [section.kind for section in member.docstring.parsed]
-    assert DocstringSectionKind.deprecated in kinds
+    assert kinds[0] is DocstringSectionKind.deprecated
     assert "deprecated" in member.labels
 
 
@@ -344,6 +347,8 @@ def test_an_enum_wrapper_unwraps_its_value_whatever_the_message(
         assert len(sections) == 1
         assert sections[0].title == "Deprecated"
         assert sections[0].value.contents == "Use B instead."
+        assert member.docstring is not None
+        assert member.docstring.parsed[0] is sections[0]
 
 
 @pytest.mark.parametrize(("label", "added"), [("old", {"old"}), (None, set())])

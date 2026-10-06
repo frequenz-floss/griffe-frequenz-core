@@ -26,6 +26,7 @@ from griffe import (
     Attribute,
     Class,
     Docstring,
+    DocstringSection,
     DocstringSectionAdmonition,
     DocstringSectionKind,
     ExprCall,
@@ -267,6 +268,10 @@ class DeprecationsExtension(Extension):  # pylint: disable=too-many-instance-att
     The wrapper only has the runtime warning, so you should write the notice by
     hand, as a `Deprecated:` section in the member's docstring. Otherwise, the
     extension shows the runtime warning as the notice.
+
+    If you write a notice by hand, the extension uses it instead of the generated
+    one. It also moves it to the top of the docstring, where a generated notice
+    would go.
 
     Warning:
         Griffe never runs the code, so the extension can only read string
@@ -757,6 +762,10 @@ class DeprecationsExtension(Extension):  # pylint: disable=too-many-instance-att
     ) -> None:
         """Mark one member as deprecated and add its notice.
 
+        If the docstring has a hand-written notice, it's used instead of `text`.
+        It's also moved to the top of the docstring, where a generated notice
+        would go.
+
         Args:
             member: The member to mark.
             text: The notice.
@@ -773,7 +782,15 @@ class DeprecationsExtension(Extension):  # pylint: disable=too-many-instance-att
         member.deprecated = text
         if self.label:
             member.labels.add(self.label)
-        if self._already_marked(member):
+        if member.docstring is None:
+            member.docstring = Docstring("", parent=member)
+        sections = member.docstring.parsed
+        written = self._handwritten_notice(sections)
+        if written is not None:
+            # A docstring must start with its summary, so the hand-written notice
+            # can't be at the top in the source. We move it there, so it's in the
+            # same place as the generated notices.
+            sections.insert(0, sections.pop(written))
             return
         if problem is not None:
             # The documentation says less than the guide asks for, so a strict
@@ -783,34 +800,31 @@ class DeprecationsExtension(Extension):  # pylint: disable=too-many-instance-att
                 member.path,
                 problem,
             )
-        if member.docstring is None:
-            member.docstring = Docstring("", parent=member)
-        member.docstring.parsed.insert(
+        sections.insert(
             0,
             DocstringSectionAdmonition(kind=self.kind, text=text, title=self.title),
         )
 
-    def _already_marked(self, member: Attribute) -> bool:
-        """Return whether the member's docstring already has the admonition.
+    def _handwritten_notice(self, sections: list[DocstringSection]) -> int | None:
+        """Find a hand-written deprecation notice in a docstring.
 
-        The extension doesn't change hand-written admonitions, so a module can say
-        more about a deprecation than the message template.
+        A hand-written notice is a `Deprecated` section, or an admonition with the
+        same title as the ones this extension adds (case-insensitive).
 
         Args:
-            member: The member to check.
+            sections: The parsed sections of the docstring.
 
         Returns:
-            Whether the docstring already has a deprecation admonition.
+            The index of the first hand-written notice, or `None` if there is
+                none.
         """
-        if member.docstring is None:
-            return False
-        for section in member.docstring.parsed:
+        for index, section in enumerate(sections):
             if section.kind is DocstringSectionKind.deprecated:
-                return True
+                return index
             if (
                 section.kind is DocstringSectionKind.admonition
                 and str(getattr(section, "title", "")).strip().lower()
                 == self.title.strip().lower()
             ):
-                return True
-        return False
+                return index
+        return None

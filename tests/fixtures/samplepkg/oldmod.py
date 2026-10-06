@@ -6,7 +6,7 @@
 It has three kinds of aliases, on purpose:
 
 - `Widget`: the recommended way, with a hand-written `Deprecated:` admonition
-  that the extension must not change.
+  that the extension must keep instead of adding its own notice.
 - `Doohickey`: a renamed alias with a docstring, but without an admonition.
 - `MAX_WIDGETS`: an alias without a docstring.
 """

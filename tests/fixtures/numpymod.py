@@ -4,8 +4,8 @@
 """An alias with a hand-written deprecation notice in numpy style.
 
 In Google style, a `Deprecated:` section becomes an admonition. In numpy style,
-it becomes a section of its own kind. Both mean the same, and the extension
-must not change either of them.
+it becomes a section of its own kind. Both mean the same. In both cases, the
+extension must keep the hand-written notice instead of adding its own.
 """
 
 from typing import TYPE_CHECKING, TypeAlias

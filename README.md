@@ -242,6 +242,10 @@ You can do this by adding a deprecation admonition to the object's docstring.
 If the extension finds one, it doesn't add another admonition. It still adds
 the `deprecated` label and fills in the `deprecated` field.
 
+The extension also moves your notice to the top of the docstring, before the
+summary, so it appears in the same place as a generated notice. You can't write
+it there yourself, because a docstring must start with its summary.
+
 It recognizes two kinds of hand-written admonitions:
 
 - A `Deprecated:` section in the docstring.
