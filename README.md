@@ -213,8 +213,18 @@ from frequenz.core.enum import DeprecatedMember, Enum, deprecated_member
 
 class TaskStatus(Enum):
     OPEN = 1
-    PENDING = deprecated_member(1, "PENDING is deprecated, use OPEN instead")
-    WAITING = DeprecatedMember(1, "WAITING is deprecated, use OPEN instead")
+    PENDING = deprecated_member(
+        1, "mypkg.TaskStatus.PENDING is deprecated. Use mypkg.TaskStatus.OPEN instead."
+    )
+    """The task is pending.
+
+    Deprecated:
+        Deprecated since v1.2.0. Use [`OPEN`][mypkg.TaskStatus.OPEN] instead.
+    """
+
+    WAITING = DeprecatedMember(
+        1, "mypkg.TaskStatus.WAITING is deprecated. Use mypkg.TaskStatus.OPEN instead."
+    )
 ```
 
 The extension marks both members and shows their actual value instead of the
@@ -222,8 +232,8 @@ wrapper. For example, the documentation shows `PENDING = 1`, not the call to
 `deprecated_member()`.
 
 The wrapper only has the runtime warning, so you should write the notice by
-hand. Otherwise, the extension shows the runtime warning as the notice,
-rendered as Markdown, and logs a warning.
+hand, as for `PENDING`. `WAITING` doesn't have one, so the extension shows its
+runtime warning as the notice, rendered as Markdown, and logs a warning.
 
 If the message comes from a variable or a function call, the extension can't
 read it. It still marks the member as deprecated and shows its value without the

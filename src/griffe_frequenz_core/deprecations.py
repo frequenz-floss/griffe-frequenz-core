@@ -257,7 +257,9 @@ class DeprecationsExtension(Extension):  # pylint: disable=too-many-instance-att
 
     class TaskStatus(Enum):
         OPEN = 1
-        PENDING = deprecated_member(1, "PENDING is deprecated, use OPEN instead")
+        PENDING = deprecated_member(
+            1, "mypkg.TaskStatus.PENDING is deprecated. Use mypkg.TaskStatus.OPEN instead."
+        )
     ```
 
     The extension marks the member and shows its actual value instead of the
