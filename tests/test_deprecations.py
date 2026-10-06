@@ -493,8 +493,11 @@ def test_a_non_literal_alias_message_is_not_needed(
     with caplog.at_level(logging.DEBUG, logger=_LOGGER):
         package = load()
     member = attribute(package, "nonliteral.Thing")
-    assert member.deprecated == "Deprecated. Use [`samplepkg.newmod.Widget`][] instead."
+    generic = "Deprecated. Use [`samplepkg.newmod.Widget`][] instead."
+    assert member.deprecated == generic
     assert "deprecated" in member.labels
+    assert [section.value.contents for section in admonitions(member)] == [generic]
+    assert member.value == ExprName("samplepkg.newmod.Widget")
     assert not any("message=_MESSAGE" in record.message for record in caplog.records)
 
 
@@ -556,7 +559,11 @@ _ENTRY = "DeprecatedAlias('Thing', new_module='pkg.new', since='v1')"
             "are unpacked, so it's skipped",
         ),
         (
-            "__name__, DeprecatedAlias('Thing', **KWARGS)",
+            "__name__, DeprecatedAlias(NAME, **KWARGS)",
+            "are unpacked, so it's skipped",
+        ),
+        (
+            "__name__, DeprecatedAlias('Thing', 'Other', **KWARGS)",
             "are unpacked, so it's skipped",
         ),
         (
@@ -591,16 +598,8 @@ _ENTRY = "DeprecatedAlias('Thing', new_module='pkg.new', since='v1')"
             "needs a positional name",
         ),
         (
-            "__name__, DeprecatedAlias('Thing', new_module='pkg.new', since=SINCE)",
-            "isn't a string literal",
-        ),
-        (
-            "__name__, DeprecatedAlias('Thing', new_module=TARGET, message='Gone')",
-            "isn't a string literal",
-        ),
-        (
-            "__name__, DeprecatedAlias('Thing', new_name=NAME, message='Gone')",
-            "isn't a string literal",
+            "__name__, DeprecatedAlias(NAME, new_module='pkg.new', since='v1')",
+            "isn't a string literal, so it's skipped",
         ),
     ],
 )
@@ -620,6 +619,88 @@ def test_an_unreadable_alias_entry_is_skipped_loudly(
         ) as module,
     ):
         assert "Thing" not in module.members
+    assert any(logged in record.message for record in caplog.records)
+
+
+_TO_NEW = "Deprecated. Use [`pkg.new.Thing`][] instead."
+_NO_SINCE = "can't say since which version it is deprecated"
+_NO_TARGET = "what to use instead, because the target can't be read"
+
+
+@pytest.mark.parametrize(
+    ("entry", "message", "logged"),
+    [
+        (
+            "DeprecatedAlias('Thing', new_module='pkg.new', since=SINCE)",
+            _TO_NEW,
+            "isn't a string literal, so only the rest is documented",
+        ),
+        (
+            "DeprecatedAlias('Thing', new_module='pkg.new', message=f'{OLD} gone')",
+            _TO_NEW,
+            _NO_SINCE,
+        ),
+        (
+            "DeprecatedAlias('Thing', new_module=TARGET, since='v1')",
+            "Deprecated since v1.",
+            "isn't a string literal, so only the rest is documented",
+        ),
+        (
+            "DeprecatedAlias('Thing', new_name=NAME, message='{old} gone, see {new}.')",
+            _GENERIC,
+            _NO_TARGET,
+        ),
+        (
+            "DeprecatedAlias('Thing', new_module=TARGET, message='{old} is gone.')",
+            _GENERIC,
+            "isn't a string literal, so only the rest is documented",
+        ),
+        (
+            "DeprecatedAlias('Thing', new_module='pkg.new', "
+            "message='{old} gone, see {newer}.')",
+            _TO_NEW,
+            _NO_SINCE,
+        ),
+        (
+            "DeprecatedAlias('Thing', **KWARGS)",
+            _GENERIC,
+            "keyword arguments of the alias entry",
+        ),
+        (
+            "DeprecatedAlias('Thing', new_module='pkg.new', **KWARGS)",
+            _GENERIC,
+            "keyword arguments of the alias entry",
+        ),
+    ],
+)
+def test_a_partly_readable_alias_entry_says_what_can_be_read(
+    caplog: pytest.LogCaptureFixture, entry: str, message: str, logged: str
+) -> None:
+    """Ensure an alias is marked if its name can be read, using the rest if possible.
+
+    The target is only linked and shown as the value if it can be read. The
+    notice includes all the information the extension could read.
+    """
+    code = (
+        "from typing import TYPE_CHECKING, TypeAlias\n"
+        "from frequenz.core.warnings import DeprecatedAlias, deprecated_aliases\n"
+        "if TYPE_CHECKING:\n"
+        "    Thing: TypeAlias = _Thing\n"
+        "else:\n"
+        f"    __getattr__ = deprecated_aliases(__name__, {entry})\n"
+    )
+    with (
+        caplog.at_level(logging.DEBUG, logger=_LOGGER),
+        griffe.temporary_visited_module(
+            code, extensions=griffe.load_extensions(DeprecationsExtension())
+        ) as module,
+    ):
+        member = attribute(module, "Thing")
+        assert member.deprecated == message
+        assert "deprecated" in member.labels
+        assert len(admonitions(member)) == 1
+        target_known = _TO_NEW in message
+        assert member.value == ExprName("pkg.new.Thing" if target_known else "_Thing")
     assert any(logged in record.message for record in caplog.records)
 
 
@@ -704,13 +785,15 @@ def test_since_is_inserted_as_written() -> None:
         assert str(member.deprecated).startswith("Deprecated since {v1}. Use ")
 
 
-def test_a_bad_default_message_is_skipped_loudly(
+def test_a_bad_default_message_falls_back_to_a_generic_one(
     caplog: pytest.LogCaptureFixture,
 ) -> None:
-    """Ensure a template with unknown fields doesn't mark `since` entries, and is logged."""
+    """Ensure a generic notice is used if the template has unknown fields."""
     with caplog.at_level(logging.DEBUG, logger=_LOGGER):
         package = load(default_message="{old} is gone in {version}.")
-    assert not attribute(package, "oldmod.MAX_WIDGETS").deprecated
+    assert attribute(package, "oldmod.MAX_WIDGETS").deprecated == (
+        "Deprecated since v1.4.0. Use [`samplepkg.newmod.MAX_WIDGETS`][] instead."
+    )
     assert any(
         "samplepkg.oldmod.MAX_WIDGETS: " in record.message
         and "can only use {old}, {new}, {new_link} and {since}" in record.message
@@ -812,8 +895,8 @@ def test_only_the_configured_alias_classes_match() -> None:
         "from mypkg.compat import Moved\n"
         "__getattr__ = deprecated_aliases(\n"
         "    __name__,\n"
-        "    Moved('Mine', new_module='pkg.new', message='{old} gone.'),\n"
-        "    DeprecatedAlias('Core', new_module='pkg.new', message='{old} gone.'),\n"
+        "    Moved('Mine', new_module='pkg.new', since='v1'),\n"
+        "    DeprecatedAlias('Core', new_module='pkg.new', since='v1'),\n"
         ")\n"
     )
     extension = DeprecationsExtension(alias_classes=["mypkg.compat.Moved"])

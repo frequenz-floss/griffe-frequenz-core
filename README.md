@@ -76,8 +76,9 @@ helper. If you need a different notice, you can write one yourself using a
 `Deprecated:` section in the docstring. A hand-written notice always takes
 priority.
 
-If the extension can't read the message of an enum member, it uses a generic
-message instead.
+If the extension can't read an argument, it leaves that information out of the
+notice. If it can't read any of it, the notice only says that the object will be
+removed in a future release.
 
 If you use a different admonition style for deprecations, you can change the
 `kind` option. For example:
@@ -266,8 +267,10 @@ Here are the main limitations:
 
 - **Module aliases need literal strings.** The alias name, `new_module`,
   `new_name`, and `since` must be written as string literals in the call. If
-  one isn't a literal, the alias isn't marked. The `message` argument is never
-  read for module aliases.
+  the alias name isn't a literal, the extension can't mark it as deprecated. If
+  another value isn't a literal, the notice leaves out the information it can't
+  read, and the alias value is only shown as the target if the extension can
+  read the target. The `message` argument is never read for module aliases.
 
 - **Enum messages need literal strings.** The extension can only show the
   message if it's a string literal. Constants, function calls, f-strings, and
@@ -290,8 +293,9 @@ Here are the main limitations:
   `DeprecatedMember`, and `DeprecatedAlias` must use explicit arguments, not
   `*args` or `**kwargs`. For example, a member defined as
   `deprecated_member(*ARGS)` is still marked as deprecated, with a generic
-  message, but its value is shown as the whole call. An alias entry with
-  unpacked arguments isn't marked.
+  message, but its value is shown as the whole call. For aliases, unpacked
+  keyword arguments mean only the alias name can be read. If positional
+  arguments are unpacked, the alias isn't marked at all.
 
 The extension logs every case it skips at debug level. You can see these logs
 with `mkdocs build --verbose`.
