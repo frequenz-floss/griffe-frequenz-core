@@ -19,7 +19,7 @@ The extension generates the notice when the code has enough information. A hand-
   3. If you set `kind`, `title` or `label`, move those options to this extension.
   4. Write a `Deprecated:` notice in each decorated object's docstring. Without one, the extension logs a warning, so a strict build fails.
 
-  Don't enable both extensions for the decorator. You could get the runtime warning as your notice, or two notices. To keep using `griffe-warnings-deprecated` for the decorator, set this extension's new `decorator_functions` option to an empty list.
+  Don't enable both extensions for the decorator. You could get the runtime warning as your notice, or two notices. The extension logs a warning if both are enabled, so a strict build fails. To keep using `griffe-warnings-deprecated` for the decorator, set this extension's new `decorator_functions` option to an empty list.
 
 - The `default_message` option is now used for the notice of every alias and enum member with `new_name`. Its default is now `Deprecated since {since}. Use {new_link} instead.`:
 

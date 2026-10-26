@@ -20,6 +20,7 @@ for examples and how to enable the extension.
 from __future__ import annotations
 
 import ast
+import weakref
 from collections.abc import Iterable, Sequence
 from typing import Any, NamedTuple
 
@@ -37,6 +38,7 @@ from griffe import (
     ExprVarKeyword,
     ExprVarPositional,
     Extension,
+    Extensions,
     Function,
     Module,
     Object,
@@ -453,8 +455,9 @@ class DeprecationsExtension(Extension):  # pylint: disable=too-many-instance-att
     Don't enable it alongside `griffe-warnings-deprecated`. That extension adds
     an admonition that this extension can't tell apart from a hand-written
     notice. You could get the runtime warning as your notice, or two notices.
+    The extension logs a warning if both are enabled, so a strict build fails.
     To keep the other extension for decorators, set `decorator_functions` to an
-    empty list.
+    empty list. This also turns off the warning.
 
     By default, the notices look the same as `griffe-warnings-deprecated`'s.
     You can change this and other settings using options:
@@ -572,6 +575,38 @@ class DeprecationsExtension(Extension):  # pylint: disable=too-many-instance-att
         """The template for notices built from `since` and a replacement."""
         self.show_target = show_target
         """Whether to show an alias' value as its target."""
+        self._checked: weakref.WeakSet[Extensions] = weakref.WeakSet()
+        """The extension sets already checked for `griffe-warnings-deprecated`."""
+
+    def on_module_instance(self, *, agent: Any, **kwargs: Any) -> None:
+        """Warn once per extension set if both decorator extensions are enabled.
+
+        Args:
+            agent: The visitor or inspector creating the module.
+            **kwargs: Other arguments passed by Griffe, not used.
+        """
+        extensions = getattr(agent, "extensions", None)
+        if (
+            not self.decorator_functions
+            or not isinstance(extensions, Extensions)
+            or extensions in self._checked
+        ):
+            return
+        self._checked.add(extensions)
+        # Griffe has no public API to list loaded extensions. Skip the check
+        # if the private attribute changes. Tests check that it still works.
+        for extension in getattr(extensions, "_extensions", ()):
+            if type(extension).__module__.partition(".")[0] == (
+                "griffe_warnings_deprecated"
+            ):
+                _logger.warning(
+                    "griffe_warnings_deprecated is enabled too. Both extensions "
+                    "document `@deprecated`, which can produce duplicate or "
+                    "incorrect notices. Remove griffe_warnings_deprecated from "
+                    "the extensions list, or set `decorator_functions` to an "
+                    "empty list to keep using it for decorators."
+                )
+                return
 
     def on_class_instance(self, *, cls: Class, **kwargs: Any) -> None:
         """Mark the class if it is decorated as deprecated.

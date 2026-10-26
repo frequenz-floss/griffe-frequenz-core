@@ -116,6 +116,8 @@ the runtime warning as an admonition. This extension can't tell that apart
 from a hand-written notice, so you could get the runtime warning as your
 notice, or two notices.
 
+The extension logs a warning if both are enabled, so a strict build fails.
+
 If you want to keep `griffe-warnings-deprecated` for the decorator, set this
 extension's `decorator_functions` option to an empty list.
 
