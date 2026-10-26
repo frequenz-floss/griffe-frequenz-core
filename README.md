@@ -170,6 +170,44 @@ it uses a generic notice and logs a warning:
 
 To deprecate a property, put `@deprecated(...)` on its getter, below `@property`.
 
+You can also deprecate an overload, or a property's setter or deleter.
+mkdocstrings doesn't show their docstrings, so write the notice in the
+function or property's docstring instead. Say which part is deprecated:
+
+```python
+from typing import overload
+
+from typing_extensions import deprecated
+
+
+@overload
+@deprecated("mypkg.scale is deprecated for int factors. Use a float instead.")
+def scale(factor: int) -> None: ...
+@overload
+def scale(factor: float) -> None: ...
+def scale(factor: int | float) -> None:
+    """Scale the thing.
+
+    Deprecated:
+        Passing an `int` is deprecated since v1.2.0. Use a `float` instead.
+    """
+```
+
+Here, only the `int` overload gets a `deprecated` label and field. The function
+as a whole isn't deprecated, so the extension doesn't mark it or move its
+notice to the top.
+
+Without a hand-written notice, the extension combines the messages of all
+deprecated parts into one notice and logs a warning for each part. If it
+can't read a message, it uses one of these generic notices:
+
+- "One of its overloads is deprecated."
+- "Setting it is deprecated."
+- "Deleting it is deprecated."
+
+If the whole function or property is deprecated too, its own notice covers
+its parts.
+
 ### Deprecated module aliases
 
 When you move or rename something, you might want to keep the old name working
@@ -389,6 +427,10 @@ Here are the main limitations:
   message, but its value is shown as the whole call. For aliases, unpacked
   keyword arguments mean only the alias name can be read. If positional
   arguments are unpacked, the alias isn't marked at all.
+
+- **Overloads need a function to show their notice.** Griffe attaches
+  overloads to the function defined after them. If they're declared only in a
+  stub file, they still get a label and field, but no visible notice.
 
 - **Decorator messages need literal strings.** If the message isn't a string
   literal, or the arguments use `*args`, the object gets a generic notice.

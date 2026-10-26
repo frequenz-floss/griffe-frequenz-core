@@ -56,6 +56,8 @@ The extension generates the notice when the code has enough information. A hand-
 
   You can change which decorators the extension recognizes with the new `decorator_functions` option.
 
+- Notices for deprecated overloads, property setters and deleters now appear in the function or property's docstring. mkdocstrings doesn't show the parts' own docstrings. The whole function or property isn't marked as deprecated unless it has its own `@deprecated` decorator.
+
 - The extension now reads the `new_name` and `since` arguments added to `deprecated_member()` and `DeprecatedMember` in `frequenz-core` v1.6.0. If you pass both, it generates a notice using `default_message`:
 
   ```text

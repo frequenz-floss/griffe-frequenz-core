@@ -484,3 +484,231 @@ def test_decorators_bind_as_at_runtime(decorator: Any, arguments: str) -> None:
         f"import {decorator.__module__}\n@{path}({arguments})\ndef Thing(): ...\n"
     )
     assert bool(module["Thing"].deprecated) == accepted
+
+
+_OVERLOADS = (
+    "from typing import overload\n"
+    "from typing_extensions import deprecated\n"
+    "@overload\n"
+    "@deprecated('Calling mod.f with an int is deprecated.')\n"
+    "def f(x: int) -> int: ...\n"
+    "@overload\n"
+    "def f(x: str) -> str: ...\n"
+)
+
+
+def test_a_deprecated_overload_is_noted_on_its_function(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """Show an overload's notice in its function's docstring.
+
+    The function itself is not deprecated, so it is not marked, but the
+    overload is.
+    """
+    code = _OVERLOADS + 'def f(x):\n    """Do f."""\n'
+    with caplog.at_level(logging.DEBUG, logger=_LOGGER):
+        func = visit(code)["f"]
+    assert isinstance(func, griffe.Function)
+    assert func.deprecated is None
+    assert "deprecated" not in func.labels
+    [admonition] = admonitions(func)
+    assert admonition.value.contents == "Calling mod.f with an int is deprecated."
+    assert func.docstring is not None
+    assert func.docstring.parsed[0] is admonition
+    assert func.overloads is not None
+    deprecated, other = func.overloads
+    assert deprecated.deprecated == "Calling mod.f with an int is deprecated."
+    assert "deprecated" in deprecated.labels
+    assert not admonitions(deprecated)
+    assert other.deprecated is None
+    [warning] = warned(caplog)
+    assert warning == (
+        f"module.f: an overload is deprecated, and {_RUNTIME_ONLY}. Write a "
+        "`Deprecated:` section in the docstring saying which part is deprecated."
+    )
+
+
+def test_deprecated_overloads_of_a_method_share_one_notice(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """Combine the overloads' notices and warn once for each deprecated part."""
+    code = (
+        "import typing_extensions\n"
+        "class Owner:\n"
+        "    @typing_extensions.overload\n"
+        "    @typing_extensions.deprecated('Calling with an int is deprecated.')\n"
+        "    def f(self, x: int) -> int: ...\n"
+        "    @typing_extensions.overload\n"
+        "    @typing_extensions.deprecated(MESSAGE)\n"
+        "    def f(self, x: str) -> str: ...\n"
+        "    @typing_extensions.overload\n"
+        "    @typing_extensions.deprecated(OTHER)\n"
+        "    def f(self, x: bytes) -> str: ...\n"
+        "    def f(self, x): ...\n"
+    )
+    with caplog.at_level(logging.DEBUG, logger=_LOGGER):
+        func = visit(code)["Owner.f"]
+    [admonition] = admonitions(func)
+    assert admonition.value.contents == (
+        "Calling with an int is deprecated.\n\nOne of its overloads is deprecated."
+    )
+    logged = warned(caplog)
+    assert len(logged) == 3
+    assert _UNREADABLE in logged[1]
+    assert func.overloads is not None
+    assert [overload.deprecated for overload in func.overloads] == [
+        "Calling with an int is deprecated.",
+        _GENERIC,
+        _GENERIC,
+    ]
+
+
+def test_a_handwritten_notice_covers_a_deprecated_overload(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """The notice says which overload, and stays where it is written.
+
+    The function itself is not marked, so its notice is not moved to the top.
+    """
+    code = _OVERLOADS + (
+        "def f(x):\n"
+        '    """Do f.\n\n'
+        "    Deprecated:\n"
+        "        Calling it with an `int` is deprecated since v1.2.0.\n"
+        '    """\n'
+    )
+    with caplog.at_level(logging.DEBUG, logger=_LOGGER):
+        func = visit(code)["f"]
+    assert not warned(caplog)
+    [admonition] = admonitions(func)
+    assert "since v1.2.0" in admonition.value.contents
+    assert func.docstring is not None
+    assert func.docstring.parsed[1] is admonition
+    assert func.deprecated is None
+
+
+def test_a_deprecated_function_covers_its_overloads(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """The whole function's notice covers its deprecated overloads too."""
+    code = _OVERLOADS + (
+        "@deprecated('mod.f is deprecated.')\n" "def f(x):\n" + _HANDWRITTEN
+    )
+    with caplog.at_level(logging.DEBUG, logger=_LOGGER):
+        func = visit(code)["f"]
+    assert not warned(caplog)
+    assert func.deprecated == "mod.f is deprecated."
+    [admonition] = admonitions(func)
+    assert admonition.value.contents == "Use B instead."
+    assert func.overloads is not None
+    assert func.overloads[0].deprecated == "Calling mod.f with an int is deprecated."
+
+
+def test_an_overload_decorator_that_does_not_bind_is_reported(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """Don't add a notice for an invalid decorator call."""
+    code = (
+        "from typing import overload\n"
+        "from typing_extensions import deprecated\n"
+        "@overload\n"
+        "@deprecated(message='Gone')\n"
+        "def f(x: int) -> int: ...\n"
+        "def f(x): ...\n"
+    )
+    with caplog.at_level(logging.DEBUG, logger=_LOGGER):
+        func = visit(code)["f"]
+    assert not admonitions(func)
+    assert func.overloads is not None
+    assert func.overloads[0].deprecated is None
+    [warning] = warned(caplog)
+    assert "the deprecation decorator's arguments don't match" in warning
+
+
+_PROPERTY = (
+    "from typing_extensions import deprecated\n"
+    "class Owner:\n"
+    "    @property\n"
+    "    def p(self) -> int:\n"
+    '        """The p."""\n'
+)
+
+
+def test_deprecated_property_accessors_are_noted_on_the_property(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """Show setter and deleter notices in the property's docstring."""
+    code = _PROPERTY + (
+        "    @p.setter\n"
+        "    @deprecated('Setting mod.Owner.p is deprecated.')\n"
+        "    def p(self, value: int) -> None: ...\n"
+        "    @p.deleter\n"
+        "    @deprecated(MESSAGE)\n"
+        "    def p(self) -> None: ...\n"
+    )
+    with caplog.at_level(logging.DEBUG, logger=_LOGGER):
+        prop = visit(code)["Owner.p"]
+    assert isinstance(prop, griffe.Attribute)
+    assert prop.deprecated is None
+    assert "deprecated" not in prop.labels
+    [admonition] = admonitions(prop)
+    assert admonition.value.contents == (
+        "Setting mod.Owner.p is deprecated.\n\nDeleting it is deprecated."
+    )
+    assert prop.setter is not None and prop.deleter is not None
+    assert prop.setter.deprecated == "Setting mod.Owner.p is deprecated."
+    assert prop.deleter.deprecated == _GENERIC
+    logged = warned(caplog)
+    assert len(logged) == 2
+    assert logged[0].startswith("module.Owner.p: its setter is deprecated, and ")
+    assert logged[1].startswith("module.Owner.p: its deleter is deprecated, and ")
+
+
+def test_a_handwritten_notice_covers_a_deprecated_setter(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """Don't warn if the property has a hand-written notice for its setter."""
+    code = (
+        "from typing_extensions import deprecated\n"
+        "class Owner:\n"
+        "    @property\n"
+        "    def p(self) -> int:\n"
+        '        """The p.\n\n'
+        "        Deprecated:\n"
+        "            Setting it is deprecated since v1.2.0.\n"
+        '        """\n'
+        "    @p.setter\n"
+        "    @deprecated('Setting mod.Owner.p is deprecated.')\n"
+        "    def p(self, value: int) -> None: ...\n"
+    )
+    with caplog.at_level(logging.DEBUG, logger=_LOGGER):
+        prop = visit(code)["Owner.p"]
+    assert not warned(caplog)
+    [admonition] = admonitions(prop)
+    assert "since v1.2.0" in admonition.value.contents
+
+
+def test_a_deprecated_property_covers_its_setter(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """The whole property's notice covers its deprecated setter too."""
+    code = (
+        "from typing_extensions import deprecated\n"
+        "class Owner:\n"
+        "    @property\n"
+        "    @deprecated('mod.Owner.p is deprecated.')\n"
+        "    def p(self) -> int:\n"
+        '        """The p.\n\n'
+        "        Deprecated:\n"
+        "            Use B instead.\n"
+        '        """\n'
+        "    @p.setter\n"
+        "    @deprecated('Setting mod.Owner.p is deprecated.')\n"
+        "    def p(self, value: int) -> None: ...\n"
+    )
+    with caplog.at_level(logging.DEBUG, logger=_LOGGER):
+        prop = visit(code)["Owner.p"]
+    assert not warned(caplog)
+    assert prop.deprecated == "mod.Owner.p is deprecated."
+    [admonition] = admonitions(prop)
+    assert admonition.value.contents == "Use B instead."
