@@ -31,7 +31,7 @@ _HANDWRITTEN = '    """A thing.\n\n    Deprecated:\n        Use B instead.\n    
 
 
 def visit(code: str, **options: Any) -> Module:
-    """Visit some code with the extension enabled.
+    """Visit code with the extension enabled and parse its docstrings.
 
     Args:
         code: The code of the module.
@@ -45,7 +45,24 @@ def visit(code: str, **options: Any) -> Module:
         docstring_parser=Parser.google,
         extensions=griffe.load_extensions(DeprecationsExtension(**options)),
     ) as module:
+        render(module)
         return module
+
+
+def render(obj: griffe.Object) -> None:
+    """Parse the docstrings of an object and its members, as rendering does.
+
+    The extension adds notices and warns about missing information during
+    parsing, just before mkdocstrings renders the docstring.
+
+    Args:
+        obj: The object to render.
+    """
+    if obj.docstring is not None:
+        _ = obj.docstring.parsed
+    for member in obj.members.values():
+        if not isinstance(member, griffe.Alias):
+            render(member)
 
 
 def admonitions(obj: Object) -> list[DocstringSectionAdmonition]:

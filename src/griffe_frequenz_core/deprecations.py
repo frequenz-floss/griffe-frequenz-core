@@ -20,8 +20,9 @@ for examples and how to enable the extension.
 from __future__ import annotations
 
 import ast
+import functools
 import weakref
-from collections.abc import Iterable, Sequence
+from collections.abc import Callable, Iterable, Sequence
 from typing import Any, NamedTuple
 
 from griffe import (
@@ -60,6 +61,126 @@ _PART_NOTICES = {
     "its deleter": "Deleting it is deprecated.",
 }
 """The generic notices for parts whose messages can't be read."""
+
+_Notice = Callable[[list[DocstringSection]], None]
+"""A callback that adds a deprecation notice to parsed docstring sections."""
+
+
+class _Part(NamedTuple):
+    """A deprecated overload, property setter or deleter."""
+
+    part: str
+    """Which part is deprecated, as in "an overload"."""
+
+    text: str
+    """Its notice."""
+
+    problem: str
+    """Why it needs a hand-written notice."""
+
+
+class _Parts:
+    """The deprecated parts of a function or property, and their notice.
+
+    Another extension can parse the docstring while Griffe is still visiting, so
+    a part can come after the notice was placed. The notice is updated then.
+    """
+
+    def __init__(self, path: str, parts: list[_Part]) -> None:
+        """Initialize the parts.
+
+        Args:
+            path: The path of the function or property, used in warnings.
+            parts: The deprecated parts found so far.
+        """
+        self.path = path
+        """The path of the function or property, used in warnings."""
+
+        self.parts = parts
+        """The deprecated parts found so far."""
+
+        self.admonition: DocstringSectionAdmonition | None = None
+        """The generated notice, once the docstring is parsed.
+
+        It stays `None` if the docstring has a hand-written notice.
+        """
+
+    def text(self) -> str:
+        """Return the text of the combined notice.
+
+        Returns:
+            The notices of all parts, without repeating any.
+        """
+        return "\n\n".join(dict.fromkeys(part.text for part in self.parts))
+
+
+class _NoticedDocstring(Docstring):
+    """A docstring that gets its deprecation notices when it is parsed.
+
+    Wait until parsing to warn about incomplete notices. mkdocstrings parses
+    docstrings when rendering them, so this avoids warnings for objects that
+    aren't documented.
+
+    Griffe visits every module in a package. For a namespace package like
+    `frequenz`, mkdocstrings also loads other installed packages using that
+    namespace. Their missing notices shouldn't make this project's build fail.
+    """
+
+    def __init__(self, *args: Any, **kwargs: Any) -> None:
+        """Initialize the docstring.
+
+        Args:
+            *args: Positional arguments for [`Docstring`][griffe.Docstring].
+            **kwargs: Keyword arguments for [`Docstring`][griffe.Docstring].
+        """
+        super().__init__(*args, **kwargs)
+        self.notices: list[_Notice] = []
+        """The callbacks that add notices, in the order they were added."""
+
+    def parse(self, parser: Any = None, **options: Any) -> list[DocstringSection]:
+        """Parse the docstring and add its deprecation notices.
+
+        Args:
+            parser: The docstring parser to use, as for
+                [`Docstring.parse()`][griffe.Docstring.parse].
+            **options: Additional docstring parsing options.
+
+        Returns:
+            The parsed docstring as a list of sections.
+        """
+        sections = super().parse(parser, **options)
+        for notice in self.notices:
+            notice(sections)
+        return sections
+
+
+def _add_notice(obj: Object, notice: _Notice) -> None:
+    """Add a deprecation notice when the object's docstring is parsed.
+
+    Args:
+        obj: The object whose docstring gets the notice.
+        notice: The callback that adds the notice to the parsed sections.
+    """
+    docstring = obj.docstring
+    if docstring is not None and "parsed" in vars(docstring):
+        # Another extension already parsed it, so add the notice now.
+        notice(docstring.parsed)
+        return
+    if not isinstance(docstring, _NoticedDocstring):
+        docstring = (
+            _NoticedDocstring("", parent=obj)
+            if docstring is None
+            else _NoticedDocstring(
+                docstring.value,
+                lineno=docstring.lineno,
+                endlineno=docstring.endlineno,
+                parent=docstring.parent,
+                parser=docstring.parser,
+                parser_options=docstring.parser_options,
+            )
+        )
+        obj.docstring = docstring
+    docstring.notices.append(notice)
 
 
 def _literal(node: Any) -> Any:
@@ -414,7 +535,6 @@ class DeprecationsExtension(Extension):  # pylint: disable=too-many-instance-att
           `**kwargs`, the member also gets the generic message. Its value is
           shown as the whole wrapper call, because the extension can't tell
           which argument is the value.
-
         - If a decorator's message isn't a string literal, or its arguments use
           `*args`, the object gets a generic notice.
 
@@ -437,8 +557,13 @@ class DeprecationsExtension(Extension):  # pylint: disable=too-many-instance-att
         fails. It also logs a warning if a notice doesn't say since which
         version the object is deprecated and what to use instead, or if it
         shows the runtime warning. If you wrote the notice by hand, these
-        warnings about the notice aren't logged. You can see why something
-        couldn't be read with `mkdocs -v`, which shows the debug logs.
+        warnings about the notice aren't logged.
+
+        Warnings about incomplete notices wait until the docstring is parsed
+        for rendering. Griffe may also visit code that isn't documented, such
+        as other installed packages using the same namespace. Their missing
+        notices shouldn't make your build fail. To see why something couldn't
+        be read, use `mkdocs build --verbose` to show the debug logs.
 
     To enable it, add it to the mkdocstrings Python handler:
 
@@ -757,32 +882,54 @@ class DeprecationsExtension(Extension):  # pylint: disable=too-many-instance-att
         if owner.deprecated:
             # The notice of the whole object covers its parts too.
             return
-        if owner.docstring is None:
-            owner.docstring = Docstring("", parent=owner)
-        sections = owner.docstring.parsed
-        state = owner.extra[_NAMESPACE]
-        generated = state.get("parts_notice")
-        if self._handwritten_notice(sections, ignore=generated) is not None:
-            return
-        _logger.warning(
-            "%s: %s is deprecated, and %s. Write a `Deprecated:` section in the "
-            "docstring saying which part is deprecated.",
-            owner.path,
-            part,
-            problem,
+        entry = _Part(
+            part, _PART_NOTICES[part] if message is None else message, problem
         )
-        texts: list[str] = state.setdefault("parts_texts", [])
-        text = _PART_NOTICES[part] if message is None else message
-        if text not in texts:
-            texts.append(text)
-        if generated is None:
-            generated = DocstringSectionAdmonition(
-                kind=self.kind, text=text, title=self.title
-            )
-            sections.insert(0, generated)
-            state["parts_notice"] = generated
-        else:
-            generated.value.description = "\n\n".join(texts)
+        state = owner.extra[_NAMESPACE]
+        parts: _Parts | None = state.get("parts")
+        if parts is None:
+            parts = state["parts"] = _Parts(owner.path, [entry])
+            _add_notice(owner, functools.partial(self._place_parts, parts))
+            return
+        parts.parts.append(entry)
+        if parts.admonition is not None:
+            # Another extension parsed the docstring before Griffe visited this
+            # part, so update the notice that is already there.
+            self._warn_part(parts.path, entry)
+            parts.admonition.value.description = parts.text()
+
+    def _place_parts(self, parts: _Parts, sections: list[DocstringSection]) -> None:
+        """Add one notice for an object's deprecated parts.
+
+        Args:
+            parts: The object's deprecated parts.
+            sections: The parsed sections of the object's docstring.
+        """
+        parts.admonition = None
+        if self._handwritten_notice(sections) is not None:
+            return
+        for entry in parts.parts:
+            self._warn_part(parts.path, entry)
+        parts.admonition = DocstringSectionAdmonition(
+            kind=self.kind, text=parts.text(), title=self.title
+        )
+        sections.insert(0, parts.admonition)
+
+    @staticmethod
+    def _warn_part(path: str, entry: _Part) -> None:
+        """Warn that a deprecated part needs a hand-written notice.
+
+        Args:
+            path: The path of the part's function or property.
+            entry: The deprecated part.
+        """
+        _logger.warning(
+            "%s: %s is deprecated, and %s. Write a `Deprecated:` section in "
+            "the docstring saying which part is deprecated.",
+            path,
+            entry.part,
+            entry.problem,
+        )
 
     def _read_decorator(
         self, obj: Object, decorator: Decorator
@@ -1264,11 +1411,12 @@ class DeprecationsExtension(Extension):  # pylint: disable=too-many-instance-att
         fix: str = "Write a `Deprecated:` section in the docstring",
         generic: bool = False,
     ) -> None:
-        """Mark one object as deprecated and add its notice.
+        """Mark one object as deprecated and schedule its notice.
 
         If the docstring has a hand-written notice, it's used instead of `text`.
         It's also moved to the top of the docstring, where a generated notice
-        would go.
+        would go. Add the notice and log any warnings when the docstring is
+        parsed.
 
         Args:
             member: The object to mark.
@@ -1287,9 +1435,28 @@ class DeprecationsExtension(Extension):  # pylint: disable=too-many-instance-att
         member.deprecated = text
         if self.label:
             member.labels.add(self.label)
-        if member.docstring is None:
-            member.docstring = Docstring("", parent=member)
-        sections = member.docstring.parsed
+        _add_notice(
+            member,
+            functools.partial(self._place_notice, member.path, text, problem, fix),
+        )
+
+    def _place_notice(
+        self,
+        path: str,
+        text: str,
+        problem: str | None,
+        fix: str,
+        sections: list[DocstringSection],
+    ) -> None:
+        """Add a deprecation notice to the parsed docstring sections.
+
+        Args:
+            path: The object's path, used in warnings.
+            text: The notice.
+            problem: Why the notice is incomplete, or `None` if it's complete.
+            fix: How to fix the problem, added to the warning.
+            sections: The parsed sections of the object's docstring.
+        """
         written = self._handwritten_notice(sections)
         if written is not None:
             # A docstring must start with its summary, so the hand-written notice
@@ -1300,18 +1467,13 @@ class DeprecationsExtension(Extension):  # pylint: disable=too-many-instance-att
         if problem is not None:
             # The documentation says less than the guide asks for, so a strict
             # build should fail.
-            _logger.warning("%s: %s. %s to fix this.", member.path, problem, fix)
+            _logger.warning("%s: %s. %s to fix this.", path, problem, fix)
         sections.insert(
             0,
             DocstringSectionAdmonition(kind=self.kind, text=text, title=self.title),
         )
 
-    def _handwritten_notice(
-        self,
-        sections: list[DocstringSection],
-        *,
-        ignore: DocstringSection | None = None,
-    ) -> int | None:
+    def _handwritten_notice(self, sections: list[DocstringSection]) -> int | None:
         """Find a hand-written deprecation notice in a docstring.
 
         A hand-written notice is a `Deprecated` section, or an admonition with the
@@ -1319,15 +1481,12 @@ class DeprecationsExtension(Extension):  # pylint: disable=too-many-instance-att
 
         Args:
             sections: The parsed sections of the docstring.
-            ignore: A section the extension inserted itself, to skip.
 
         Returns:
             The index of the first hand-written notice, or `None` if there is
                 none.
         """
         for index, section in enumerate(sections):
-            if section is ignore:
-                continue
             if section.kind is DocstringSectionKind.deprecated:
                 return index
             if (

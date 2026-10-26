@@ -43,6 +43,8 @@ The extension generates the notice when the code has enough information. A hand-
 
   To fix these warnings, write the arguments as string literals, or write the `Deprecated:` notice by hand.
 
+  Warnings about incomplete notices are only logged when the object's docstring is parsed for rendering. Griffe may also visit dependency code that never appears in your documentation, for example other packages in the `frequenz` namespace. Missing notices in that code no longer make your build fail.
+
 - `mkdocs-autorefs` now reports alias targets it can't resolve. To fix this, add the inventory of the target's project.
 
 ## New Features
