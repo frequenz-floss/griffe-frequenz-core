@@ -1,11 +1,11 @@
 # AGENTS.md
 
-Griffe extensions that document what `frequenz-core` helpers do with function calls, like deprecations. Run `nox` and `mkdocs build --strict` before committing.
+Griffe extensions that document deprecations made with `@deprecated` and `frequenz-core` helper calls. Run `nox` and `mkdocs build --strict` before committing.
 
 ## Rules
 
 - Only read the documented code statically. Never import or run it, and only use string literals written in the call.
-- Match how `frequenz-core` works at runtime (argument matching, defaults, path resolution) exactly, and test it in `tests/compat` against the pinned version. Don't validate argument values beyond that: the extension documents code, it doesn't lint it.
+- Match runtime argument matching, defaults and path resolution exactly. Test against the real helpers in `tests/compat` and the real decorators in `tests/test_decorator.py`. Don't validate argument values beyond that: the extension documents code, it doesn't lint it.
 - Follow the deprecations guide (frequenz-floss/docs `python/deprecations.md`). The runtime warning is for a terminal. The notice is for the docs: it says since which version the object is deprecated and links what to use instead.
 - Document as much as can be read, the same way for every helper. Mark every object that can be identified, and use generic text for what can't be read.
 - Never hide problems. If a notice is missing something the guide asks for, or the docs can't show something in full, log a warning, so `--strict` fails. Use debug logs only to explain why.

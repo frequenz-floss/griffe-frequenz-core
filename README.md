@@ -17,9 +17,9 @@ the generated API documentation.
 
 The extensions fill in these gaps. The first one handles deprecations:
 `frequenz-core` can deprecate APIs using function calls instead of decorators.
-Neither Griffe's built-in support for `@deprecated` nor
-[`griffe-warnings-deprecated`](https://mkdocstrings.github.io/griffe-warnings-deprecated/)
-can detect these calls.
+This package documents both these calls and the `@deprecated` decorator. It
+replaces
+[`griffe-warnings-deprecated`](https://mkdocstrings.github.io/griffe-warnings-deprecated/).
 
 The extensions recognize helpers by their fully qualified names, without
 importing `frequenz-core`. So you don't need `frequenz-core` as a dependency,
@@ -36,10 +36,7 @@ mkdocstrings Python handler, as shown below.
 ## Documenting deprecations
 
 The `griffe_frequenz_core.deprecations` extension finds deprecations made using
-`frequenz-core` helper functions.
-
-It works alongside `griffe-warnings-deprecated`, which handles deprecations
-made using decorators. You can enable both:
+`@deprecated` and `frequenz-core` helper functions. Enable it like this:
 
 ```yaml
 plugins:
@@ -48,12 +45,12 @@ plugins:
         python:
           options:
             extensions:
-              - griffe_warnings_deprecated
               - griffe_frequenz_core.deprecations
 ```
 
-By default, both extensions use the same format, so all deprecations look the
-same in your documentation.
+Don't enable it alongside `griffe-warnings-deprecated`. See [Switching from
+griffe-warnings-deprecated](#switching-from-griffe-warnings-deprecated) for how
+to update your configuration.
 
 For each deprecated object, the extension:
 
@@ -93,18 +90,43 @@ plugins:
         python:
           options:
             extensions:
-              - griffe_warnings_deprecated:
-                  kind: deprecated
               - griffe_frequenz_core.deprecations:
                   kind: deprecated
 ```
 
-### Recognized frequenz-core helpers
+### Switching from griffe-warnings-deprecated
 
-The extension currently understands these helpers:
+You can use this extension instead of `griffe-warnings-deprecated`. By default,
+the notices look the same, but this extension follows the deprecations guide:
 
-| `frequenz-core` helper                        | How it's used                        | What gets documented     |
+- A hand-written notice takes priority over the decorator's message.
+- An object is still marked as deprecated if the message can't be read.
+- A missing notice produces a warning, even if the decorator has a message.
+
+To switch:
+
+1. Remove `griffe_warnings_deprecated` from the mkdocstrings `extensions` list
+   and remove `griffe-warnings-deprecated` from your documentation dependencies.
+2. Add `griffe_frequenz_core.deprecations` to the `extensions` list.
+3. If you set `kind`, `title` or `label`, move those options to this extension.
+4. Add a hand-written `Deprecated:` notice to each decorated object's docstring.
+
+Don't enable both extensions for the decorator. The other extension inserts
+the runtime warning as an admonition. This extension can't tell that apart
+from a hand-written notice, so you could get the runtime warning as your
+notice, or two notices.
+
+If you want to keep `griffe-warnings-deprecated` for the decorator, set this
+extension's `decorator_functions` option to an empty list.
+
+### Recognized decorators and helpers
+
+The extension understands these decorators and helpers:
+
+| Decorator or helper                           | How it's used                        | What gets documented     |
 |-----------------------------------------------|--------------------------------------|--------------------------|
+| `warnings.deprecated`                         | Used as a decorator                  | The decorated object     |
+| `typing_extensions.deprecated`                | Used as a decorator                  | The decorated object     |
 | `frequenz.core.warnings.deprecated_aliases()` | Assigned to a module's `__getattr__` | All aliases in the table |
 | `frequenz.core.warnings.DeprecatedAlias`      | An entry in that table               | The alias                |
 | `frequenz.core.enum.deprecated_member()`      | Used as an enum member's value       | The enum member          |
@@ -116,6 +138,37 @@ example, this is recognized:
 ```python
 from frequenz.core.enum import deprecated_member as dm
 ```
+
+### Deprecated classes and functions
+
+You can deprecate a class, function, method or property with
+`@warnings.deprecated` on Python 3.13 or later, or
+`@typing_extensions.deprecated` on older versions.
+
+The decorator only takes a runtime warning. Write the documentation notice
+yourself, using a `Deprecated:` section in the docstring:
+
+```python
+from typing_extensions import deprecated
+
+
+@deprecated("mypkg.OldThing is deprecated. Use mypkg.NewThing instead.")
+class OldThing:
+    """A thing, now called `NewThing`.
+
+    Deprecated:
+        Deprecated since v1.2.0. Use [`NewThing`][mypkg.NewThing] instead.
+    """
+```
+
+The extension marks the object as deprecated and moves your notice to the top
+of its docstring. If you don't write a notice, it shows the decorator's
+message as Markdown and logs a warning. If it can't read the message either,
+it uses a generic notice and logs a warning:
+
+> Deprecated. It will be removed in a future release.
+
+To deprecate a property, put `@deprecated(...)` on its getter, below `@property`.
 
 ### Deprecated module aliases
 
@@ -337,6 +390,12 @@ Here are the main limitations:
   keyword arguments mean only the alias name can be read. If positional
   arguments are unpacked, the alias isn't marked at all.
 
+- **Decorator messages need literal strings.** If the message isn't a string
+  literal, or the arguments use `*args`, the object gets a generic notice.
+  A decorator used without a call, like `@deprecated`, fails at runtime.
+  So does a call whose arguments don't match the signature, for example
+  `@deprecated(message="Gone")`. These leave the object unmarked.
+
 - **The extension doesn't validate your code.** It matches arguments the same
   way Python would when calling the function. If the arguments don't match the
   function's signature, the call is skipped. But the extension doesn't check
@@ -369,6 +428,7 @@ Broken links to replacements are reported separately by `mkdocs-autorefs`.
 | `kind`                     | `danger`                                    | The kind of the admonition, which is also its CSS class.                |
 | `title`                    | `Deprecated`                                | The title of the admonition. An empty title or `null` means no title.   |
 | `label`                    | `deprecated`                                | The label added to deprecated objects. `null` means no label.           |
+| `decorator_functions`      | `warnings.deprecated`, `typing_extensions.deprecated` | The paths of the decorators that deprecate a class or function. |
 | `alias_table_functions`    | `frequenz.core.warnings.deprecated_aliases` | The paths of the functions that create a module `__getattr__`.          |
 | `alias_classes`            | `frequenz.core.warnings.DeprecatedAlias`    | The paths of the callables that create one alias entry.                 |
 | `member_wrapper_functions` | `frequenz.core.enum.deprecated_member`, `frequenz.core.enum.DeprecatedMember` | The paths of the callables that wrap a deprecated enum member's value. |
@@ -383,7 +443,7 @@ You can use these placeholders in `default_message`:
   in the same module or enum, the link only shows its name.
 - `{since}`: The version string, as written in the call.
 
-The three path options are lists. If you set one, it replaces the default. To
+The four path options are lists. If you set one, it replaces the default. To
 use your own helper as well as the `frequenz-core` one, list both:
 
 ```yaml
@@ -394,9 +454,12 @@ extensions:
         - mypkg.compat.moved_to
 ```
 
-Your own helpers need to take the same arguments as the `frequenz-core` helper
+Your own decorators and helpers need to take the same arguments as the ones
 they replace, because the extension reads their calls the same way:
 
+- **Decorators** work like `deprecated(message, /, *, category=DeprecationWarning,
+  stacklevel=1)`. The message must be positional. The other arguments must be
+  passed by keyword.
 - **Alias tables** work like `deprecated_aliases(module, /, *aliases)`. Every
   positional argument after the module is an alias entry. Keyword arguments are
   ignored.
