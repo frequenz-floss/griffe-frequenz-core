@@ -1,7 +1,7 @@
 # License: MIT
 # Copyright © 2026 Frequenz Energy-as-a-Service GmbH
 
-"""A module with a `__getattr__` of its own, which must be left alone."""
+"""A module with its own `__getattr__`, which the extension must not change."""
 
 from typing import Any
 

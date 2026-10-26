@@ -28,11 +28,11 @@ classifiers = [
 ]
 requires-python = ">= 3.11, < 4"
 dependencies = [
-  # The Griffe library, whose distribution is named `griffelib` since 2.0 while
-  # the import package stayed `griffe`. The `griffe` distribution is now a
-  # meta-package pinning `griffelib` and `griffecli` to one exact version, which
-  # a library must not force on anyone. This is also what mkdocstrings-python
-  # and griffe-warnings-deprecated depend on.
+  # The Griffe library. Since 2.0, its distribution is called `griffelib`, but
+  # the import package is still `griffe`. The `griffe` distribution is now a
+  # meta-package that pins `griffelib` and `griffecli` to an exact version, and
+  # a library shouldn't force that on its users. mkdocstrings-python and
+  # griffe-warnings-deprecated also depend on `griffelib`.
   "griffelib >= 2.0.0, < 3",
 ]
 dynamic = ["version"]
@@ -85,10 +85,10 @@ dev-pytest = [
   "pytest-mock == 3.16.0",
   "pytest-asyncio == 1.4.0",
   "async-solipsism == 0.9",
-  # Test-only, and never a runtime dependency: `tests/compat/` runs the real
-  # helpers to check that what we document is what a user is told at runtime.
-  # The exact pin is the record of the last core release actually tested
-  # against, so Dependabot bumping it is the signal that the contract moved.
+  # Only for tests, never a runtime dependency. `tests/compat/` runs the real
+  # helpers to check that the documentation matches the runtime warnings. We pin
+  # the exact version we last tested with, so when Dependabot bumps it, we know
+  # we need to check that the extension still works with the new release.
   "frequenz-core == 1.4.0",
 ]
 dev = [

@@ -6,38 +6,40 @@
 
 ## Introduction
 
-A collection of [Griffe](https://mkdocstrings.github.io/griffe/) extensions
-that teach [mkdocstrings](https://mkdocstrings.github.io/) about
-[`frequenz-core`](https://github.com/frequenz-floss/frequenz-core-python)
-helpers.
+This package provides [Griffe](https://mkdocstrings.github.io/griffe/)
+extensions that help [mkdocstrings](https://mkdocstrings.github.io/) understand
+some helpers from
+[`frequenz-core`](https://github.com/frequenz-floss/frequenz-core-python).
 
-Some of those helpers express information that Griffe cannot recover from
-static analysis alone, so the API documentation generated for code using them
-comes out incomplete. Each extension here fills one of those gaps, and new
-ones are added as more helpers need the same treatment.
+Some of these helpers use patterns that Griffe can't fully understand by just
+reading the source code. This means that some information might be missing from
+the generated API documentation.
 
-The first gap covered is deprecation. `frequenz-core` marks some APIs as
-deprecated through a function call instead of a decorator, which neither the
-`@deprecated` decorator support in Griffe nor
+The extensions fill in these gaps. The first one handles deprecations:
+`frequenz-core` can deprecate APIs using function calls instead of decorators.
+Neither Griffe's built-in support for `@deprecated` nor
 [`griffe-warnings-deprecated`](https://mkdocstrings.github.io/griffe-warnings-deprecated/)
-can detect.
+can detect these calls.
 
-The extensions match fully qualified names as strings and never import
-`frequenz-core`, so this package does not depend on it and can document any
-project that uses those helpers.
+The extensions recognize helpers by their fully qualified names, without
+importing `frequenz-core`. So you don't need `frequenz-core` as a dependency,
+and you can use the extensions to document any project that uses these helpers.
 
 ## Installation
 
-Add `griffe-frequenz-core` to the dependencies your documentation is built
-with, next to `mkdocstrings`. Then enable each extension you want by its module
-path, in the `extensions` option of the mkdocstrings Python handler.
+Add `griffe-frequenz-core` to your documentation dependencies, alongside
+`mkdocstrings`.
+
+Then enable the extensions you want in the `extensions` option of the
+mkdocstrings Python handler, as shown below.
 
 ## Documenting deprecations
 
-The `griffe_frequenz_core.deprecations` extension documents the deprecations
-`frequenz-core` expresses through a call. It is meant to run next to
-`griffe-warnings-deprecated`, which documents the ones expressed through a
-decorator:
+The `griffe_frequenz_core.deprecations` extension finds deprecations made using
+`frequenz-core` helper functions.
+
+It works alongside `griffe-warnings-deprecated`, which handles deprecations
+made using decorators. You can enable both:
 
 ```yaml
 plugins:
@@ -50,16 +52,17 @@ plugins:
               - griffe_frequenz_core.deprecations
 ```
 
-Its defaults match `griffe-warnings-deprecated`, so with this configuration
-both kinds of deprecation are rendered the same way. Every deprecation the
-extension recognizes gets the same three things a decorated one gets:
+By default, both extensions use the same format, so all deprecations look the
+same in your documentation.
 
-- a `deprecated` label,
-- the message stored in the object's `deprecated` field,
-- an admonition with the message, inserted at the top of its docstring.
+For each deprecated object, the extension:
 
-If you have a custom admonition style for deprecations, you can set the `kind`
-option to match it.
+- Adds a `deprecated` label.
+- Stores the deprecation message in the object's `deprecated` field.
+- Adds an admonition with the message at the top of its docstring.
+
+If you use a different admonition style for deprecations, you can change the
+`kind` option. For example:
 
 ```yaml
 plugins:
@@ -68,29 +71,43 @@ plugins:
         python:
           options:
             extensions:
-            - griffe_warnings_deprecated:
-                kind: deprecated
-            - griffe_frequenz_core.deprecations:
-                kind: deprecated
+              - griffe_warnings_deprecated:
+                  kind: deprecated
+              - griffe_frequenz_core.deprecations:
+                  kind: deprecated
 ```
 
 ### Recognized frequenz-core helpers
 
-| `frequenz-core` helper                        | Written as                          | Documented object       |
-|-----------------------------------------------|-------------------------------------|-------------------------|
-| `frequenz.core.warnings.deprecated_aliases()` | the value of a module `__getattr__` | every alias in the table|
-| `frequenz.core.enum.deprecated_member()`      | the value of an enum member         | the enum member         |
-| `frequenz.core.enum.DeprecatedMember`         | the value of an enum member         | the enum member         |
+The extension currently understands these helpers:
 
-Calls are matched by the fully qualified path Griffe resolves from the
-module's imports, so an import under another name, such as
-`from frequenz.core.enum import deprecated_member as dm`, is recognized too.
+| `frequenz-core` helper                        | How it's used                        | What gets documented     |
+|-----------------------------------------------|--------------------------------------|--------------------------|
+| `frequenz.core.warnings.deprecated_aliases()` | Assigned to a module's `__getattr__` | All aliases in the table |
+| `frequenz.core.enum.deprecated_member()`      | Used as an enum member's value       | The enum member          |
+| `frequenz.core.enum.DeprecatedMember`         | Used as an enum member's value       | The enum member          |
+
+Griffe resolves imports before matching these names, so aliases work too. For
+example, this is recognized:
+
+```python
+from frequenz.core.enum import deprecated_member as dm
+```
 
 ### Deprecated module aliases
 
-`deprecated_aliases()` keeps a moved symbol importable from its old module
-through a module `__getattr__`, with the names declared again under
-`TYPE_CHECKING` for type checkers:
+When you move or rename something, you might want to keep the old name working
+for a while.
+
+The `deprecated_aliases()` helper lets you do this by setting a module's
+`__getattr__`. You can also declare the old names under `TYPE_CHECKING`, so
+type checkers can still find them.
+
+The helper takes a table that maps each old name to the module where the
+object lives now. If the object was also renamed, you can write the target as
+`"module:name"`.
+
+For example:
 
 ```python
 from typing import TYPE_CHECKING, TypeAlias
@@ -116,33 +133,41 @@ else:
     )
 ```
 
-If this is `mypkg.oldmod`, the documentation of `Widget` starts with an
-admonition saying "`mypkg.oldmod.Widget` is deprecated. Use
-`mypkg.newmod.Widget` instead.", and its value is rendered as
-`mypkg.newmod.Widget` instead of the private `_Widget`. A target written as
-`"module:name"` renames the symbol as well as moving it, so `Doohickey` points
-at `mypkg.newmod.Gadget`.
+Suppose this code is in `mypkg.oldmod`. Here's what happens in the generated
+documentation:
 
-The details of what gets documented:
+- **`Widget`** gets the message "`mypkg.oldmod.Widget` is deprecated. Use
+  `mypkg.newmod.Widget` instead." The replacement is linked, and its value is
+  shown as `mypkg.newmod.Widget` instead of the private `_Widget`.
+- **`Doohickey`** points to `mypkg.newmod.Gadget`, because both the module and
+  the name changed.
 
-- Every name in the table is marked, whether or not it is declared under
-  `TYPE_CHECKING`. A name with no declaration gets a new module attribute, so
-  it still appears in the documentation.
-- The message is the `message` argument of the call when there is one, and the
-  `default_message` option otherwise. `{old}` is replaced with the path of the
-  alias, formatted as code, and `{new}` with a link to the target. When the
-  target is neither in your documentation nor in a configured inventory, the
-  link is rendered as plain code instead of failing a strict build.
-- The table may be passed positionally or as `aliases=`. The other arguments,
-  such as `category` and `stacklevel`, don't change the documentation.
-- The call has to be assigned directly to the module's `__getattr__`. A
-  `def __getattr__()` that calls `deprecated_aliases()` inside is not
-  recognized, and neither is a `__getattr__` built by anything else.
+A few other things worth knowing:
+
+- **You don't need a `TYPE_CHECKING` declaration for every alias.** The
+  extension marks all aliases in the table as deprecated. If a name isn't
+  declared under `TYPE_CHECKING`, it creates a module attribute for it, so the
+  alias still appears in the documentation.
+- **The message comes from the call, or from `default_message`.** If the call
+  passes a `message`, the extension uses it. Otherwise, it uses the
+  `default_message` option. In both cases, it replaces `{old}` with the path of
+  the alias, formatted as code, and `{new}` with a link to the replacement.
+- **Replacement links are optional.** If the replacement isn't in your
+  documentation or in a configured inventory, the link is shown as plain code.
+  It doesn't make a strict build fail.
+- **You can pass the table positionally or as `aliases=`.** Arguments such as
+  `category` and `stacklevel` don't affect the documentation.
+- **The helper must be assigned directly to `__getattr__`.** A custom `def
+  __getattr__()` that calls `deprecated_aliases()` internally won't be
+  recognized. Neither will a `__getattr__` created in some other way.
 
 ### Deprecated enum members
 
-`deprecated_member()`, or the `DeprecatedMember` class it returns, wraps the
-value of an enum member to deprecate it:
+You can deprecate an enum member by wrapping its value with
+`deprecated_member()` or `DeprecatedMember`, giving the message for the runtime
+warning.
+
+For example:
 
 ```python
 from frequenz.core.enum import DeprecatedMember, Enum, deprecated_member
@@ -154,18 +179,28 @@ class TaskStatus(Enum):
     WAITING = DeprecatedMember(1, "WAITING is deprecated, use OPEN instead")
 ```
 
-Both members are marked with their message as written, and their value is
-rendered as the real value instead of the wrapper call, so the documentation
-shows `PENDING = 1`.
+The extension marks both members using their message as written. It also shows
+their actual value instead of the wrapper. For example, the documentation shows
+`PENDING = 1`, not the call to `deprecated_member()`.
 
 ### Hand-written admonitions
 
-When the docstring of a deprecated object already has a deprecation
-admonition, the extension leaves the docstring alone and only adds the label
-and the `deprecated` field. It counts as a deprecation admonition if it is a
-`Deprecated:` section, or an admonition whose title matches the `title`
-option, ignoring case. Write one when the message is not enough, for example
-to say since which version the symbol is deprecated:
+Sometimes the generated message isn't enough. For example, you might want to
+say since which version the object is deprecated.
+
+You can do this by adding a deprecation admonition to the object's docstring.
+
+If the extension finds one, it leaves the docstring as it is, instead of adding
+another admonition. It still adds the `deprecated` label and fills in the
+`deprecated` field.
+
+It recognizes two kinds of hand-written admonitions:
+
+- A `Deprecated:` section in the docstring.
+- An admonition whose title matches the extension's `title` option
+  (case-insensitive).
+
+For example:
 
 ```python
 if TYPE_CHECKING:
@@ -180,40 +215,51 @@ if TYPE_CHECKING:
 
 ### Known limitations
 
-Griffe reads the source without running it, so a deprecation is only
-documented when the call can be understood from the syntax tree alone:
+Griffe reads Python source code without running it. This means the extension
+can't evaluate variables, call functions, or work out values that are only
+known at runtime. It only documents a deprecation if it can understand the call
+just by reading it.
 
-- Messages, alias names and alias targets must be string literals written in
-  the call. A message held in a constant, built by an f-string or joined from
-  pieces cannot be recovered. An enum member with such a message is left
-  unmarked, an alias table entry with such a name or target is skipped, and an
-  alias table with such a `message` falls back to the `default_message`
-  option, so its documentation no longer matches the runtime warning.
-- The alias table must be a dict literal written in the call, passed as the
-  second positional argument or as `aliases=`. A table held in a constant, as in
-  `deprecated_aliases(__name__, ALIASES)`, cannot be read, and every alias in it
-  is left unmarked.
-- The arguments of `deprecated_member()` and `DeprecatedMember` must be written
-  out, positionally or by keyword. `deprecated_member(*ARGS)` is not
-  recognized, and the member is left unmarked.
+Here are the main limitations:
 
-Each case the extension skips is logged at debug level, which
-`mkdocs build --verbose` shows.
+- **Messages, alias names and targets need literal strings.** They must be
+  written as string literals in the call. Constants, f-strings, and strings
+  joined with `+` aren't evaluated. If an enum member's message isn't a
+  literal, the member isn't marked. If an alias name or target isn't a literal,
+  that alias is skipped. If the `message` of an alias table isn't a literal,
+  the extension uses `default_message` instead, so the documentation doesn't
+  match the runtime warning anymore.
+
+- **The alias table must be a dict written directly in the call.** You can pass
+  it as the second positional argument or as `aliases=`. A table stored in a
+  variable can't be read, so none of its aliases are marked. For example:
+
+  ```python
+  deprecated_aliases(__name__, ALIASES)
+  ```
+
+- **Enum wrapper arguments can't be unpacked.** Calls to `deprecated_member()`
+  and `DeprecatedMember` must use explicit arguments, positionally or by
+  keyword. For example, a member defined as `deprecated_member(*ARGS)` isn't
+  marked.
+
+The extension logs every case it skips at debug level. You can see these logs
+with `mkdocs build --verbose`.
 
 ### Options
 
 | Option                     | Default                                     | Effect                                                                  |
 |----------------------------|---------------------------------------------|-------------------------------------------------------------------------|
 | `kind`                     | `danger`                                    | The kind of the admonition, which is also its CSS class.                |
-| `title`                    | `Deprecated`                                | The title of the admonition. An empty title or `null` renders none.     |
-| `label`                    | `deprecated`                                | The label added to deprecated objects. `null` adds none.                |
-| `alias_table_functions`    | `frequenz.core.warnings.deprecated_aliases` | The paths of the functions that build a module `__getattr__`.           |
+| `title`                    | `Deprecated`                                | The title of the admonition. An empty title or `null` means no title.   |
+| `label`                    | `deprecated`                                | The label added to deprecated objects. `null` means no label.           |
+| `alias_table_functions`    | `frequenz.core.warnings.deprecated_aliases` | The paths of the functions that create a module `__getattr__`.          |
 | `member_wrapper_functions` | `frequenz.core.enum.deprecated_member`, `frequenz.core.enum.DeprecatedMember` | The paths of the callables that wrap a deprecated enum member's value. |
-| `default_message`          | `{old} is deprecated. Use {new} instead.`   | The alias message used when the call passes no `message`.               |
-| `show_target`              | `true`                                      | Render an alias' value as its target, not the private name.             |
+| `default_message`          | `{old} is deprecated. Use {new} instead.`   | The alias message, if the call doesn't pass a `message`.                |
+| `show_target`              | `true`                                      | Show an alias' value as its target, instead of the private name.        |
 
-The two path options are lists, and setting one replaces its default. To match
-a helper of your own as well as the `frequenz-core` one, list both:
+The two path options are lists. If you set one, it replaces the default. To use
+your own helper as well as the `frequenz-core` one, list both:
 
 ```yaml
 extensions:
@@ -223,22 +269,27 @@ extensions:
         - mypkg.compat.moved_to
 ```
 
-A helper of your own is read with the signature of the one it stands in for.
-For an alias table that is `deprecated_aliases()`: the table is its second
-positional argument or `aliases=`, and the message is `message=`. For an enum
-member wrapper it is `deprecated_member(value, message)`, each passed
-positionally or by keyword.
+Your own helpers need to take the same arguments as the `frequenz-core` helper
+they replace, because the extension reads their calls the same way:
 
-They are options so that, if `frequenz-core` renames or moves a helper, you can
-point them at the new path without waiting for a release of this package. For
-the same reason, `default_message` has to follow the default of
-`deprecated_aliases()`, since that is what the runtime warning says.
+- **Alias tables** work like `deprecated_aliases()`. The table is the second
+  positional argument or `aliases=`, and the message is `message=`.
+- **Enum member wrappers** work like `deprecated_member(value, message)`. You
+  can pass both arguments positionally or by keyword.
 
-There is one deliberate difference from `griffe-warnings-deprecated`: given an
-empty `title`, it puts the message in the admonition title, and this
-extension does not. The message contains a link to the target, which does not
-belong in a title, and the title is also what tells a hand-written admonition
-apart.
+If `frequenz-core` renames or moves a helper, you can update these options with
+the new path. You don't need to wait for a new release of this package.
+
+`default_message` should match the default message of `deprecated_aliases()`,
+because that's what the runtime warning says.
+
+There is one difference from `griffe-warnings-deprecated`, on purpose. If
+`title` is empty, `griffe-warnings-deprecated` puts the message in the
+admonition title, but this extension doesn't, for two reasons:
+
+- The message contains a link to the replacement, which doesn't belong in a
+  title.
+- The extension uses the title to recognize hand-written admonitions.
 
 ## Supported Platforms
 

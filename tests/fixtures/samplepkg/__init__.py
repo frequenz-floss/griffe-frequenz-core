@@ -1,9 +1,9 @@
 # License: MIT
 # Copyright © 2026 Frequenz Energy-as-a-Service GmbH
 
-"""A package documenting every deprecation shape the extension has to handle.
+"""A package with every kind of deprecation the extension has to handle.
 
-This is never imported. Griffe reads it statically, which is the whole point:
- `frequenz-core` does not need to be imported, because the helper paths are
- resolved from the import statements in these modules.
+This package is never imported. Griffe only reads it, which is the whole point:
+the helper paths are resolved from the import statements in these modules, so
+`frequenz-core` doesn't need to be imported.
 """
