@@ -129,6 +129,21 @@ _SINCE_FIX = (
             "`since` isn't given",
             _SINCE_FIX,
         ),
+        (
+            "from typing_extensions import deprecated\n"
+            "@deprecated(_MESSAGE)\n"
+            "def A(): ...\n",
+            "A: the deprecation message can't be read",
+            _DOCSTRING_FIX,
+        ),
+        (
+            "from typing_extensions import deprecated\n"
+            "@deprecated('mod.A is deprecated.')\n"
+            "def A(): ...\n",
+            "A: there is no notice written for the documentation, so the runtime "
+            "warning is shown instead",
+            _DOCSTRING_FIX,
+        ),
     ],
     ids=[
         "enum-unreadable",
@@ -141,6 +156,8 @@ _SINCE_FIX = (
         "alias-unreadable",
         "alias-message",
         "alias-no-since",
+        "decorator-unreadable",
+        "decorator-runtime-only",
     ],
 )
 def test_a_notice_short_of_the_guide_is_warned_about(
