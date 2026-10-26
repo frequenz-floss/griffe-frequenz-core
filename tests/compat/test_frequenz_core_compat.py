@@ -12,9 +12,9 @@ These tests are the only ones that import it. They check the parts of
 comparing what they do at runtime with what we put in the documentation.
 
 An alias notice is written for the documentation and links the new path, so
-it's different from the runtime warning. The tests only check that both say the
-same things: since which version it is deprecated, and what to use instead. To
-compare them, the tests only remove the link markup.
+it's different from the runtime warning. The tests check that both say what to
+use instead. Only the notice says since which version the alias is deprecated.
+To compare the replacements, the tests remove the link markup.
 """
 
 import inspect
@@ -239,19 +239,19 @@ def test_alias_message_is_only_the_runtime_warning(
 def test_since_alias_documents_the_runtime_version_and_target(
     aliases_module: griffe.Module, name: str, since: str, target: str
 ) -> None:
-    """Ensure an alias with `since` documents the version and target it warns about.
+    """Ensure an alias notice gives the version and the replacement.
 
-    The notice is written for the documentation, so it's different from the
-    runtime warning, but both must say the same version and replacement. `Gadget`
-    has no `new_module`, so this also checks that both resolve it to the module
-    where the alias is defined.
+    The notice and runtime warning must point to the same replacement. Only the
+    notice says since which version the alias is deprecated. `Gadget` has no
+    `new_module`, so both must use the module where the alias is defined.
     """
     runtime = str(_alias_warning(name).message)
     documented = _plain(str(aliases_module[name].deprecated))
 
-    for part in (f"since {since}.", f"Use {target} instead."):
-        assert part in runtime
-        assert part in documented
+    assert f"Use {target} instead." in runtime
+    assert f"Use {target} instead." in documented
+    assert f"since {since}." in documented
+    assert since not in runtime
 
 
 def test_alias_entry_parameters_match_the_extension() -> None:
