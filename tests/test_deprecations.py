@@ -148,6 +148,22 @@ def test_a_renamed_alias_points_at_its_new_name(samplepkg: Module) -> None:
     assert "samplepkg.newmod.Gadget" in str(member.deprecated)
 
 
+def test_an_alias_message_next_to_since_does_not_change_the_notice(
+    samplepkg: Module,
+) -> None:
+    """Ensure an alias with both `since` and a message gets a notice from `since`.
+
+    The message is only the runtime warning, so it is not shown.
+    """
+    member = attribute(samplepkg, "oldmod.Doohickey")
+    assert member.deprecated == (
+        "Deprecated since v1.3.0. Use [`samplepkg.newmod.Gadget`][] instead."
+    )
+    assert [section.value.contents for section in admonitions(member)] == [
+        member.deprecated
+    ]
+
+
 def test_an_alias_without_a_docstring_gets_one(samplepkg: Module) -> None:
     """Ensure an alias without a docstring gets one, with the admonition."""
     member = attribute(samplepkg, "oldmod.MAX_WIDGETS")
@@ -572,11 +588,11 @@ _ENTRY = "DeprecatedAlias('Thing', new_module='pkg.new', since='v1')"
             "are unpacked, so it's skipped",
         ),
         (
-            "__name__, DeprecatedAlias('Thing', new_module='pkg.new')",
+            "__name__, DeprecatedAlias('Thing', message='{old} gone.')",
             "needs a positional name",
         ),
         (
-            "__name__, DeprecatedAlias('Thing', message='{old} gone.')",
+            "__name__, DeprecatedAlias('Thing', since='v1', message='{old} gone.')",
             "needs a positional name",
         ),
         (
@@ -590,11 +606,6 @@ _ENTRY = "DeprecatedAlias('Thing', new_module='pkg.new', since='v1')"
         ),
         (
             "__name__, DeprecatedAlias('Thing', 'pkg.new', message='Gone')",
-            "needs a positional name",
-        ),
-        (
-            "__name__, DeprecatedAlias('Thing', new_module='pkg.new', message='Gone', "
-            "since='v1')",
             "needs a positional name",
         ),
         (
@@ -645,6 +656,12 @@ _NO_TARGET = "what to use instead, because the target can't be read"
             _TO_NEW,
             _NO_SINCE,
         ),
+        ("DeprecatedAlias('Thing', new_module='pkg.new')", _TO_NEW, _NO_SINCE),
+        (
+            "DeprecatedAlias('Thing', new_module='pkg.new', since=None, message=None)",
+            _TO_NEW,
+            _NO_SINCE,
+        ),
         (
             "DeprecatedAlias('Thing', new_module=TARGET, since='v1')",
             "Deprecated since v1.",
@@ -675,6 +692,11 @@ _NO_TARGET = "what to use instead, because the target can't be read"
             "DeprecatedAlias('Thing', new_module='pkg.new', **KWARGS)",
             _GENERIC,
             "keyword arguments of the alias entry",
+        ),
+        (
+            "DeprecatedAlias('Thing', new_module='pkg.new', **KWARGS)",
+            _GENERIC,
+            "since which version it is deprecated, because `since` can't be read",
         ),
     ],
 )

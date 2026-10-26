@@ -131,10 +131,10 @@ Each old name is described by a `DeprecatedAlias` entry. You can provide:
 - `new_module`: The module where the object lives now.
 - `new_name`: Its new name, if it was renamed.
 - `since`: The version where the old name became deprecated.
-- `message`: A custom runtime warning, instead of `since`.
+- `message`: A custom runtime warning.
 
-You need to provide `new_module`, `new_name` or both, and exactly one of
-`since` and `message`.
+You need to provide `new_module`, `new_name` or both. In `frequenz-core` 1.6.0,
+`since` and `message` are optional. You can pass either, both or neither.
 
 For example:
 
@@ -185,9 +185,9 @@ A few other things worth knowing:
   appears next to the alias in the documentation, so it doesn't repeat the
   deprecated name. It links the replacement using code formatting.
 - **The `message` argument only affects runtime warnings.** It doesn't change
-  the documentation notice. If an entry has a `message` instead of `since`, the
+  the documentation notice. If an entry has no `since`, the
   notice only says what to use instead, and the extension logs a warning. To
-  fix this, write a `Deprecated:` section in the docstring under
+  fix this, pass `since` or write a `Deprecated:` section in the docstring under
   `TYPE_CHECKING`.
 - **Replacement links use normal cross-references.** If a link can't be
   resolved, `mkdocs-autorefs` reports it. For replacements in another project,
@@ -377,8 +377,8 @@ they replace, because the extension reads their calls the same way:
 - **Alias entries** work like `DeprecatedAlias(name, /, *, new_module=None,
   new_name=None, since=None, message=None)`. The name is positional, and
   everything else is passed by keyword. You need to pass `new_module`,
-  `new_name` or both, and exactly one of `since` and `message`. Passing `None`
-  is the same as not passing the argument.
+  `new_name` or both. `since` and `message` are optional and independent.
+  Passing `None` is the same as not passing the argument.
 - **Enum member wrappers** work like `deprecated_member(value, message)`. You
   can pass both arguments positionally or by keyword.
 

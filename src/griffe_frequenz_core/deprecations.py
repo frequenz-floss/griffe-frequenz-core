@@ -85,6 +85,9 @@ class _AliasEntry(NamedTuple):
     since: str | None
     """The version since which the alias is deprecated, or `None` if unknown."""
 
+    since_given: bool
+    """Whether `since` is passed, or could be passed in unpacked keyword arguments."""
+
 
 def _link(new: str, *, local: bool) -> str:
     """Link a replacement in code font.
@@ -132,8 +135,8 @@ def _alias_entry_arguments(
     The arguments are matched the same way Python matches them for
     `DeprecatedAlias(name, /, *, new_module=None, new_name=None, since=None,
     message=None)`. At least one of `new_module` and `new_name` must be passed,
-    and exactly one of `since` and `message`. Passing `None` is the same as not
-    passing the argument, like at runtime.
+    while `since` and `message` are optional and independent. Passing `None` is
+    the same as not passing the argument, like at runtime.
 
     The caller must check for unpacked arguments first, because this function
     would treat a `*args` or `**kwargs` as a normal argument.
@@ -146,8 +149,7 @@ def _alias_entry_arguments(
             `message`, with `None` for the ones that weren't passed. If the call
             doesn't match the signature, `None`. This happens when an argument is
             missing, repeated, unknown or passed the wrong way, when neither
-            `new_module` nor `new_name` is passed, or when both or neither of
-            `since` and `message` are passed.
+            `new_module` nor `new_name` is passed.
     """
     keywords = ("new_module", "new_name", "since", "message")
     name: Any = None
@@ -163,8 +165,6 @@ def _alias_entry_arguments(
         else:
             return None
     if name is None or not ("new_module" in bound or "new_name" in bound):
-        return None
-    if ("since" in bound) == ("message" in bound):
         return None
     return (
         name,
@@ -242,8 +242,10 @@ class DeprecationsExtension(Extension):  # pylint: disable=too-many-instance-att
     ```
 
     The extension marks every alias in the table, even if it isn't declared for
-    type checkers. Its notice is built from `default_message`, saying since which
-    version it is deprecated and linking its target.
+    type checkers. Its notice is built from `default_message`, linking its
+    target and saying since which version it is deprecated. `since` is optional,
+    but without it the notice only says what to use instead, and the extension
+    logs a warning.
 
     If an entry has `new_name`, the object was also renamed. If it doesn't have
     `new_module`, it points to another name in the same module. The entry's
@@ -390,7 +392,7 @@ class DeprecationsExtension(Extension):  # pylint: disable=too-many-instance-att
                 one alias entry. Their calls are read as if they were calls to
                 `DeprecatedAlias(name, /, *, new_module=None, new_name=None,
                 since=None, message=None)`, with at least one of `new_module` and
-                `new_name`, and exactly one of `since` and `message`.
+                `new_name`. `since` and `message` are optional and independent.
             member_wrapper_functions: The fully qualified paths of the callables
                 that wrap an enum member's value to deprecate it. They can be
                 classes or functions, because calling them looks the same. Their
@@ -436,7 +438,7 @@ class DeprecationsExtension(Extension):  # pylint: disable=too-many-instance-att
         if call is None:
             return
         for entry in self._alias_entries(mod, call):
-            text, problem = self._alias_notice(f"{mod.path}.{entry.name}", entry)
+            text, problem, fix = self._alias_notice(f"{mod.path}.{entry.name}", entry)
 
             member = mod.members.get(entry.name)
             if not isinstance(member, Attribute):
@@ -461,9 +463,13 @@ class DeprecationsExtension(Extension):  # pylint: disable=too-many-instance-att
                     )
                 else:
                     member.value = ExprName(entry.new)
-            self._mark(member, text, problem=problem, generic=problem is not None)
+            self._mark(
+                member, text, problem=problem, fix=fix, generic=problem is not None
+            )
 
-    def _alias_notice(self, old: str, entry: _AliasEntry) -> tuple[str, str | None]:
+    def _alias_notice(
+        self, old: str, entry: _AliasEntry
+    ) -> tuple[str, str | None, str]:
         """Build the notice for one alias entry.
 
         The notice only uses `since` and the target. The entry's `message` is only
@@ -476,10 +482,11 @@ class DeprecationsExtension(Extension):  # pylint: disable=too-many-instance-att
             entry: The information read from the entry.
 
         Returns:
-            The notice, and why it's incomplete, or `None` if it's complete. A
-                notice is complete if it says everything the deprecations guide
-                asks for.
+            The notice, why it's incomplete, or `None` if it's complete, and how
+                to fix it. A notice is complete if it says everything the
+                deprecations guide asks for.
         """
+        fix = "Write a `Deprecated:` section in the docstring"
         link = None if entry.new is None else _link(entry.new, local=entry.local)
         if entry.since is not None and link is not None:
             try:
@@ -490,22 +497,31 @@ class DeprecationsExtension(Extension):  # pylint: disable=too-many-instance-att
                         old=old, new=entry.new, new_link=link, since=entry.since
                     ),
                     None,
+                    fix,
                 )
             except (AttributeError, IndexError, KeyError, ValueError):
-                return _generic_message(since=entry.since, new_link=link), (
+                return (
+                    _generic_message(since=entry.since, new_link=link),
                     "the `default_message` option can only use {old}, {new}, "
-                    "{new_link} and {since}, so a generic notice is shown"
+                    "{new_link} and {since}, so a generic notice is shown",
+                    fix,
                 )
         missing = []
         if entry.since is None:
-            missing.append(
-                "since which version it is deprecated, because `since` isn't a "
-                "string literal"
+            reason = (
+                "because `since` can't be read"
+                if entry.since_given
+                else "because `since` isn't given"
             )
+            missing.append(f"since which version it is deprecated, {reason}")
+            if not entry.since_given and link is not None:
+                fix = "Pass `since` or write a `Deprecated:` section in the docstring"
         if link is None:
             missing.append("what to use instead, because the target can't be read")
-        return _generic_message(since=entry.since, new_link=link), (
-            f"the notice can't say {', nor '.join(missing)}"
+        return (
+            _generic_message(since=entry.since, new_link=link),
+            f"the notice can't say {', nor '.join(missing)}",
+            fix,
         )
 
     def on_class_members(self, *, cls: Class, **kwargs: Any) -> None:
@@ -677,8 +693,8 @@ class DeprecationsExtension(Extension):  # pylint: disable=too-many-instance-att
             # This call would fail at runtime, so it doesn't deprecate anything.
             _logger.warning(
                 "%s: the alias entry `%s` needs a positional name, `new_module`, "
-                "`new_name` or both, and exactly one of `since` and `message`, so "
-                "it's skipped",
+                "`new_name` or both, and only accepts `since` and `message` "
+                "as extra arguments, so it's skipped",
                 mod.path,
                 node,
             )
@@ -715,7 +731,9 @@ class DeprecationsExtension(Extension):  # pylint: disable=too-many-instance-att
             if unreadable[0] or unreadable[1]
             else f"{new_module or mod.path}.{new_name or name}"
         )
-        return _AliasEntry(name, new, new_module in (None, mod.path), since)
+        return _AliasEntry(
+            name, new, new_module in (None, mod.path), since, other_nodes[2] is not None
+        )
 
     def _alias_entry_with_unpacked_keywords(
         self, mod: Module, node: ExprCall
@@ -752,7 +770,7 @@ class DeprecationsExtension(Extension):  # pylint: disable=too-many-instance-att
             mod.path,
             node,
         )
-        return _AliasEntry(name, None, False, None)
+        return _AliasEntry(name, None, False, None, True)
 
     def _mark(
         self,
@@ -760,6 +778,7 @@ class DeprecationsExtension(Extension):  # pylint: disable=too-many-instance-att
         text: str,
         *,
         problem: str | None = None,
+        fix: str = "Write a `Deprecated:` section in the docstring",
         generic: bool = False,
     ) -> None:
         """Mark one member as deprecated and add its notice.
@@ -773,6 +792,7 @@ class DeprecationsExtension(Extension):  # pylint: disable=too-many-instance-att
             text: The notice.
             problem: Why the notice is incomplete, if it is. It's logged as a
                 warning, unless there is a hand-written notice.
+            fix: How to fix the problem, added to the warning.
             generic: Whether `text` is the generic notice. If it is, and another
                 extension already set a message, that message is used instead,
                 also as the notice.
@@ -797,11 +817,7 @@ class DeprecationsExtension(Extension):  # pylint: disable=too-many-instance-att
         if problem is not None:
             # The documentation says less than the guide asks for, so a strict
             # build should fail.
-            _logger.warning(
-                "%s: %s. Write a `Deprecated:` section in the docstring to fix this.",
-                member.path,
-                problem,
-            )
+            _logger.warning("%s: %s. %s to fix this.", member.path, problem, fix)
         sections.insert(
             0,
             DocstringSectionAdmonition(kind=self.kind, text=text, title=self.title),

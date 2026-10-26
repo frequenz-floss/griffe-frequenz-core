@@ -188,14 +188,18 @@ def _alias_warning(name: str) -> warnings.WarningMessage:
     return caught[0]
 
 
+_ALIASES = [
+    ("Decimal", "v1.2.0", "decimal.Decimal"),
+    ("Rational", None, "fractions.Fraction"),
+    ("Gadget", "v1.4.0", f"{fixture_aliases.__name__}.Widget"),
+    ("Number", None, "numbers.Number"),
+    ("Complex", "v1.5.0", "numbers.Complex"),
+    ("Integral", None, "numbers.Integral"),
+]
+
+
 @pytest.mark.parametrize(
-    ("name", "target"),
-    [
-        ("Decimal", "decimal.Decimal"),
-        ("Rational", "fractions.Fraction"),
-        ("Gadget", f"{fixture_aliases.__name__}.Widget"),
-        ("Number", "numbers.Number"),
-    ],
+    ("name", "target"), [(name, target) for name, _, target in _ALIASES]
 )
 def test_real_alias_helper_is_recognized(
     aliases_module: griffe.Module, name: str, target: str
@@ -208,50 +212,61 @@ def test_real_alias_helper_is_recognized(
     assert alias.value == griffe.ExprName(target)
 
 
-@pytest.mark.parametrize(
-    ("name", "target"),
-    [("Rational", "fractions.Fraction"), ("Number", "numbers.Number")],
-)
-def test_alias_message_is_only_the_runtime_warning(
-    aliases_module: griffe.Module, name: str, target: str
+@pytest.mark.parametrize(("name", "since", "target"), _ALIASES)
+def test_alias_documents_since_and_the_runtime_target(
+    aliases_module: griffe.Module, name: str, since: str | None, target: str
 ) -> None:
-    """Ensure an alias with its own message warns with it, but documents its target.
+    """Ensure an alias notice gives the version and the runtime replacement.
 
-    The message is only for the runtime warning, so the notice says what to use
-    instead, with the same target the runtime uses.
+    The notice and runtime warning must point to the same replacement, even
+    with a custom message. Only the notice says since which version the alias
+    is deprecated. `Gadget` has no `new_module`, so both must use the module
+    where the alias is defined.
+    """
+    runtime = str(_alias_warning(name).message)
+    documented = _plain(str(aliases_module[name].deprecated))
+
+    assert target in runtime
+    if since is None:
+        assert documented == f"Deprecated. Use {target} instead."
+    else:
+        assert documented == f"Deprecated since {since}. Use {target} instead."
+        assert since not in runtime
+
+
+@pytest.mark.parametrize("name", ["Rational", "Number", "Complex"])
+def test_alias_message_is_only_the_runtime_warning(
+    aliases_module: griffe.Module, name: str
+) -> None:
+    """Ensure a custom message changes the runtime warning, not the notice.
+
+    The message is written for a terminal, so the notice is generated anyway,
+    with or without `since`.
     """
     warning = _alias_warning(name)
 
     assert str(warning.message).startswith(f"{fixture_aliases.__name__}.{name} ")
     assert issubclass(warning.category, DeprecationWarning)
-    assert _plain(str(aliases_module[name].deprecated)) == (
-        f"Deprecated. Use {target} instead."
-    )
+    assert str(aliases_module[name].deprecated).startswith("Deprecated")
 
 
 @pytest.mark.parametrize(
-    ("name", "since", "target"),
+    ("name", "target"),
     [
-        ("Decimal", "v1.2.0", "decimal.Decimal"),
-        ("Gadget", "v1.4.0", f"{fixture_aliases.__name__}.Widget"),
+        ("Decimal", "decimal.Decimal"),
+        ("Gadget", f"{fixture_aliases.__name__}.Widget"),
+        ("Integral", "numbers.Integral"),
     ],
 )
-def test_since_alias_documents_the_runtime_version_and_target(
-    aliases_module: griffe.Module, name: str, since: str, target: str
-) -> None:
-    """Ensure an alias notice gives the version and the replacement.
+def test_generated_alias_warning_follows_the_guide(name: str, target: str) -> None:
+    """Ensure a generated alias warning follows the deprecations guide.
 
-    The notice and runtime warning must point to the same replacement. Only the
-    notice says since which version the alias is deprecated. `Gadget` has no
-    `new_module`, so both must use the module where the alias is defined.
+    It gives the fully qualified names of the alias and its replacement. Only
+    the notice says since which version the alias is deprecated.
     """
-    runtime = str(_alias_warning(name).message)
-    documented = _plain(str(aliases_module[name].deprecated))
-
-    assert f"Use {target} instead." in runtime
-    assert f"Use {target} instead." in documented
-    assert f"since {since}." in documented
-    assert since not in runtime
+    assert str(_alias_warning(name).message) == (
+        f"{fixture_aliases.__name__}.{name} is deprecated. Use {target} instead."
+    )
 
 
 def test_alias_entry_parameters_match_the_extension() -> None:
@@ -287,3 +302,60 @@ def test_alias_table_takes_entries_after_the_module() -> None:
     assert all(
         parameter.kind is inspect.Parameter.KEYWORD_ONLY for parameter in parameters[2:]
     )
+
+
+def _accepted(call: str, **names: Any) -> bool:
+    """Return whether the real `frequenz-core` accepts a call.
+
+    Args:
+        call: The call, as written in the documented code.
+        **names: The names the call refers to.
+
+    Returns:
+        Whether the call runs without raising `TypeError` or `ValueError`.
+            Python raises `TypeError` when arguments don't match the signature.
+            `frequenz-core` also raises it when a required combination of
+            arguments is missing, and raises `ValueError` for invalid values.
+            The extension doesn't check values, so a case that raises
+            `ValueError` fails the test instead of stopping it with an error.
+    """
+    try:
+        eval(call, names)  # pylint: disable=eval-used
+    except (TypeError, ValueError):
+        return False
+    return True
+
+
+@pytest.mark.parametrize(
+    "entry",
+    [
+        "DeprecatedAlias('Thing', new_module='decimal', since='v1')",
+        "DeprecatedAlias('Thing', new_module='decimal', message='{old} gone.')",
+        "DeprecatedAlias('Thing', new_module='decimal', since='v1', "
+        "message='{old} gone.')",
+        "DeprecatedAlias('Thing', new_module='decimal')",
+        "DeprecatedAlias('Thing', new_name='Other')",
+        "DeprecatedAlias('Thing', new_module='decimal', since=None, message=None)",
+        "DeprecatedAlias('Thing')",
+        "DeprecatedAlias('Thing', since='v1', message='{old} gone.')",
+        "DeprecatedAlias('Thing', new_module=None, new_name=None, since='v1')",
+        "DeprecatedAlias(name='Thing', new_module='decimal')",
+        "DeprecatedAlias('Thing', 'decimal')",
+        "DeprecatedAlias('Thing', new_module='decimal', until='v2')",
+    ],
+)
+def test_alias_entries_bind_as_at_runtime(entry: str) -> None:
+    """Ensure an alias entry is documented if and only if core accepts it.
+
+    This checks the combinations of arguments, not their values, which the
+    extension doesn't validate.
+    """
+    accepted = _accepted(entry, DeprecatedAlias=frequenz.core.warnings.DeprecatedAlias)
+    code = (
+        "from frequenz.core.warnings import DeprecatedAlias, deprecated_aliases\n"
+        f"__getattr__ = deprecated_aliases(__name__, {entry})\n"
+    )
+    with griffe.temporary_visited_module(
+        code, extensions=griffe.load_extensions(DeprecationsExtension())
+    ) as module:
+        assert ("Thing" in module.members) == accepted

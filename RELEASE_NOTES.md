@@ -2,7 +2,7 @@
 
 ## Summary
 
-This release supports the final `frequenz.core.warnings.deprecated_aliases()` API, released in `frequenz-core` v1.5.0. In this API, each alias is a `DeprecatedAlias` entry. The entry says where the object is now, using `new_module`, `new_name` or both. It also has either `since`, the version since which it is deprecated, or its own runtime `message`. This way, each alias gets its own notice.
+This release supports the `frequenz.core.warnings.deprecated_aliases()` API from `frequenz-core` v1.5.0 and v1.6.0. Each alias is a `DeprecatedAlias` entry. The entry says where the object is now, using `new_module`, `new_name` or both. You can pass `since` to say when the old name became deprecated, and `message` to change its runtime warning. In v1.6.0, these two arguments are optional and independent.
 
 The extension now also follows the [deprecations guide](https://github.com/frequenz-floss/docs/blob/v0.x.x/python/deprecations.md). The guide separates the runtime warning, which is shown in a terminal, from the notice in the documentation. The notice says since which version the object is deprecated, and links to what to use instead.
 
@@ -18,7 +18,7 @@ The extension generates the notice when the code has enough information. A hand-
 
   If you changed `default_message`, add `{since}`, and use `{new_link}` or write the link yourself, like ``[`{new}`][]``.
 
-- The `message` of an alias is now only used for the runtime warning, not for the notice. If an alias has a `message` instead of `since`, its notice is ``Deprecated. Use [`<new>`][] instead.``, and the extension logs a warning. To say more, write a `Deprecated:` section in the docstring of the alias declared under `TYPE_CHECKING`.
+- The `message` of an alias is now only used for the runtime warning, not for the notice. If an alias has no `since`, its notice is ``Deprecated. Use [`<new>`][] instead.``, and the extension logs a warning. Pass `since` or write a `Deprecated:` section in the docstring of the alias declared under `TYPE_CHECKING`.
 
 - An enum member deprecated with `deprecated_member()` only has a runtime warning, so you now need to write its `Deprecated:` notice by hand. If you don't, the runtime warning is still shown as the notice, but the extension logs a warning.
 
