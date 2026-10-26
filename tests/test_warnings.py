@@ -37,6 +37,22 @@ def _warnings(caplog: pytest.LogCaptureFixture) -> list[str]:
     ]
 
 
+def _render(obj: griffe.Object) -> None:
+    """Parse the docstrings of an object and its members, as rendering does.
+
+    The extension adds notices and warns about missing information during
+    parsing, just before mkdocstrings renders the docstring.
+
+    Args:
+        obj: The object to render.
+    """
+    if obj.docstring is not None:
+        _ = obj.docstring.parsed
+    for member in obj.members.values():
+        if not isinstance(member, griffe.Alias):
+            _render(member)
+
+
 _DOCSTRING_FIX = ". Write a `Deprecated:` section in the docstring to fix this."
 _SINCE_FIX = (
     ". Pass `since` or write a `Deprecated:` section in the docstring to fix this."
@@ -172,9 +188,9 @@ def test_a_notice_short_of_the_guide_is_warned_about(
         caplog.at_level(logging.DEBUG, logger=_LOGGER),
         griffe.temporary_visited_module(
             code, extensions=griffe.load_extensions(DeprecationsExtension())
-        ),
+        ) as module,
     ):
-        pass
+        _render(module)
     [warning] = _warnings(caplog)
     assert warned in warning
     assert warning.endswith(fix)
@@ -197,9 +213,9 @@ def test_a_handwritten_notice_silences_the_generated_one(
             code,
             docstring_parser=Parser.google,
             extensions=griffe.load_extensions(DeprecationsExtension()),
-        ),
+        ) as module,
     ):
-        pass
+        _render(module)
     assert not _warnings(caplog)
 
 
@@ -231,9 +247,9 @@ def test_a_message_from_another_extension_silences_the_generic_one(
         caplog.at_level(logging.DEBUG, logger=_LOGGER),
         griffe.temporary_visited_module(
             code, extensions=griffe.load_extensions(Earlier(), DeprecationsExtension())
-        ),
+        ) as module,
     ):
-        pass
+        _render(module)
     assert not _warnings(caplog)
 
 
@@ -284,9 +300,9 @@ def test_an_alias_that_cannot_be_fully_documented_is_warned_about(
         caplog.at_level(logging.DEBUG, logger=_LOGGER),
         griffe.temporary_visited_module(
             code, extensions=griffe.load_extensions(DeprecationsExtension())
-        ),
+        ) as module,
     ):
-        pass
+        _render(module)
     logged = _warnings(caplog)
     if warned is None:
         assert not logged
@@ -327,9 +343,9 @@ def test_an_enum_member_that_cannot_be_fully_documented_is_warned_about(
             code,
             docstring_parser=Parser.google,
             extensions=griffe.load_extensions(DeprecationsExtension()),
-        ),
+        ) as module,
     ):
-        pass
+        _render(module)
     logged = _warnings(caplog)
     if warned is None:
         assert not logged
@@ -359,7 +375,204 @@ def test_a_generated_enum_notice_is_not_warned_about(
         caplog.at_level(logging.DEBUG, logger=_LOGGER),
         griffe.temporary_visited_module(
             code, extensions=griffe.load_extensions(DeprecationsExtension())
-        ),
+        ) as module,
     ):
-        pass
+        _render(module)
     assert not _warnings(caplog)
+
+
+def test_only_rendered_objects_are_warned_about(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """Wait until rendering to warn about incomplete notices.
+
+    Griffe also visits dependency code that isn't documented. Missing notices
+    there shouldn't make this project's build fail.
+    """
+    code = (
+        "from typing_extensions import deprecated\n"
+        "@deprecated('mod.A is deprecated.')\n"
+        "def A(): ...\n"
+    )
+    with (
+        caplog.at_level(logging.DEBUG, logger=_LOGGER),
+        griffe.temporary_visited_module(
+            code, extensions=griffe.load_extensions(DeprecationsExtension())
+        ) as module,
+    ):
+        assert not _warnings(caplog)
+        assert module["A"].deprecated == "mod.A is deprecated."
+        _render(module)
+    [warning] = _warnings(caplog)
+    assert warning.startswith("module.A: there is no notice written")
+
+
+def test_a_docstring_parsed_already_gets_its_notice_right_away(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """Add the notice right away if another extension already parsed the docstring."""
+
+    class Earlier(griffe.Extension):
+        """An extension that parses docstrings while visiting."""
+
+        def on_function_instance(self, *, func: griffe.Function, **kwargs: Any) -> None:
+            """Parse the function's docstring.
+
+            Args:
+                func: The function just created.
+                **kwargs: Other arguments passed by Griffe, not used.
+            """
+            assert func.docstring is not None
+            _ = func.docstring.parsed
+
+    code = (
+        "from typing_extensions import deprecated\n"
+        "@deprecated('mod.A is deprecated.')\n"
+        "def A():\n"
+        '    """Do A."""\n'
+    )
+    with (
+        caplog.at_level(logging.DEBUG, logger=_LOGGER),
+        griffe.temporary_visited_module(
+            code, extensions=griffe.load_extensions(Earlier(), DeprecationsExtension())
+        ) as module,
+    ):
+        [warning] = _warnings(caplog)
+    assert warning.startswith("module.A: there is no notice written")
+    sections = module["A"].docstring.parsed
+    assert sections[0].kind is griffe.DocstringSectionKind.admonition
+    assert len(sections) == 2
+
+
+class _ParsingEarlier(griffe.Extension):
+    """An extension that parses docstrings while Griffe visits the code."""
+
+    def on_function_instance(self, *, func: griffe.Function, **kwargs: Any) -> None:
+        """Parse the function's docstring, if it has one.
+
+        Args:
+            func: The function just created.
+            **kwargs: Other arguments passed by Griffe, not used.
+        """
+        if func.docstring is not None:
+            _ = func.docstring.parsed
+
+    def on_attribute_instance(self, *, attr: griffe.Attribute, **kwargs: Any) -> None:
+        """Parse the attribute's docstring, if it has one.
+
+        Args:
+            attr: The attribute just created.
+            **kwargs: Other arguments passed by Griffe, not used.
+        """
+        if attr.docstring is not None:
+            _ = attr.docstring.parsed
+
+
+@pytest.mark.parametrize(
+    ("code", "path", "notice"),
+    [
+        (
+            "from typing import overload\n"
+            "from typing_extensions import deprecated\n"
+            "@overload\n"
+            "@deprecated('Calling mod.f with an int is deprecated.')\n"
+            "def f(x: int) -> int: ...\n"
+            "@overload\n"
+            "@deprecated(MESSAGE)\n"
+            "def f(x: str) -> str: ...\n"
+            "def f(x):\n"
+            '    """Do f."""\n',
+            "f",
+            "Calling mod.f with an int is deprecated.\n\n"
+            "One of its overloads is deprecated.",
+        ),
+        (
+            "from typing_extensions import deprecated\n"
+            "class Owner:\n"
+            "    @property\n"
+            "    def p(self) -> int:\n"
+            '        """The p."""\n'
+            "    @p.setter\n"
+            "    @deprecated('Setting mod.Owner.p is deprecated.')\n"
+            "    def p(self, value: int) -> None: ...\n"
+            "    @p.deleter\n"
+            "    @deprecated(MESSAGE)\n"
+            "    def p(self) -> None: ...\n",
+            "Owner.p",
+            "Setting mod.Owner.p is deprecated.\n\nDeleting it is deprecated.",
+        ),
+    ],
+    ids=["overloads", "property-accessors"],
+)
+def test_parts_of_a_docstring_parsed_already_share_one_notice(
+    caplog: pytest.LogCaptureFixture, code: str, path: str, notice: str
+) -> None:
+    """Add every deprecated part to the notice placed in a parsed docstring.
+
+    Griffe can visit a property's setter and deleter after another extension
+    parsed the property's docstring, so the notice has to be updated.
+    """
+    with (
+        caplog.at_level(logging.DEBUG, logger=_LOGGER),
+        griffe.temporary_visited_module(
+            code,
+            extensions=griffe.load_extensions(
+                _ParsingEarlier(), DeprecationsExtension()
+            ),
+        ) as module,
+    ):
+        _render(module)
+    obj = module[path]
+    assert obj.docstring is not None
+    sections = obj.docstring.parsed
+    assert [section.kind for section in sections] == [
+        griffe.DocstringSectionKind.admonition,
+        griffe.DocstringSectionKind.text,
+    ]
+    assert sections[0].value.contents == notice
+    logged = _warnings(caplog)
+    assert len(logged) == 2
+    assert all(warning.startswith(f"module.{path}: ") for warning in logged)
+
+
+def test_a_handwritten_notice_covers_parts_of_a_docstring_parsed_already(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """Keep the hand-written notice for parts visited after parsing."""
+    code = (
+        "from typing_extensions import deprecated\n"
+        "class Owner:\n"
+        "    @property\n"
+        "    def p(self) -> int:\n"
+        '        """The p.\n\n'
+        "        Deprecated:\n"
+        "            Setting or deleting it is deprecated since v1.2.0.\n"
+        '        """\n'
+        "    @p.setter\n"
+        "    @deprecated('Setting mod.Owner.p is deprecated.')\n"
+        "    def p(self, value: int) -> None: ...\n"
+        "    @p.deleter\n"
+        "    @deprecated('Deleting mod.Owner.p is deprecated.')\n"
+        "    def p(self) -> None: ...\n"
+    )
+    with (
+        caplog.at_level(logging.DEBUG, logger=_LOGGER),
+        griffe.temporary_visited_module(
+            code,
+            docstring_parser=Parser.google,
+            extensions=griffe.load_extensions(
+                _ParsingEarlier(), DeprecationsExtension()
+            ),
+        ) as module,
+    ):
+        _render(module)
+    assert not _warnings(caplog)
+    docstring = module["Owner.p"].docstring
+    assert docstring is not None
+    [text, notice] = docstring.parsed
+    assert text.kind is griffe.DocstringSectionKind.text
+    assert notice.kind is griffe.DocstringSectionKind.admonition
+    assert notice.title == "Deprecated"
+    assert notice.value.contents == (
+        "Setting or deleting it is deprecated since v1.2.0."
+    )

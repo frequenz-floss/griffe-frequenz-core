@@ -9,6 +9,7 @@ Griffe extensions that document deprecations made with `@deprecated` and `freque
 - Follow the deprecations guide (frequenz-floss/docs `python/deprecations.md`). The runtime warning is for a terminal. The notice is for the docs: it says since which version the object is deprecated and links what to use instead.
 - Document as much as can be read, the same way for every helper. Mark every object that can be identified, and use generic text for what can't be read.
 - Never hide problems. If a notice is missing something the guide asks for, or the docs can't show something in full, log a warning, so `--strict` fails. Use debug logs only to explain why.
+- Add notices and warn about missing information when the docstring is parsed for rendering, not while visiting. Griffe also visits code that isn't documented.
 - Only show a runtime warning as the notice if there is nothing better, generated or hand-written. Show it as written, after the version if `since` is known, render it as Markdown, and log a warning.
 - A hand-written notice always takes priority. On objects the extension marks, move it to the top of the docstring.
 - Text the extension writes is only for the docs. Don't repeat the name of the documented object, and link objects in code font, like ``[`pkg.Name`][]``, or ``[`Name`][pkg.Name]`` in the same module.

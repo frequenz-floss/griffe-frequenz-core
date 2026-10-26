@@ -42,7 +42,7 @@ _NO_TARGET = "what to use instead, because the target can't be read"
 def load(
     name: str = "samplepkg", *, parser: Parser = Parser.google, **options: Any
 ) -> Module:
-    """Load a fixture with the extension applied.
+    """Load a fixture with the extension enabled and parse its docstrings.
 
     Args:
         name: The fixture package or module to load.
@@ -59,7 +59,24 @@ def load(
         extensions=griffe.load_extensions(DeprecationsExtension(**options)),
     )
     assert isinstance(loaded, Module)
+    render(loaded)
     return loaded
+
+
+def render(obj: griffe.Object) -> None:
+    """Parse the docstrings of an object and its members, as rendering does.
+
+    The extension adds notices and warns about missing information during
+    parsing, just before mkdocstrings renders the docstring.
+
+    Args:
+        obj: The object to render.
+    """
+    if obj.docstring is not None:
+        _ = obj.docstring.parsed
+    for member in obj.members.values():
+        if not isinstance(member, griffe.Alias):
+            render(member)
 
 
 def attribute(module: Module, path: str) -> Attribute:
