@@ -712,3 +712,61 @@ def test_a_deprecated_property_covers_its_setter(
     assert prop.deprecated == "mod.Owner.p is deprecated."
     [admonition] = admonitions(prop)
     assert admonition.value.contents == "Use B instead."
+
+
+def _warnings_deprecated() -> griffe.Extension:
+    """Create a test replacement for `griffe-warnings-deprecated`.
+
+    The check only uses the extension's module path, so we don't need the
+    real package as a dependency.
+
+    Returns:
+        An extension that does nothing, with the real extension's module path.
+    """
+    extension: type[griffe.Extension] = type(
+        "WarningsDeprecatedExtension",
+        (griffe.Extension,),
+        {"__module__": "griffe_warnings_deprecated._internal.extension"},
+    )
+    return extension()
+
+
+@pytest.mark.parametrize("first", [True, False], ids=["before", "after"])
+def test_griffe_warnings_deprecated_enabled_too_is_warned_about_once(
+    caplog: pytest.LogCaptureFixture, first: bool
+) -> None:
+    """Warn if both extensions would document the decorator.
+
+    Warn once per set of extensions, even if several modules are visited.
+    """
+    ours = DeprecationsExtension()
+    other = _warnings_deprecated()
+    extensions = griffe.load_extensions(*((other, ours) if first else (ours, other)))
+    with caplog.at_level(logging.DEBUG, logger=_LOGGER):
+        for _ in range(2):
+            with griffe.temporary_visited_module("", extensions=extensions):
+                pass
+    [warning] = warned(caplog)
+    assert warning.startswith("griffe_warnings_deprecated is enabled too")
+
+
+@pytest.mark.parametrize(
+    "extensions",
+    [
+        lambda: [DeprecationsExtension()],
+        lambda: [DeprecationsExtension(decorator_functions=[]), _warnings_deprecated()],
+    ],
+    ids=["alone", "decorator-left-to-it"],
+)
+def test_griffe_warnings_deprecated_is_fine_when_not_competing(
+    caplog: pytest.LogCaptureFixture, extensions: Any
+) -> None:
+    """Don't warn if only one extension would document decorators."""
+    with (
+        caplog.at_level(logging.DEBUG, logger=_LOGGER),
+        griffe.temporary_visited_module(
+            "", extensions=griffe.load_extensions(*extensions())
+        ),
+    ):
+        pass
+    assert not warned(caplog)
