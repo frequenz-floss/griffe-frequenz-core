@@ -438,7 +438,17 @@ class DeprecationsExtension(Extension):  # pylint: disable=too-many-instance-att
         if call is None:
             return
         for entry in self._alias_entries(mod, call):
-            text, problem, fix = self._alias_notice(f"{mod.path}.{entry.name}", entry)
+            # Only `since` and the target affect the notice. `message` is for
+            # the runtime warning, which is shown in a terminal.
+            text, problem, fix = self._notice(
+                f"{mod.path}.{entry.name}",
+                entry.new,
+                local=entry.local,
+                since=entry.since,
+                since_given=entry.since_given,
+                unknown_since="because `since` can't be read",
+                unknown_new="because the target can't be read",
+            )
 
             member = mod.members.get(entry.name)
             if not isinstance(member, Attribute):
@@ -467,19 +477,38 @@ class DeprecationsExtension(Extension):  # pylint: disable=too-many-instance-att
                 member, text, problem=problem, fix=fix, generic=problem is not None
             )
 
-    def _alias_notice(
-        self, old: str, entry: _AliasEntry
+    # Aliases and enum members give different reasons for what they can't read,
+    # so the caller has to pass them.
+    def _notice(  # pylint: disable=too-many-arguments
+        self,
+        old: str,
+        new: str | None,
+        *,
+        local: bool,
+        since: str | None,
+        since_given: bool,
+        unknown_since: str,
+        unknown_new: str,
     ) -> tuple[str, str | None, str]:
-        """Build the notice for one alias entry.
+        """Build a notice from `since` and the replacement.
 
-        The notice only uses `since` and the target. The entry's `message` is only
-        used for the runtime warning, which is shown in a terminal. If `since` or
-        the target can't be read, the notice is a generic one, with only the
-        information the extension has.
+        If either argument is missing or can't be read, use a generic notice
+        with the information we have.
 
         Args:
-            old: The fully qualified path of the alias.
-            entry: The information read from the entry.
+            old: The fully qualified path of the deprecated object.
+            new: The fully qualified path of its replacement, or `None` if it
+                can't be read.
+            local: Whether the replacement is in the same module or enum.
+                If so, the link only shows the replacement's name.
+            since: The version the object is deprecated since, or `None` if it
+                isn't given or can't be read.
+            since_given: Whether `since` is passed. If not, the warning says
+                so, and suggests passing it.
+            unknown_since: The reason the version is unknown even though
+                `since` is passed. Included in the warning if `since` is `None`.
+            unknown_new: The reason the replacement is unknown. Included in the
+                warning if `new` is `None`.
 
         Returns:
             The notice, why it's incomplete, or `None` if it's complete, and how
@@ -487,39 +516,35 @@ class DeprecationsExtension(Extension):  # pylint: disable=too-many-instance-att
                 deprecations guide asks for.
         """
         fix = "Write a `Deprecated:` section in the docstring"
-        link = None if entry.new is None else _link(entry.new, local=entry.local)
-        if entry.since is not None and link is not None:
+        link = None if new is None else _link(new, local=local)
+        if since is not None and link is not None:
             try:
                 # `since` is a value, not part of the template, so we insert
                 # it as written, even if it has braces.
                 return (
                     self.default_message.format(
-                        old=old, new=entry.new, new_link=link, since=entry.since
+                        old=old, new=new, new_link=link, since=since
                     ),
                     None,
                     fix,
                 )
             except (AttributeError, IndexError, KeyError, ValueError):
                 return (
-                    _generic_message(since=entry.since, new_link=link),
+                    _generic_message(since=since, new_link=link),
                     "the `default_message` option can only use {old}, {new}, "
                     "{new_link} and {since}, so a generic notice is shown",
                     fix,
                 )
         missing = []
-        if entry.since is None:
-            reason = (
-                "because `since` can't be read"
-                if entry.since_given
-                else "because `since` isn't given"
-            )
+        if since is None:
+            reason = unknown_since if since_given else "because `since` isn't given"
             missing.append(f"since which version it is deprecated, {reason}")
-            if not entry.since_given and link is not None:
+            if not since_given and link is not None:
                 fix = "Pass `since` or write a `Deprecated:` section in the docstring"
         if link is None:
-            missing.append("what to use instead, because the target can't be read")
+            missing.append(f"what to use instead, {unknown_new}")
         return (
-            _generic_message(since=entry.since, new_link=link),
+            _generic_message(since=since, new_link=link),
             f"the notice can't say {', nor '.join(missing)}",
             fix,
         )
