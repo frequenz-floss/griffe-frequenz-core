@@ -3,10 +3,9 @@
 
 """Tests for the deprecations extension.
 
-The fixtures under `fixtures/` refer to `frequenz-core` helpers but are never
-run. Griffe resolves those paths from import statements without importing
-`frequenz-core`; only the compatibility tests import the installed test
-dependency.
+The fixtures in `fixtures/` use `frequenz-core` helpers, but they are never
+run. Griffe resolves the helper paths from the import statements, without
+importing `frequenz-core`. Only the compatibility tests import it.
 """
 
 import logging
@@ -101,7 +100,7 @@ def samplepkg_fixture() -> Module:
 
 
 def test_every_alias_in_the_table_is_marked(samplepkg: Module) -> None:
-    """All three entries are marked, whatever their docstring looks like."""
+    """Ensure all three entries are marked, whatever their docstring looks like."""
     for name in ("Widget", "Doohickey", "MAX_WIDGETS"):
         member = attribute(samplepkg, f"oldmod.{name}")
         assert "deprecated" in member.labels
@@ -109,7 +108,7 @@ def test_every_alias_in_the_table_is_marked(samplepkg: Module) -> None:
 
 
 def test_default_message_names_both_ends(samplepkg: Module) -> None:
-    """The default template is filled with the old path and the new one."""
+    """Ensure the default template includes the old and the new path."""
     member = attribute(samplepkg, "oldmod.MAX_WIDGETS")
     assert member.deprecated == (
         "`samplepkg.oldmod.MAX_WIDGETS` is deprecated. Use "
@@ -119,14 +118,14 @@ def test_default_message_names_both_ends(samplepkg: Module) -> None:
 
 
 def test_a_renamed_alias_points_at_its_new_name(samplepkg: Module) -> None:
-    """A `module:name` target renames as well as moves."""
+    """Ensure a `module:name` target points to the new name."""
     member = attribute(samplepkg, "oldmod.Doohickey")
     assert member.value == ExprName("samplepkg.newmod.Gadget")
     assert "samplepkg.newmod.Gadget" in str(member.deprecated)
 
 
 def test_an_alias_without_a_docstring_gets_one(samplepkg: Module) -> None:
-    """The admonition still has somewhere to go when there is no docstring."""
+    """Ensure an alias without a docstring gets one, with the admonition."""
     member = attribute(samplepkg, "oldmod.MAX_WIDGETS")
     assert member.docstring is not None
     sections = admonitions(member)
@@ -135,7 +134,7 @@ def test_an_alias_without_a_docstring_gets_one(samplepkg: Module) -> None:
 
 
 def test_the_admonition_goes_first(samplepkg: Module) -> None:
-    """A reader sees the deprecation before the prose describing the symbol."""
+    """Ensure the admonition goes before the rest of the docstring."""
     member = attribute(samplepkg, "oldmod.Doohickey")
     assert member.docstring is not None
     kinds = [section.kind for section in member.docstring.parsed]
@@ -143,18 +142,18 @@ def test_the_admonition_goes_first(samplepkg: Module) -> None:
 
 
 def test_a_handwritten_admonition_is_left_alone(samplepkg: Module) -> None:
-    """A module can say more than the template, and keeps the last word."""
+    """Ensure a hand-written admonition is kept as written."""
     member = attribute(samplepkg, "oldmod.Widget")
     sections = admonitions(member)
     assert len(sections) == 1
     assert "deprecated since v1.2.0" in sections[0].value.contents
-    # The label and the field are still set, only the prose is left as written.
+    # The label and the field are still set, only the docstring is kept as is.
     assert "deprecated" in member.labels
     assert isinstance(member.deprecated, str)
 
 
 def test_a_handwritten_numpy_section_is_left_alone() -> None:
-    """Numpy style expresses the same thing as a section of its own kind."""
+    """Ensure a hand-written numpy `Deprecated` section is kept as written."""
     member = attribute(load("numpymod", parser=Parser.numpy), "Widget")
     assert not admonitions(member)
     assert member.docstring is not None
@@ -164,28 +163,28 @@ def test_a_handwritten_numpy_section_is_left_alone() -> None:
 
 
 def test_the_keyword_form_is_understood(samplepkg: Module) -> None:
-    """The table may be passed as `aliases=` rather than positionally."""
+    """Ensure the table can be passed as `aliases=` instead of positionally."""
     member = attribute(samplepkg, "oldmod2.Thing")
     assert "deprecated" in member.labels
     assert member.value == ExprName("samplepkg.newmod.Widget")
 
 
 def test_the_calls_own_message_wins(samplepkg: Module) -> None:
-    """A `message=` is reused, so warning and docs have one source."""
+    """Ensure the call's `message` is used, so the docs match the runtime warning."""
     member = attribute(samplepkg, "oldmod2.Thing")
     assert str(member.deprecated).startswith("`samplepkg.oldmod2.Thing` moved to ")
     assert str(member.deprecated).endswith(" in v2.0.0 and will be removed in v3.0.0.")
 
 
 def test_an_alias_hidden_from_type_checkers_is_created(samplepkg: Module) -> None:
-    """A table entry with no declaration still gets documented."""
+    """Ensure a table entry without a declaration is still documented."""
     member = attribute(samplepkg, "edge.Hidden")
     assert "deprecated" in member.labels
     assert member.value == ExprName("samplepkg.newmod.Widget")
 
 
 def test_an_unknown_target_is_linked_optionally(samplepkg: Module) -> None:
-    """An optional autoref degrades to text instead of failing a strict build."""
+    """Ensure an unknown target gets an optional link, so strict builds don't fail."""
     member = attribute(samplepkg, "edge.Outside")
     assert '<autoref identifier="some.external.pkg.Thing" optional>' in str(
         member.deprecated
@@ -193,10 +192,10 @@ def test_an_unknown_target_is_linked_optionally(samplepkg: Module) -> None:
 
 
 def test_an_unrelated_module_getattr_is_untouched(samplepkg: Module) -> None:
-    """A module defining its own `__getattr__` must come out unchanged."""
+    """Ensure a module with its own `__getattr__` isn't changed."""
     other = samplepkg["other"]
     assert isinstance(other, Module)
-    # Nothing was invented: `Any` is just the import the fixture makes.
+    # No new members: `Any` is just imported by the fixture.
     assert set(other.members) == {"Any", "__getattr__", "VALUE"}
     getattr_ = other["__getattr__"]
     assert "deprecated" not in getattr_.labels
@@ -208,7 +207,7 @@ def test_an_unrelated_module_getattr_is_untouched(samplepkg: Module) -> None:
 
 
 def test_wrapped_enum_members_are_marked(samplepkg: Module) -> None:
-    """Both wrapped members get the label, the field and the admonition."""
+    """Ensure wrapped members get the label, the field and the admonition."""
     for name, message in (
         ("PENDING", "PENDING is deprecated, use OPEN instead"),
         ("STARTED", "STARTED is deprecated, use IN_PROGRESS instead"),
@@ -222,7 +221,7 @@ def test_wrapped_enum_members_are_marked(samplepkg: Module) -> None:
 
 
 def test_the_class_form_of_the_wrapper_is_recognized(samplepkg: Module) -> None:
-    """`frequenz-core` accepts `DeprecatedMember(...)` too, and it reads the same."""
+    """Ensure `DeprecatedMember(...)` is recognized like `deprecated_member()`."""
     member = attribute(samplepkg, "statuses.TaskStatus.WAITING")
     assert "deprecated" in member.labels
     assert member.deprecated == "WAITING is deprecated, use OPEN instead"
@@ -230,12 +229,12 @@ def test_the_class_form_of_the_wrapper_is_recognized(samplepkg: Module) -> None:
 
 
 def test_a_wrapped_enum_member_shows_its_real_value(samplepkg: Module) -> None:
-    """The documentation says `PENDING = 1`, not the wrapper call."""
+    """Ensure the documentation shows `PENDING = 1`, not the wrapper call."""
     assert str(attribute(samplepkg, "statuses.TaskStatus.PENDING").value) == "1"
 
 
 def test_other_enum_members_are_untouched(samplepkg: Module) -> None:
-    """Plain members, and members built by some other call, are left alone."""
+    """Ensure plain members, and members created by other calls, aren't changed."""
     for name in ("OPEN", "IN_PROGRESS", "COMPUTED"):
         member = attribute(samplepkg, f"statuses.TaskStatus.{name}")
         assert "deprecated" not in member.labels
@@ -246,14 +245,14 @@ def test_other_enum_members_are_untouched(samplepkg: Module) -> None:
 def test_a_non_literal_enum_message_is_skipped_loudly(
     caplog: pytest.LogCaptureFixture,
 ) -> None:
-    """Griffe never runs the module, so a message in a constant is unreadable."""
+    """Ensure a member with its message in a constant isn't marked, and it's logged."""
     with caplog.at_level(logging.DEBUG, logger=_LOGGER):
         package = load()
     member = attribute(package, "statuses.TaskStatus.CANCELLED")
     assert not member.deprecated
     assert "deprecated" not in member.labels
     assert any(
-        "CANCELLED" in record.message and "not a static string" in record.message
+        "CANCELLED" in record.message and "isn't a string literal" in record.message
         for record in caplog.records
     )
 
@@ -263,7 +262,7 @@ def test_a_non_literal_enum_message_is_skipped_loudly(
     ["1, message='Gone'", "value=1, message='Gone'", "message='Gone', value=1"],
 )
 def test_enum_wrapper_keyword_arguments_are_understood(arguments: str) -> None:
-    """The value and the message may be passed by keyword, in any order."""
+    """Ensure the value and the message can be passed by keyword, in any order."""
     code = (
         "from frequenz.core.enum import Enum, deprecated_member\n"
         "class Status(Enum):\n"
@@ -284,20 +283,24 @@ def test_enum_wrapper_keyword_arguments_are_understood(arguments: str) -> None:
         ("*ARGS, 'Gone'", "arguments are unpacked"),
         ("*ARGS", "arguments are unpacked"),
         ("1, 'Gone', **KWARGS", "arguments are unpacked"),
-        ("1", "does not take exactly a value and a message"),
-        ("message='Gone'", "does not take exactly a value and a message"),
-        ("1, 'Gone', 2", "does not take exactly a value and a message"),
-        ("1, value=2, message='Gone'", "does not take exactly a value and a message"),
-        ("1, msg='Gone'", "does not take exactly a value and a message"),
+        ("1", "don't match `deprecated_member(value, message)`"),
+        ("message='Gone'", "don't match `deprecated_member(value, message)`"),
+        ("1, 'Gone', 2", "don't match `deprecated_member(value, message)`"),
+        (
+            "1, value=2, message='Gone'",
+            "don't match `deprecated_member(value, message)`",
+        ),
+        ("1, msg='Gone'", "don't match `deprecated_member(value, message)`"),
     ],
 )
 def test_an_unreadable_enum_wrapper_call_is_skipped_loudly(
     caplog: pytest.LogCaptureFixture, arguments: str, logged: str
 ) -> None:
-    """Arguments whose positions cannot be trusted mark nothing, and say so.
+    """Ensure wrapper calls that can't be read don't mark the member, and are logged.
 
-    `*ARGS, 'Gone'` is the dangerous one: counted naively, its second argument
-    is a valid message, and the member would be documented as `A = *ARGS`.
+    `*ARGS, 'Gone'` is the tricky one. If we just counted positions, `'Gone'`
+    would look like a valid message, and the member would be documented as
+    `A = *ARGS`.
     """
     code = (
         "from frequenz.core.enum import Enum, deprecated_member\n"
@@ -323,7 +326,7 @@ def test_an_unreadable_enum_wrapper_call_is_skipped_loudly(
 def test_a_non_literal_alias_message_falls_back(
     caplog: pytest.LogCaptureFixture,
 ) -> None:
-    """The alias is still worth marking, only its wording is lost."""
+    """Ensure an alias with a non-literal `message` is marked with the default one."""
     with caplog.at_level(logging.DEBUG, logger=_LOGGER):
         package = load()
     member = attribute(package, "nonliteral.Thing")
@@ -331,23 +334,23 @@ def test_a_non_literal_alias_message_falls_back(
     assert str(member.deprecated).startswith(
         "`samplepkg.nonliteral.Thing` is deprecated. Use "
     )
-    assert any("`message` is not a static string" in r.message for r in caplog.records)
+    assert any("`message` isn't a string literal" in r.message for r in caplog.records)
 
 
 def test_a_non_literal_alias_entry_is_skipped_loudly(
     caplog: pytest.LogCaptureFixture,
 ) -> None:
-    """A table key that is not a literal names nothing Griffe can mark."""
+    """Ensure an entry with a non-literal name is skipped, and it's logged."""
     with caplog.at_level(logging.DEBUG, logger=_LOGGER):
         package = load()
     assert "Lost" not in package["nonliteral"].members
-    assert any("is not a pair of static strings" in r.message for r in caplog.records)
+    assert any("isn't a pair of string literals" in r.message for r in caplog.records)
 
 
 def test_an_alias_table_in_a_constant_is_skipped_loudly(
     caplog: pytest.LogCaptureFixture,
 ) -> None:
-    """A whole table held in a constant loses every alias, so it must be logged."""
+    """Ensure a table in a constant is logged, because none of its aliases are marked."""
     with caplog.at_level(logging.DEBUG, logger=_LOGGER):
         package = load()
     member = attribute(package, "constant.Thing")
@@ -355,8 +358,8 @@ def test_an_alias_table_in_a_constant_is_skipped_loudly(
     assert "deprecated" not in member.labels
     assert any(
         record.message
-        == "samplepkg.constant: the alias table `_ALIASES` is not a dict literal, "
-        "leaving every alias in it unmarked"
+        == "samplepkg.constant: the alias table `_ALIASES` isn't a dict literal, "
+        "so none of its aliases are marked"
         for record in caplog.records
     )
 
@@ -366,18 +369,18 @@ def test_an_alias_table_in_a_constant_is_skipped_loudly(
     [
         (
             "__name__, aliases=ALIASES",
-            "the alias table `ALIASES` is not a dict literal",
+            "the alias table `ALIASES` isn't a dict literal",
         ),
-        ("*ARGS", "the alias table argument cannot be found"),
-        ("*ARGS, {'Thing': 'pkg.new'}", "the alias table argument cannot be found"),
-        ("__name__, **KWARGS", "the alias table argument cannot be found"),
-        ("__name__", "the alias table argument cannot be found"),
+        ("*ARGS", "the alias table argument can't be found"),
+        ("*ARGS, {'Thing': 'pkg.new'}", "the alias table argument can't be found"),
+        ("__name__, **KWARGS", "the alias table argument can't be found"),
+        ("__name__", "the alias table argument can't be found"),
     ],
 )
 def test_an_unreadable_alias_table_is_skipped_loudly(
     caplog: pytest.LogCaptureFixture, arguments: str, logged: str
 ) -> None:
-    """Every way of passing the table that cannot be read is reported."""
+    """Ensure every alias table that can't be read is logged."""
     code = (
         "from frequenz.core.warnings import deprecated_aliases\n"
         f"__getattr__ = deprecated_aliases({arguments})\n"
@@ -393,7 +396,7 @@ def test_an_unreadable_alias_table_is_skipped_loudly(
 
 
 def test_only_the_table_argument_is_read() -> None:
-    """A dict in any other position is not taken for the table."""
+    """Ensure a dict in another position isn't used as the table."""
     code = (
         "from frequenz.core.warnings import deprecated_aliases\n"
         "__getattr__ = deprecated_aliases({'Wrong': 'pkg.new'}, {'Right': 'pkg.new'})\n"
@@ -406,7 +409,7 @@ def test_only_the_table_argument_is_read() -> None:
 
 
 def test_the_defaults_match_griffe_warnings_deprecated() -> None:
-    """Configured beside the decorator extension, both render the same."""
+    """Ensure the defaults are the same as in `griffe-warnings-deprecated`."""
     extension = DeprecationsExtension()
     assert extension.kind == "danger"
     assert extension.title == "Deprecated"
@@ -414,7 +417,7 @@ def test_the_defaults_match_griffe_warnings_deprecated() -> None:
 
 
 def test_the_admonition_is_configurable() -> None:
-    """A project wanting its own admonition style can ask for one."""
+    """Ensure the admonition style can be changed."""
     package = load(kind="deprecated", title="No longer supported", label="old")
     member = attribute(package, "oldmod.MAX_WIDGETS")
     assert member.labels == {"old", "module-attribute"}
@@ -425,27 +428,27 @@ def test_the_admonition_is_configurable() -> None:
 
 
 def test_the_label_can_be_dropped() -> None:
-    """Passing no label leaves the object's labels as Griffe found them."""
+    """Ensure no label is added if `label` is `None`."""
     member = attribute(load(label=None), "oldmod.MAX_WIDGETS")
     assert member.labels == {"module-attribute"}
     assert isinstance(member.deprecated, str)
 
 
 def test_show_target_keeps_the_private_name_when_off() -> None:
-    """Turning it off leaves the assignment Griffe read from the source."""
+    """Ensure the value is kept as written in the source when disabled."""
     member = attribute(load(show_target=False), "oldmod.Widget")
     assert member.value == ExprName("_Widget")
 
 
 def test_the_default_message_is_configurable() -> None:
-    """It has to track the default of the function it stands in for."""
+    """Ensure the default message can be changed."""
     package = load(default_message="{old} is gone, see {new}.")
     member = attribute(package, "oldmod.MAX_WIDGETS")
     assert str(member.deprecated).startswith("`samplepkg.oldmod.MAX_WIDGETS` is gone,")
 
 
 def test_only_the_configured_paths_match() -> None:
-    """Pointed somewhere else, the extension finds nothing to mark."""
+    """Ensure only the configured paths are recognized."""
     package = load(
         alias_table_functions=["mypkg.compat.moved_to"],
         member_wrapper_functions=["mypkg.compat.retired"],
@@ -458,7 +461,7 @@ def test_only_the_configured_paths_match() -> None:
 
 
 def test_extra_paths_can_be_added() -> None:
-    """A project may match its own helpers as well as the frequenz-core ones."""
+    """Ensure a project can add its own helpers to the frequenz-core ones."""
     package = load(
         alias_table_functions=[_ALIASES, "mypkg.compat.moved_to"],
         member_wrapper_functions=[_MEMBERS, "mypkg.compat.retired"],

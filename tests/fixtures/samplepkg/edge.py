@@ -1,12 +1,13 @@
 # License: MIT
 # Copyright © 2026 Frequenz Energy-as-a-Service GmbH
 
-"""Edge cases: a target nothing knows about, and a name no type checker sees.
+"""Edge cases: an unknown target, and a name type checkers can't see.
 
-`Outside` points at a package that is in neither the documentation nor any
-inventory, so the link the extension writes has to degrade to plain text.
-`Hidden` is in the table but has no declaration under `TYPE_CHECKING`, so there
-is no attribute to mark until the extension makes one.
+`Outside` points to a package that isn't in the documentation or in any
+inventory, so the link the extension adds must be shown as plain text.
+
+`Hidden` is in the table, but it isn't declared under `TYPE_CHECKING`. So there
+is no attribute to mark until the extension creates one.
 """
 
 from typing import TYPE_CHECKING, TypeAlias

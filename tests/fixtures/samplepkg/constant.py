@@ -1,10 +1,11 @@
 # License: MIT
 # Copyright © 2026 Frequenz Energy-as-a-Service GmbH
 
-"""An alias table Griffe cannot read, because it is held in a constant.
+"""An alias table Griffe can't read, because it's stored in a constant.
 
-Nothing here is executed, so the extension never learns what `_ALIASES` holds.
-`Thing` stays unmarked, and the skip has to be logged rather than silent.
+Nothing here is run, so the extension never knows what `_ALIASES` contains.
+`Thing` isn't marked, and the extension must log it instead of skipping it
+silently.
 """
 
 from typing import TYPE_CHECKING, TypeAlias

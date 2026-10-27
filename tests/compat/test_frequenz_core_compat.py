@@ -1,22 +1,22 @@
 # License: MIT
 # Copyright © 2026 Frequenz Energy-as-a-Service GmbH
 
-"""Compatibility tests against the installed `frequenz-core`.
+"""Compatibility tests with the installed `frequenz-core`.
 
-Every other test in this suite is static: Griffe resolves the helper names out
-of a fixture's import statement, so those tests never import `frequenz-core`
-and pass with it uninstalled. These are the opposite, and the only ones that
-import it. They pin the part of the contract this package depends on but does
-not own, by running the real helper and comparing what it does at runtime with
-what we put in the documentation.
+All other tests in this suite are static: Griffe resolves the helper names from
+the import statements in the fixtures. So those tests never import
+`frequenz-core`, and they pass even if it isn't installed.
 
-`test_documented_message_matches_runtime_warning` is the one that earns its
-keep. Nothing else would notice if `frequenz-core` started wrapping or
-reformatting the message, because the extension reads it out of the syntax
-tree and never executes it. That is precisely the drift that would leave the
-documentation quietly saying something no user ever sees.
+These tests are the only ones that import it. They check the parts of
+`frequenz-core` this package depends on, by running the real helpers and
+comparing what they do at runtime with what we put in the documentation.
 
-Only `deprecated_member` is covered. `frequenz-core 1.4.0` has no
+`test_documented_message_matches_runtime_warning` is the most important one.
+The extension reads the message from the source code and never runs it, so
+nothing else would notice if `frequenz-core` started changing the message. The
+documentation would then silently show a message that users never see.
+
+Only `deprecated_member` is tested. `frequenz-core 1.4.0` has no
 `frequenz.core.warnings` module, so there is no released `deprecated_aliases`
 to run.
 """
@@ -57,10 +57,10 @@ def task_status_fixture() -> griffe.Class:
 
 @pytest.fixture(name="pending_warning")
 def pending_warning_fixture() -> warnings.WarningMessage:
-    """Reach the deprecated member and capture the warning it emits.
+    """Access the deprecated member and capture the warning it emits.
 
     Returns:
-        The single warning the real `frequenz-core` raised.
+        The warning emitted by the real `frequenz-core`.
     """
     with warnings.catch_warnings(record=True) as caught:
         warnings.simplefilter("always")
@@ -71,12 +71,12 @@ def pending_warning_fixture() -> warnings.WarningMessage:
 
 
 def test_real_helper_is_recognized(task_status: griffe.Class) -> None:
-    """The extension finds a `deprecated_member()` call written against real core."""
+    """Ensure a `deprecated_member()` call from the real `frequenz-core` is recognized."""
     pending = task_status["PENDING"]
 
     assert pending.deprecated
     assert "deprecated" in pending.labels
-    # The wrapper call is replaced by the value the member really takes.
+    # The wrapper call is replaced with the member's actual value.
     assert str(pending.value) == "1"
 
 
@@ -84,18 +84,17 @@ def test_documented_message_matches_runtime_warning(
     task_status: griffe.Class,
     pending_warning: warnings.WarningMessage,
 ) -> None:
-    """The documented text is exactly the text the runtime warning carries.
+    """Ensure the documented message is exactly the runtime warning message.
 
-    Deliberately compares the two sources against each other rather than
-    against a third copy in this file, so the test cannot pass by agreeing with
-    a stale expectation.
+    This compares the two messages with each other, instead of with a copy in
+    this file, so the test can't pass because of an outdated copy.
     """
     assert str(pending_warning.message) == task_status["PENDING"].deprecated
     assert issubclass(pending_warning.category, DeprecationWarning)
 
 
 def test_admonition_is_rendered(task_status: griffe.Class) -> None:
-    """The message reaches the docstring as an admonition, not only as a field."""
+    """Ensure the message is added to the docstring as an admonition, too."""
     pending = task_status["PENDING"]
     assert pending.docstring is not None
     sections = pending.docstring.parsed
@@ -103,7 +102,7 @@ def test_admonition_is_rendered(task_status: griffe.Class) -> None:
     assert sections[0].kind is griffe.DocstringSectionKind.admonition
     assert sections[0].title == "Deprecated"
     assert sections[0].value.contents == pending.deprecated
-    # The member's own prose survives, after the admonition.
+    # The member's own docstring text is kept, after the admonition.
     assert [section.kind for section in sections[1:]] == [
         griffe.DocstringSectionKind.text
     ]
@@ -114,17 +113,18 @@ def test_admonition_is_rendered(task_status: griffe.Class) -> None:
     [frequenz.core.enum.deprecated_member, frequenz.core.enum.DeprecatedMember],
 )
 def test_wrapper_parameters_are_value_and_message(wrapper: Any) -> None:
-    """The keyword names the extension binds are the ones core really takes.
+    """Ensure the extension uses the same argument names as `frequenz-core`.
 
-    The extension reads `deprecated_member(value=..., message=...)` by those two
-    names, so a rename in core would leave keyword calls unmarked.
+    The extension reads `deprecated_member(value=..., message=...)` using these
+    names. If `frequenz-core` renamed them, calls using keywords wouldn't be
+    marked anymore.
     """
     bound = inspect.signature(wrapper).bind(value=1, message="Gone")
     assert bound.arguments == {"value": 1, "message": "Gone"}
 
 
 def test_plain_member_is_left_alone(task_status: griffe.Class) -> None:
-    """A member with no `deprecated_member()` call is untouched, and stays silent."""
+    """Ensure a member without `deprecated_member()` isn't changed and doesn't warn."""
     open_member = task_status["OPEN"]
 
     assert open_member.deprecated is None

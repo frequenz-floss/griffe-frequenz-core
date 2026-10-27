@@ -1,14 +1,14 @@
 # License: MIT
 # Copyright © 2026 Frequenz Energy-as-a-Service GmbH
 
-"""Fixture exercising the real `frequenz.core.enum` deprecation helper.
+"""Fixture using the real `frequenz.core.enum` deprecation helper.
 
-This module is both loaded statically by Griffe and imported at runtime, so one
-declaration backs the documentation assertion and the warning assertion.
+This module is loaded statically by Griffe and also imported at runtime, so the
+same code is used to check both the documentation and the runtime warning.
 
-The message is written as a literal on purpose. Griffe reads it out of the
-syntax tree without executing anything, so a message built from a constant or
-an f-string cannot be recovered and the member would go unmarked.
+The message is a string literal on purpose. Griffe reads it from the source code
+without running anything, so it can't read a message built from a constant or
+an f-string, and the member wouldn't be marked.
 """
 
 from frequenz.core.enum import Enum, deprecated_member

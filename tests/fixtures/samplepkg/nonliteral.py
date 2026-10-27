@@ -1,12 +1,12 @@
 # License: MIT
 # Copyright © 2026 Frequenz Energy-as-a-Service GmbH
 
-"""Deprecations written in a way Griffe cannot read.
+"""Deprecations written in a way Griffe can't read.
 
-Nothing here is executed, so a message or an alias name that is not a string
-literal right there in the call cannot be recovered. `Thing` still gets marked,
-with the default message rather than the one this module meant to use, while the
-entry keyed by a constant is dropped entirely.
+Nothing here is run, so the extension can't read a message or an alias name
+that isn't a string literal in the call. `Thing` is still marked, but with the
+default message instead of the one in this module. The entry with a constant as
+its name is skipped.
 """
 
 from typing import TYPE_CHECKING, TypeAlias

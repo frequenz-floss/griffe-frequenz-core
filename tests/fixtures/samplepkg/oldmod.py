@@ -1,14 +1,14 @@
 # License: MIT
 # Copyright © 2026 Frequenz Energy-as-a-Service GmbH
 
-"""The old home, keeping the old import paths working.
+"""The old location, keeping the old import paths working.
 
-Three shapes on purpose:
+It has three kinds of aliases, on purpose:
 
-- `Widget`: the documented convention, with a hand-written `Deprecated:`
-  admonition that the extension must leave alone.
-- `Doohickey`: a renamed alias with a docstring but no admonition.
-- `MAX_WIDGETS`: an alias with no docstring at all.
+- `Widget`: the recommended way, with a hand-written `Deprecated:` admonition
+  that the extension must not change.
+- `Doohickey`: a renamed alias with a docstring, but without an admonition.
+- `MAX_WIDGETS`: an alias without a docstring.
 """
 
 from typing import TYPE_CHECKING, TypeAlias

@@ -1,11 +1,11 @@
 # License: MIT
 # Copyright © 2026 Frequenz Energy-as-a-Service GmbH
 
-"""An alias documenting its own deprecation in numpy style.
+"""An alias with a hand-written deprecation notice in numpy style.
 
-Google style turns a `Deprecated:` section into an admonition, numpy style turns
-it into a section of its own kind. Both mean the same thing, and the extension
-has to keep its hands off either.
+In Google style, a `Deprecated:` section becomes an admonition. In numpy style,
+it becomes a section of its own kind. Both mean the same, and the extension
+must not change either of them.
 """
 
 from typing import TYPE_CHECKING, TypeAlias

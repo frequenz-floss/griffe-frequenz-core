@@ -1,27 +1,29 @@
 # License: MIT
 # Copyright © 2026 Frequenz Energy-as-a-Service GmbH
 
-"""A collection of Griffe extensions to teach mkdocstrings about frequenz-core helpers.
+"""Griffe extensions to help mkdocstrings understand frequenz-core helpers.
 
-Some `frequenz-core` helpers express information that [Griffe] cannot recover
-from static analysis alone, so the API documentation generated for code using
-them comes out incomplete. Each extension in this package fills one of those
-gaps, and new ones are added as more helpers need the same treatment.
+Some `frequenz-core` helpers use patterns that [Griffe] can't fully understand
+by just reading the source code. This means that some information might be
+missing from the generated API documentation. Each extension in this package
+fills in one of these gaps, and we add new ones when more helpers need it.
 
-The extensions match fully qualified names as strings and never import
-`frequenz-core`, so this package doesn't depend on it and can document any
-project that uses those helpers.
+The extensions recognize helpers by their fully qualified names, without
+importing `frequenz-core`. So this package doesn't depend on `frequenz-core`,
+and you can use it to document any project that uses these helpers.
 
-Each extension lives in its own submodule and is enabled by that submodule's
-path, for example `griffe_frequenz_core.deprecations`. Nothing is re-exported
-here on purpose: Griffe instantiates *every* extension class it finds at a bare
-module path with the same options, so a package-level entry would start
-configuring unrelated extensions the day a second one lands.
+Each extension lives in its own submodule, and you enable it using the
+submodule's path, for example `griffe_frequenz_core.deprecations`.
+
+Nothing is re-exported here on purpose. When you enable a module path, Griffe
+creates *every* extension class it finds in that module, all with the same
+options. So if this package re-exported the extensions, enabling it would pass
+the same options to unrelated extensions as soon as we add a second one.
 
 Available extensions:
 
-- [`deprecations`][griffe_frequenz_core.deprecations]: deprecations expressed
-  as a function call rather than a decorator.
+- [`deprecations`][griffe_frequenz_core.deprecations]: Deprecations made with
+  a function call instead of a decorator.
 
 [Griffe]: https://mkdocstrings.github.io/griffe/
 """

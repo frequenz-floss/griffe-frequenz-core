@@ -23,10 +23,10 @@ class TaskStatus(Enum):
     STARTED = deprecated_member(2, "STARTED is deprecated, use IN_PROGRESS instead")
 
     COMPUTED = int("3")
-    """A value that comes from a call the extension must ignore."""
+    """A value from a call that the extension must ignore."""
 
     CANCELLED = deprecated_member(1, _MESSAGE)
-    """A member whose message Griffe cannot read, so it stays unmarked."""
+    """A member with a message Griffe can't read, so it isn't marked."""
 
     WAITING = DeprecatedMember(1, "WAITING is deprecated, use OPEN instead")
-    """A member using the class form of the wrapper rather than the function."""
+    """A member using the wrapper class instead of the function."""

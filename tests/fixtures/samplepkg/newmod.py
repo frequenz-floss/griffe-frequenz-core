@@ -1,7 +1,7 @@
 # License: MIT
 # Copyright © 2026 Frequenz Energy-as-a-Service GmbH
 
-"""The new home of the symbols the other modules alias."""
+"""The new location of the objects aliased by other modules."""
 
 from typing import Self
 

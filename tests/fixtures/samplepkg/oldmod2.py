@@ -1,7 +1,7 @@
 # License: MIT
 # Copyright © 2026 Frequenz Energy-as-a-Service GmbH
 
-"""Another old home, using the keyword form and a message of its own."""
+"""Another old location, using the keyword form and its own message."""
 
 from typing import TYPE_CHECKING, TypeAlias
 
