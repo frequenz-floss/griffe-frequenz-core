@@ -961,9 +961,26 @@ same in your documentation.</p>
 <p>For each deprecated object, the extension:</p>
 <ul>
 <li>Adds a <code>deprecated</code> label.</li>
-<li>Stores the deprecation message in the object's <code>deprecated</code> field.</li>
-<li>Adds an admonition with the message at the top of its docstring.</li>
+<li>Stores the deprecation notice in the object's <code>deprecated</code> field.</li>
+<li>Adds an admonition with the notice at the top of its docstring.</li>
 </ul>
+<p>The notices follow the <a href="https://github.com/frequenz-floss/docs/blob/v0.x.x/python/deprecations.md">deprecations
+guide</a>.</p>
+<p>A warning shown at runtime is different from a notice in the documentation. The
+runtime warning needs to identify the deprecated object. In the documentation,
+readers already know which object they're looking at.</p>
+<p>So a documentation notice should simply say <strong>since which version</strong> the object
+is deprecated and <strong>what to use instead</strong>, with a link to the replacement.</p>
+<p>The extension tries to build this notice from the arguments passed to the
+helper. If you need a different notice, you can write one yourself using a
+<code>Deprecated:</code> section in the docstring. A hand-written notice always takes
+priority.</p>
+<p>Sometimes the extension can't get all the information it needs. For example, it
+might not be able to read an argument from the source code, or the helper might
+only have the runtime warning. In that case, it still adds a notice with
+whatever information is available, but also logs a warning. This makes
+<code>mkdocs build --strict</code> fail, so you can fix the documentation by writing the
+missing notice yourself.</p>
 <p>If you use a different admonition style for deprecations, you can change the
 <code>kind</code> option. For example:</p>
 <div class="language-yaml highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="nt">plugins</span><span class="p">:</span>
@@ -994,6 +1011,11 @@ same in your documentation.</p>
 <td>All aliases in the table</td>
 </tr>
 <tr>
+<td><code>frequenz.core.warnings.DeprecatedAlias</code></td>
+<td>An entry in that table</td>
+<td>The alias</td>
+</tr>
+<tr>
 <td><code>frequenz.core.enum.deprecated_member()</code></td>
 <td>Used as an enum member's value</td>
 <td>The enum member</td>
@@ -1015,13 +1037,19 @@ for a while.</p>
 <p>The <code>deprecated_aliases()</code> helper lets you do this by setting a module's
 <code>__getattr__</code>. You can also declare the old names under <code>TYPE_CHECKING</code>, so
 type checkers can still find them.</p>
-<p>The helper takes a table that maps each old name to the module where the
-object lives now. If the object was also renamed, you can write the target as
-<code>"module:name"</code>.</p>
+<p>Each old name is described by a <code>DeprecatedAlias</code> entry. You can provide:</p>
+<ul>
+<li><code>new_module</code>: The module where the object lives now.</li>
+<li><code>new_name</code>: Its new name, if it was renamed.</li>
+<li><code>since</code>: The version where the old name became deprecated.</li>
+<li><code>message</code>: A custom runtime warning, instead of <code>since</code>.</li>
+</ul>
+<p>You need to provide <code>new_module</code>, <code>new_name</code> or both, and exactly one of
+<code>since</code> and <code>message</code>.</p>
 <p>For example:</p>
 <div class="language-python highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">TYPE_CHECKING</span><span class="p">,</span> <span class="n">TypeAlias</span>
 </span><span id="__span-3-2"><a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a>
-</span><span id="__span-3-3"><a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a><span class="kn">from</span><span class="w"> </span><span class="nn">frequenz.core.warnings</span><span class="w"> </span><span class="kn">import</span> <span class="n">deprecated_aliases</span>
+</span><span id="__span-3-3"><a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a><span class="kn">from</span><span class="w"> </span><span class="nn">frequenz.core.warnings</span><span class="w"> </span><span class="kn">import</span> <span class="n">DeprecatedAlias</span><span class="p">,</span> <span class="n">deprecated_aliases</span>
 </span><span id="__span-3-4"><a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a>
 </span><span id="__span-3-5"><a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a><span class="k">if</span> <span class="n">TYPE_CHECKING</span><span class="p">:</span>
 </span><span id="__span-3-6"><a id="__codelineno-3-6" name="__codelineno-3-6" href="#__codelineno-3-6"></a>    <span class="kn">from</span><span class="w"> </span><span class="nn">mypkg.newmod</span><span class="w"> </span><span class="kn">import</span> <span class="n">Gadget</span> <span class="k">as</span> <span class="n">_Gadget</span>
@@ -1035,35 +1063,44 @@ object lives now. If the object was also renamed, you can write the target as
 </span><span id="__span-3-14"><a id="__codelineno-3-14" name="__codelineno-3-14" href="#__codelineno-3-14"></a><span class="k">else</span><span class="p">:</span>
 </span><span id="__span-3-15"><a id="__codelineno-3-15" name="__codelineno-3-15" href="#__codelineno-3-15"></a>    <span class="fm">__getattr__</span> <span class="o">=</span> <span class="n">deprecated_aliases</span><span class="p">(</span>
 </span><span id="__span-3-16"><a id="__codelineno-3-16" name="__codelineno-3-16" href="#__codelineno-3-16"></a>        <span class="vm">__name__</span><span class="p">,</span>
-</span><span id="__span-3-17"><a id="__codelineno-3-17" name="__codelineno-3-17" href="#__codelineno-3-17"></a>        <span class="p">{</span>
-</span><span id="__span-3-18"><a id="__codelineno-3-18" name="__codelineno-3-18" href="#__codelineno-3-18"></a>            <span class="s2">"Widget"</span><span class="p">:</span> <span class="s2">"mypkg.newmod"</span><span class="p">,</span>
-</span><span id="__span-3-19"><a id="__codelineno-3-19" name="__codelineno-3-19" href="#__codelineno-3-19"></a>            <span class="s2">"Doohickey"</span><span class="p">:</span> <span class="s2">"mypkg.newmod:Gadget"</span><span class="p">,</span>
-</span><span id="__span-3-20"><a id="__codelineno-3-20" name="__codelineno-3-20" href="#__codelineno-3-20"></a>        <span class="p">},</span>
-</span><span id="__span-3-21"><a id="__codelineno-3-21" name="__codelineno-3-21" href="#__codelineno-3-21"></a>    <span class="p">)</span>
+</span><span id="__span-3-17"><a id="__codelineno-3-17" name="__codelineno-3-17" href="#__codelineno-3-17"></a>        <span class="n">DeprecatedAlias</span><span class="p">(</span><span class="s2">"Widget"</span><span class="p">,</span> <span class="n">new_module</span><span class="o">=</span><span class="s2">"mypkg.newmod"</span><span class="p">,</span> <span class="n">since</span><span class="o">=</span><span class="s2">"v1.2.0"</span><span class="p">),</span>
+</span><span id="__span-3-18"><a id="__codelineno-3-18" name="__codelineno-3-18" href="#__codelineno-3-18"></a>        <span class="n">DeprecatedAlias</span><span class="p">(</span>
+</span><span id="__span-3-19"><a id="__codelineno-3-19" name="__codelineno-3-19" href="#__codelineno-3-19"></a>            <span class="s2">"Doohickey"</span><span class="p">,</span> <span class="n">new_module</span><span class="o">=</span><span class="s2">"mypkg.newmod"</span><span class="p">,</span> <span class="n">new_name</span><span class="o">=</span><span class="s2">"Gadget"</span><span class="p">,</span> <span class="n">since</span><span class="o">=</span><span class="s2">"v1.3.0"</span>
+</span><span id="__span-3-20"><a id="__codelineno-3-20" name="__codelineno-3-20" href="#__codelineno-3-20"></a>        <span class="p">),</span>
+</span><span id="__span-3-21"><a id="__codelineno-3-21" name="__codelineno-3-21" href="#__codelineno-3-21"></a>        <span class="n">DeprecatedAlias</span><span class="p">(</span><span class="s2">"Thingamajig"</span><span class="p">,</span> <span class="n">new_name</span><span class="o">=</span><span class="s2">"Widget"</span><span class="p">,</span> <span class="n">since</span><span class="o">=</span><span class="s2">"v1.4.0"</span><span class="p">),</span>
+</span><span id="__span-3-22"><a id="__codelineno-3-22" name="__codelineno-3-22" href="#__codelineno-3-22"></a>    <span class="p">)</span>
 </span></code></pre></div>
 <p>Suppose this code is in <code>mypkg.oldmod</code>. Here's what happens in the generated
 documentation:</p>
 <ul>
-<li><strong><code>Widget</code></strong> gets the message "<code>mypkg.oldmod.Widget</code> is deprecated. Use
+<li><strong><code>Widget</code></strong> gets the notice "Deprecated since v1.2.0. Use
   <code>mypkg.newmod.Widget</code> instead." The replacement is linked, and its value is
   shown as <code>mypkg.newmod.Widget</code> instead of the private <code>_Widget</code>.</li>
 <li><strong><code>Doohickey</code></strong> points to <code>mypkg.newmod.Gadget</code>, because both the module and
   the name changed.</li>
+<li><strong><code>Thingamajig</code></strong> points to <code>mypkg.oldmod.Widget</code>, because only the name
+  changed. Its notice says "Use <code>Widget</code> instead.", with a link to that name.</li>
 </ul>
 <p>A few other things worth knowing:</p>
 <ul>
 <li><strong>You don't need a <code>TYPE_CHECKING</code> declaration for every alias.</strong> The
-  extension marks all aliases in the table as deprecated. If a name isn't
-  declared under <code>TYPE_CHECKING</code>, it creates a module attribute for it, so the
-  alias still appears in the documentation.</li>
-<li><strong>The message comes from the call, or from <code>default_message</code>.</strong> If the call
-  passes a <code>message</code>, the extension uses it. Otherwise, it uses the
-  <code>default_message</code> option. In both cases, it replaces <code>{old}</code> with the path of
-  the alias, formatted as code, and <code>{new}</code> with a link to the replacement.</li>
-<li><strong>Replacement links are optional.</strong> If the replacement isn't in your
-  documentation or in a configured inventory, the link is shown as plain code.
-  It doesn't make a strict build fail.</li>
-<li><strong>You can pass the table positionally or as <code>aliases=</code>.</strong> Arguments such as
+  extension marks all aliases as deprecated. If a name isn't declared under
+  <code>TYPE_CHECKING</code>, it creates a module attribute for it, so the alias still
+  appears in the documentation.</li>
+<li><strong>You can customize the notice using <code>default_message</code>.</strong> The extension
+  replaces <code>{since}</code> with the version string exactly as provided. The notice
+  appears next to the alias in the documentation, so it doesn't repeat the
+  deprecated name. It links the replacement using code formatting.</li>
+<li><strong>The <code>message</code> argument only affects runtime warnings.</strong> It doesn't change
+  the documentation notice. If an entry has a <code>message</code> instead of <code>since</code>, the
+  notice only says what to use instead, and the extension logs a warning. To
+  fix this, write a <code>Deprecated:</code> section in the docstring under
+  <code>TYPE_CHECKING</code>.</li>
+<li><strong>Replacement links use normal cross-references.</strong> If a link can't be
+  resolved, <code>mkdocs-autorefs</code> reports it. For replacements in another project,
+  add that project's <code>objects.inv</code> URL to the Python handler's <code>inventories</code>.</li>
+<li><strong>Each alias is processed separately.</strong> If the extension can't read one
+  entry, it skips that entry and continues with the others. Arguments such as
   <code>category</code> and <code>stacklevel</code> don't affect the documentation.</li>
 <li><strong>The helper must be assigned directly to <code>__getattr__</code>.</strong> A custom <code>def
   __getattr__()</code> that calls <code>deprecated_aliases()</code> internally won't be
@@ -1079,19 +1116,41 @@ warning.</p>
 </span><span id="__span-4-3"><a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a>
 </span><span id="__span-4-4"><a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a><span class="k">class</span><span class="w"> </span><span class="nc">TaskStatus</span><span class="p">(</span><span class="n">Enum</span><span class="p">):</span>
 </span><span id="__span-4-5"><a id="__codelineno-4-5" name="__codelineno-4-5" href="#__codelineno-4-5"></a>    <span class="n">OPEN</span> <span class="o">=</span> <span class="mi">1</span>
-</span><span id="__span-4-6"><a id="__codelineno-4-6" name="__codelineno-4-6" href="#__codelineno-4-6"></a>    <span class="n">PENDING</span> <span class="o">=</span> <span class="n">deprecated_member</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="s2">"PENDING is deprecated, use OPEN instead"</span><span class="p">)</span>
-</span><span id="__span-4-7"><a id="__codelineno-4-7" name="__codelineno-4-7" href="#__codelineno-4-7"></a>    <span class="n">WAITING</span> <span class="o">=</span> <span class="n">DeprecatedMember</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="s2">"WAITING is deprecated, use OPEN instead"</span><span class="p">)</span>
+</span><span id="__span-4-6"><a id="__codelineno-4-6" name="__codelineno-4-6" href="#__codelineno-4-6"></a>    <span class="n">PENDING</span> <span class="o">=</span> <span class="n">deprecated_member</span><span class="p">(</span>
+</span><span id="__span-4-7"><a id="__codelineno-4-7" name="__codelineno-4-7" href="#__codelineno-4-7"></a>        <span class="mi">1</span><span class="p">,</span> <span class="s2">"mypkg.TaskStatus.PENDING is deprecated. Use mypkg.TaskStatus.OPEN instead."</span>
+</span><span id="__span-4-8"><a id="__codelineno-4-8" name="__codelineno-4-8" href="#__codelineno-4-8"></a>    <span class="p">)</span>
+</span><span id="__span-4-9"><a id="__codelineno-4-9" name="__codelineno-4-9" href="#__codelineno-4-9"></a><span class="w">    </span><span class="sd">"""The task is pending.</span>
+</span><span id="__span-4-10"><a id="__codelineno-4-10" name="__codelineno-4-10" href="#__codelineno-4-10"></a>
+</span><span id="__span-4-11"><a id="__codelineno-4-11" name="__codelineno-4-11" href="#__codelineno-4-11"></a><span class="sd">    Deprecated:</span>
+</span><span id="__span-4-12"><a id="__codelineno-4-12" name="__codelineno-4-12" href="#__codelineno-4-12"></a><span class="sd">        Deprecated since v1.2.0. Use [`OPEN`][mypkg.TaskStatus.OPEN] instead.</span>
+</span><span id="__span-4-13"><a id="__codelineno-4-13" name="__codelineno-4-13" href="#__codelineno-4-13"></a><span class="sd">    """</span>
+</span><span id="__span-4-14"><a id="__codelineno-4-14" name="__codelineno-4-14" href="#__codelineno-4-14"></a>
+</span><span id="__span-4-15"><a id="__codelineno-4-15" name="__codelineno-4-15" href="#__codelineno-4-15"></a>    <span class="n">WAITING</span> <span class="o">=</span> <span class="n">DeprecatedMember</span><span class="p">(</span>
+</span><span id="__span-4-16"><a id="__codelineno-4-16" name="__codelineno-4-16" href="#__codelineno-4-16"></a>        <span class="mi">1</span><span class="p">,</span> <span class="s2">"mypkg.TaskStatus.WAITING is deprecated. Use mypkg.TaskStatus.OPEN instead."</span>
+</span><span id="__span-4-17"><a id="__codelineno-4-17" name="__codelineno-4-17" href="#__codelineno-4-17"></a>    <span class="p">)</span>
 </span></code></pre></div>
-<p>The extension marks both members using their message as written. It also shows
-their actual value instead of the wrapper. For example, the documentation shows
-<code>PENDING = 1</code>, not the call to <code>deprecated_member()</code>.</p>
+<p>The extension marks both members and shows their actual value instead of the
+wrapper. For example, the documentation shows <code>PENDING = 1</code>, not the call to
+<code>deprecated_member()</code>.</p>
+<p>The wrapper only has the runtime warning, so you should write the notice by
+hand, as for <code>PENDING</code>. <code>WAITING</code> doesn't have one, so the extension shows its
+runtime warning as the notice, rendered as Markdown, and logs a warning.</p>
+<p>If the message comes from a variable or a function call, the extension can't
+read it. It still marks the member as deprecated and shows its value without the
+wrapper. If you didn't write a notice by hand, it uses a generic notice and logs
+a warning:</p>
+<blockquote>
+<p>Deprecated. It will be removed in a future release.</p>
+</blockquote>
 <h3 id="hand-written-admonitions">Hand-written admonitions<a class="headerlink" href="#hand-written-admonitions" title="Permanent link">¤</a></h3>
-<p>Sometimes the generated message isn't enough. For example, you might want to
-say since which version the object is deprecated.</p>
+<p>Sometimes the generated notice isn't enough. For example, you might want to
+explain how to migrate to a new API or link to a migration guide.</p>
 <p>You can do this by adding a deprecation admonition to the object's docstring.</p>
-<p>If the extension finds one, it leaves the docstring as it is, instead of adding
-another admonition. It still adds the <code>deprecated</code> label and fills in the
-<code>deprecated</code> field.</p>
+<p>If the extension finds one, it doesn't add another admonition. It still adds
+the <code>deprecated</code> label and fills in the <code>deprecated</code> field.</p>
+<p>The extension also moves your notice to the top of the docstring, before the
+summary, so it appears in the same place as a generated notice. You can't write
+it there yourself, because a docstring must start with its summary.</p>
 <p>It recognizes two kinds of hand-written admonitions:</p>
 <ul>
 <li>A <code>Deprecated:</code> section in the docstring.</li>
@@ -1104,42 +1163,78 @@ another admonition. It still adds the <code>deprecated</code> label and fills in
 </span><span id="__span-5-3"><a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a><span class="w">    </span><span class="sd">"""A widget that does widget things.</span>
 </span><span id="__span-5-4"><a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a>
 </span><span id="__span-5-5"><a id="__codelineno-5-5" name="__codelineno-5-5" href="#__codelineno-5-5"></a><span class="sd">    Deprecated:</span>
-</span><span id="__span-5-6"><a id="__codelineno-5-6" name="__codelineno-5-6" href="#__codelineno-5-6"></a><span class="sd">        `mypkg.oldmod.Widget` is deprecated since v1.2.0. Use</span>
-</span><span id="__span-5-7"><a id="__codelineno-5-7" name="__codelineno-5-7" href="#__codelineno-5-7"></a><span class="sd">        [`mypkg.newmod.Widget`][] instead.</span>
+</span><span id="__span-5-6"><a id="__codelineno-5-6" name="__codelineno-5-6" href="#__codelineno-5-6"></a><span class="sd">        Deprecated since v1.2.0. Use [`mypkg.newmod.Widget`][] instead, as</span>
+</span><span id="__span-5-7"><a id="__codelineno-5-7" name="__codelineno-5-7" href="#__codelineno-5-7"></a><span class="sd">        explained in the [migration guide](https://example.com/migration).</span>
 </span><span id="__span-5-8"><a id="__codelineno-5-8" name="__codelineno-5-8" href="#__codelineno-5-8"></a><span class="sd">    """</span>
 </span></code></pre></div>
+<p>Use a hand-written notice whenever the extension can't generate a complete one,
+or when you want to give readers more information.</p>
 <h3 id="known-limitations">Known limitations<a class="headerlink" href="#known-limitations" title="Permanent link">¤</a></h3>
 <p>Griffe reads Python source code without running it. This means the extension
 can't evaluate variables, call functions, or work out values that are only
-known at runtime. It only documents a deprecation if it can understand the call
-just by reading it.</p>
+known at runtime. Sometimes it can still mark an object as deprecated, even if
+it can't read all the arguments of the call.</p>
 <p>Here are the main limitations:</p>
 <ul>
 <li>
-<p><strong>Messages, alias names and targets need literal strings.</strong> They must be
-  written as string literals in the call. Constants, f-strings, and strings
-  joined with <code>+</code> aren't evaluated. If an enum member's message isn't a
-  literal, the member isn't marked. If an alias name or target isn't a literal,
-  that alias is skipped. If the <code>message</code> of an alias table isn't a literal,
-  the extension uses <code>default_message</code> instead, so the documentation doesn't
-  match the runtime warning anymore.</p>
+<p><strong>Module aliases need literal strings.</strong> The alias name, <code>new_module</code>,
+  <code>new_name</code>, and <code>since</code> must be written as string literals in the call. If
+  the alias name isn't a literal, the extension can't mark it as deprecated. If
+  another value isn't a literal, the notice leaves out the information it can't
+  read, and the alias value is only shown as the target if the extension can
+  read the target. The <code>message</code> argument is never read for module aliases.</p>
 </li>
 <li>
-<p><strong>The alias table must be a dict written directly in the call.</strong> You can pass
-  it as the second positional argument or as <code>aliases=</code>. A table stored in a
-  variable can't be read, so none of its aliases are marked. For example:</p>
+<p><strong>Enum messages need literal strings.</strong> If there is no hand-written notice,
+  the extension can only show the message if it's a string literal. Constants,
+  function calls, f-strings, and strings joined with <code>+</code> aren't evaluated.
+  Adjacent string literals are fine, because Python joins them automatically.
+  If the message isn't a literal, the member is still marked as deprecated and
+  its value is shown without the wrapper, but with a generic notice.</p>
+</li>
+<li>
+<p><strong>Alias entries must appear directly in the call.</strong> Each entry must be a
+  <code>DeprecatedAlias(...)</code> call inside <code>deprecated_aliases()</code>. Entries stored in
+  variables or unpacked from a collection can't be read. For example, neither
+  of these entries will be marked:</p>
 </li>
 </ul>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-6-1"><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="n">deprecated_aliases</span><span class="p">(</span><span class="vm">__name__</span><span class="p">,</span> <span class="n">ALIASES</span><span class="p">)</span>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-6-1"><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="n">deprecated_aliases</span><span class="p">(</span><span class="vm">__name__</span><span class="p">,</span> <span class="n">WIDGET</span><span class="p">)</span>
+</span><span id="__span-6-2"><a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a><span class="n">deprecated_aliases</span><span class="p">(</span><span class="vm">__name__</span><span class="p">,</span> <span class="o">*</span><span class="n">ALIASES</span><span class="p">)</span>
 </span></code></pre></div>
 <ul>
-<li><strong>Enum wrapper arguments can't be unpacked.</strong> Calls to <code>deprecated_member()</code>
-  and <code>DeprecatedMember</code> must use explicit arguments, positionally or by
-  keyword. For example, a member defined as <code>deprecated_member(*ARGS)</code> isn't
-  marked.</li>
+<li>
+<p><strong>Arguments can't be unpacked.</strong> Calls to <code>deprecated_member()</code>,
+  <code>DeprecatedMember</code>, and <code>DeprecatedAlias</code> must use explicit arguments, not
+  <code>*args</code> or <code>**kwargs</code>. For example, a member defined as
+  <code>deprecated_member(*ARGS)</code> is still marked as deprecated, with a generic
+  message, but its value is shown as the whole call. For aliases, unpacked
+  keyword arguments mean only the alias name can be read. If positional
+  arguments are unpacked, the alias isn't marked at all.</p>
+</li>
+<li>
+<p><strong>The extension doesn't validate your code.</strong> It matches arguments the same
+  way Python would when calling the function. If the arguments don't match the
+  function's signature, the call is skipped. But the extension doesn't check
+  whether the argument values are valid. That's a job for your tests, which
+  should catch invalid calls when the module is imported.</p>
+</li>
 </ul>
-<p>The extension logs every case it skips at debug level. You can see these logs
-with <code>mkdocs build --verbose</code>.</p>
+<p>All these limitations produce warnings when they affect the generated
+documentation. This lets <code>mkdocs build --strict</code> catch problems instead of
+silently generating incomplete documentation.</p>
+<p>For example, you'll get a warning if:</p>
+<ul>
+<li>A notice is missing the deprecation version or replacement.</li>
+<li>A runtime warning is used as the documentation notice.</li>
+<li>A deprecated value can't be shown correctly.</li>
+<li>A deprecation can't be marked at all.</li>
+</ul>
+<p>Writing your own deprecation admonition fixes warnings about missing or
+incomplete notices, but not other problems.</p>
+<p>If you want to know why the extension couldn't read something, run
+<code>mkdocs build --verbose</code>. The extension logs those details at debug level.</p>
+<p>Broken links to replacements are reported separately by <code>mkdocs-autorefs</code>.</p>
 <h3 id="options">Options<a class="headerlink" href="#options" title="Permanent link">¤</a></h3>
 <table>
 <thead>
@@ -1171,14 +1266,19 @@ with <code>mkdocs build --verbose</code>.</p>
 <td>The paths of the functions that create a module <code>__getattr__</code>.</td>
 </tr>
 <tr>
+<td><code>alias_classes</code></td>
+<td><code>frequenz.core.warnings.DeprecatedAlias</code></td>
+<td>The paths of the callables that create one alias entry.</td>
+</tr>
+<tr>
 <td><code>member_wrapper_functions</code></td>
 <td><code>frequenz.core.enum.deprecated_member</code>, <code>frequenz.core.enum.DeprecatedMember</code></td>
 <td>The paths of the callables that wrap a deprecated enum member's value.</td>
 </tr>
 <tr>
 <td><code>default_message</code></td>
-<td><code>{old} is deprecated. Use {new} instead.</code></td>
-<td>The alias message, if the call doesn't pass a <code>message</code>.</td>
+<td><code>Deprecated since {since}. Use {new_link} instead.</code></td>
+<td>The notice for aliases. <code>{new}</code> is the replacement's path, and <code>{new_link}</code> a link to it in code font, showing only its name if it's in the same module.</td>
 </tr>
 <tr>
 <td><code>show_target</code></td>
@@ -1187,8 +1287,8 @@ with <code>mkdocs build --verbose</code>.</p>
 </tr>
 </tbody>
 </table>
-<p>The two path options are lists. If you set one, it replaces the default. To use
-your own helper as well as the <code>frequenz-core</code> one, list both:</p>
+<p>The three path options are lists. If you set one, it replaces the default. To
+use your own helper as well as the <code>frequenz-core</code> one, list both:</p>
 <div class="language-yaml highlight"><pre><span></span><code><span id="__span-7-1"><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a><span class="nt">extensions</span><span class="p">:</span>
 </span><span id="__span-7-2"><a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a><span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">griffe_frequenz_core.deprecations</span><span class="p">:</span>
 </span><span id="__span-7-3"><a id="__codelineno-7-3" name="__codelineno-7-3" href="#__codelineno-7-3"></a><span class="w">      </span><span class="nt">alias_table_functions</span><span class="p">:</span>
@@ -1198,20 +1298,24 @@ your own helper as well as the <code>frequenz-core</code> one, list both:</p>
 <p>Your own helpers need to take the same arguments as the <code>frequenz-core</code> helper
 they replace, because the extension reads their calls the same way:</p>
 <ul>
-<li><strong>Alias tables</strong> work like <code>deprecated_aliases()</code>. The table is the second
-  positional argument or <code>aliases=</code>, and the message is <code>message=</code>.</li>
+<li><strong>Alias tables</strong> work like <code>deprecated_aliases(module, /, *aliases)</code>. Every
+  positional argument after the module is an alias entry. Keyword arguments are
+  ignored.</li>
+<li><strong>Alias entries</strong> work like <code>DeprecatedAlias(name, /, *, new_module=None,
+  new_name=None, since=None, message=None)</code>. The name is positional, and
+  everything else is passed by keyword. You need to pass <code>new_module</code>,
+  <code>new_name</code> or both, and exactly one of <code>since</code> and <code>message</code>. Passing <code>None</code>
+  is the same as not passing the argument.</li>
 <li><strong>Enum member wrappers</strong> work like <code>deprecated_member(value, message)</code>. You
   can pass both arguments positionally or by keyword.</li>
 </ul>
 <p>If <code>frequenz-core</code> renames or moves a helper, you can update these options with
 the new path. You don't need to wait for a new release of this package.</p>
-<p><code>default_message</code> should match the default message of <code>deprecated_aliases()</code>,
-because that's what the runtime warning says.</p>
 <p>There is one difference from <code>griffe-warnings-deprecated</code>, on purpose. If
 <code>title</code> is empty, <code>griffe-warnings-deprecated</code> puts the message in the
 admonition title, but this extension doesn't, for two reasons:</p>
 <ul>
-<li>The message contains a link to the replacement, which doesn't belong in a
+<li>The notice contains a link to the replacement, which doesn't belong in a
   title.</li>
 <li>The extension uses the title to recognize hand-written admonitions.</li>
 </ul>
