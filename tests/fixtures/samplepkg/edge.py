@@ -4,7 +4,7 @@
 """Edge cases: an unknown target, and a name type checkers can't see.
 
 `Outside` points to a package that isn't in the documentation or in any
-inventory, so the link the extension adds must be shown as plain text.
+inventory, so `mkdocs-autorefs` must report its link.
 
 `Hidden` is in the table, but it isn't declared under `TYPE_CHECKING`. So there
 is no attribute to mark until the extension creates one.
@@ -12,7 +12,7 @@ is no attribute to mark until the extension creates one.
 
 from typing import TYPE_CHECKING, TypeAlias
 
-from frequenz.core.warnings import deprecated_aliases
+from frequenz.core.warnings import DeprecatedAlias, deprecated_aliases
 
 if TYPE_CHECKING:
     from some.external.pkg import Thing as _Thing
@@ -22,8 +22,10 @@ if TYPE_CHECKING:
 else:
     __getattr__ = deprecated_aliases(
         __name__,
-        {
-            "Outside": "some.external.pkg:Thing",
-            "Hidden": "samplepkg.newmod:Widget",
-        },
+        DeprecatedAlias(
+            "Outside", new_module="some.external.pkg", new_name="Thing", since="v1.0.0"
+        ),
+        DeprecatedAlias(
+            "Hidden", new_module="samplepkg.newmod", new_name="Widget", since="v1.0.0"
+        ),
     )

@@ -6,14 +6,14 @@
 It has three kinds of aliases, on purpose:
 
 - `Widget`: the recommended way, with a hand-written `Deprecated:` admonition
-  that the extension must not change.
+  that the extension must keep instead of adding its own notice.
 - `Doohickey`: a renamed alias with a docstring, but without an admonition.
 - `MAX_WIDGETS`: an alias without a docstring.
 """
 
 from typing import TYPE_CHECKING, TypeAlias
 
-from frequenz.core.warnings import deprecated_aliases
+from frequenz.core.warnings import DeprecatedAlias, deprecated_aliases
 
 if TYPE_CHECKING:
     from samplepkg.newmod import Gadget as _Gadget
@@ -23,8 +23,8 @@ if TYPE_CHECKING:
     """A widget that does widget things.
 
     Deprecated:
-        `samplepkg.oldmod.Widget` is deprecated since v1.2.0. Use
-        [`samplepkg.newmod.Widget`][] instead.
+        Deprecated since v1.2.0. Use [`samplepkg.newmod.Widget`][] instead,
+        and see the migration guide.
     """
 
     Doohickey: TypeAlias = _Gadget
@@ -34,9 +34,12 @@ if TYPE_CHECKING:
 else:
     __getattr__ = deprecated_aliases(
         __name__,
-        {
-            "Widget": "samplepkg.newmod",
-            "Doohickey": "samplepkg.newmod:Gadget",
-            "MAX_WIDGETS": "samplepkg.newmod",
-        },
+        DeprecatedAlias("Widget", new_module="samplepkg.newmod", since="v1.2.0"),
+        DeprecatedAlias(
+            "Doohickey",
+            new_module="samplepkg.newmod",
+            new_name="Gadget",
+            since="v1.3.0",
+        ),
+        DeprecatedAlias("MAX_WIDGETS", new_module="samplepkg.newmod", since="v1.4.0"),
     )

@@ -4,13 +4,13 @@
 """An alias with a hand-written deprecation notice in numpy style.
 
 In Google style, a `Deprecated:` section becomes an admonition. In numpy style,
-it becomes a section of its own kind. Both mean the same, and the extension
-must not change either of them.
+it becomes a section of its own kind. Both mean the same. In both cases, the
+extension must keep the hand-written notice instead of adding its own.
 """
 
 from typing import TYPE_CHECKING, TypeAlias
 
-from frequenz.core.warnings import deprecated_aliases
+from frequenz.core.warnings import DeprecatedAlias, deprecated_aliases
 
 if TYPE_CHECKING:
     from samplepkg.newmod import Widget as _Widget
@@ -24,4 +24,7 @@ if TYPE_CHECKING:
         Use ``samplepkg.newmod.Widget`` instead.
     """
 else:
-    __getattr__ = deprecated_aliases(__name__, {"Widget": "samplepkg.newmod"})
+    __getattr__ = deprecated_aliases(
+        __name__,
+        DeprecatedAlias("Widget", new_module="samplepkg.newmod", since="v1.2.0"),
+    )
