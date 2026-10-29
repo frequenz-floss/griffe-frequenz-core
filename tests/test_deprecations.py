@@ -1,6 +1,8 @@
 # License: MIT
 # Copyright © 2026 Frequenz Energy-as-a-Service GmbH
 
+# pylint: disable=too-many-lines
+
 """Tests for the deprecations extension.
 
 The fixtures in `fixtures/` use `frequenz-core` helpers, but they are never
@@ -32,6 +34,9 @@ _ALIAS_CLASS = "frequenz.core.warnings.DeprecatedAlias"
 _MEMBERS = "frequenz.core.enum.deprecated_member"
 _LOGGER = "griffe_frequenz_core.deprecations"
 _GENERIC = "Deprecated. It will be removed in a future release."
+_TO_NEW = "Deprecated. Use [`pkg.new.Thing`][] instead."
+_NO_SINCE = "can't say since which version it is deprecated"
+_NO_TARGET = "what to use instead, because the target can't be read"
 
 
 def load(
@@ -470,22 +475,31 @@ def test_an_unpacked_enum_wrapper_call_is_marked_as_written(
 
 
 @pytest.mark.parametrize(
-    ("arguments", "logged"),
+    "arguments",
     [
-        ("1", "don't match `deprecated_member(value, message)`"),
-        ("message='Gone'", "don't match `deprecated_member(value, message)`"),
-        ("1, 'Gone', 2", "don't match `deprecated_member(value, message)`"),
-        (
-            "1, value=2, message='Gone'",
-            "don't match `deprecated_member(value, message)`",
-        ),
-        ("1, msg='Gone'", "don't match `deprecated_member(value, message)`"),
+        "1",
+        "message='Gone'",
+        "new_name='OPEN'",
+        "1, 'Gone', 2",
+        "1, 'Gone', 'OPEN'",
+        "1, value=2, message='Gone'",
+        "1, msg='Gone'",
+        "1, 'Gone', until='v2'",
+        "1, since='v1'",
+        "1, None",
+        "1, None, since='v1'",
+        "1, message=None, new_name=None",
     ],
 )
 def test_an_unreadable_enum_wrapper_call_is_skipped_loudly(
-    caplog: pytest.LogCaptureFixture, arguments: str, logged: str
+    caplog: pytest.LogCaptureFixture, arguments: str
 ) -> None:
-    """Ensure a call that would fail at runtime doesn't mark the member, and is logged."""
+    """Ensure invalid enum wrapper arguments produce a warning, not a deprecation.
+
+    This includes calls with neither `message` nor `new_name`. Passing `None`
+    counts as not passing the argument, just as it does at runtime.
+    """
+    logged = "the deprecation wrapper's arguments don't match"
     code = (
         "from frequenz.core.enum import Enum, deprecated_member\n"
         "class Status(Enum):\n"
@@ -505,6 +519,167 @@ def test_an_unreadable_enum_wrapper_call_is_skipped_loudly(
         "Status.A" in record.message and logged in record.message
         for record in caplog.records
     )
+
+
+def test_an_enum_member_giving_new_name_and_since_gets_the_default_message(
+    samplepkg: Module,
+) -> None:
+    """Ensure `since` and `new_name` produce a notice with a link to the member."""
+    member = attribute(samplepkg, "statuses.TaskStatus.PAUSED")
+    notice = (
+        "Deprecated since v1.5.0. Use "
+        "[`IN_PROGRESS`][samplepkg.statuses.TaskStatus.IN_PROGRESS] instead."
+    )
+    assert member.deprecated == notice
+    assert "deprecated" in member.labels
+    assert str(member.value) == "2"
+    assert [section.value.contents for section in admonitions(member)] == [notice]
+    assert member.docstring is not None
+    assert member.docstring.parsed[0] is admonitions(member)[0]
+
+
+@pytest.mark.parametrize(
+    "wrapper",
+    [
+        "deprecated_member(1, new_name='OPEN', since='v1')",
+        "deprecated_member(value=1, since='v1', new_name='OPEN')",
+        "deprecated_member(1, None, new_name='OPEN', since='v1')",
+        "deprecated_member(1, 'mod.Status.A is deprecated.', new_name='OPEN', "
+        "since='v1')",
+        "deprecated_member(1, message=_MESSAGE, new_name='OPEN', since='v1')",
+        "DeprecatedMember(1, new_name='OPEN', since='v1')",
+    ],
+)
+def test_an_enum_message_next_to_new_name_does_not_change_the_notice(
+    wrapper: str,
+) -> None:
+    """Ensure `message` doesn't affect an enum notice when `new_name` is passed.
+
+    The message only changes the runtime warning, just as for aliases. It can be
+    passed as a literal or an expression, passed as `None`, or left out.
+    """
+    code = (
+        "from frequenz.core.enum import DeprecatedMember, Enum, deprecated_member\n"
+        "class Status(Enum):\n"
+        "    OPEN = 1\n"
+        f"    A = {wrapper}\n"
+    )
+    with griffe.temporary_visited_module(
+        code, extensions=griffe.load_extensions(DeprecationsExtension())
+    ) as module:
+        member = attribute(module, "Status.A")
+        assert member.deprecated == (
+            f"Deprecated since v1. Use [`OPEN`][{module.path}.Status.OPEN] instead."
+        )
+        assert str(member.value) == "1"
+        assert len(admonitions(member)) == 1
+
+
+@pytest.mark.parametrize(
+    ("wrapper", "message", "logged"),
+    [
+        (
+            "deprecated_member(1, new_name='OPEN')",
+            "Deprecated. Use [`OPEN`][module.Status.OPEN] instead.",
+            _NO_SINCE,
+        ),
+        (
+            "deprecated_member(1, new_name='OPEN', since=SINCE)",
+            "Deprecated. Use [`OPEN`][module.Status.OPEN] instead.",
+            "`since` isn't a string literal",
+        ),
+        (
+            "deprecated_member(1, new_name=NEW, since='v1')",
+            "Deprecated since v1.",
+            "what to use instead, because `new_name` isn't a string literal",
+        ),
+        (
+            "deprecated_member(1, 'Gone', new_name=NEW)",
+            "Gone",
+            "so the runtime warning is shown instead",
+        ),
+        (
+            "deprecated_member(1, 'Gone', new_name=NEW, since='v1')",
+            "Deprecated since v1. Gone",
+            "so the runtime warning is shown instead",
+        ),
+        (
+            "deprecated_member(1, _MESSAGE, new_name=NEW)",
+            _GENERIC,
+            "what to use instead, because `new_name` isn't a string literal",
+        ),
+        (
+            "deprecated_member(1, 'Gone', since='v1')",
+            "Deprecated since v1. Gone",
+            "so the runtime warning is shown instead",
+        ),
+        (
+            "deprecated_member(1, 'Gone', since=SINCE)",
+            "Gone",
+            "so the runtime warning is shown instead",
+        ),
+        (
+            "deprecated_member(1, _MESSAGE, since='v1')",
+            "Deprecated since v1.",
+            "the deprecation message isn't a string literal",
+        ),
+        (
+            "deprecated_member(1, _MESSAGE, since=SINCE)",
+            _GENERIC,
+            "`since` isn't a string literal",
+        ),
+    ],
+)
+def test_a_partly_readable_enum_member_says_what_can_be_read(
+    caplog: pytest.LogCaptureFixture, wrapper: str, message: str, logged: str
+) -> None:
+    """Ensure an enum notice uses the information the extension can read.
+
+    With `new_name`, the notice uses it and `since`, leaving out anything it
+    can't read. Without a readable `new_name`, the notice shows the runtime
+    message, after the version if known. If that can't be read either, the
+    notice is generic, with the version if known.
+    """
+    code = (
+        "from frequenz.core.enum import Enum, deprecated_member\n"
+        "class Status(Enum):\n"
+        "    OPEN = 1\n"
+        f"    A = {wrapper}\n"
+    )
+    with (
+        caplog.at_level(logging.DEBUG, logger=_LOGGER),
+        griffe.temporary_visited_module(
+            code, extensions=griffe.load_extensions(DeprecationsExtension())
+        ) as module,
+    ):
+        member = attribute(module, "Status.A")
+        assert member.deprecated == message
+        assert "deprecated" in member.labels
+        assert str(member.value) == "1"
+        assert len(admonitions(member)) == 1
+    assert any(logged in record.message for record in caplog.records)
+
+
+def test_a_handwritten_notice_replaces_the_generated_enum_one() -> None:
+    """Ensure a hand-written enum notice takes priority over a generated one."""
+    code = (
+        "from frequenz.core.enum import Enum, deprecated_member\n"
+        "class Status(Enum):\n"
+        "    OPEN = 1\n"
+        "    A = deprecated_member(1, new_name='OPEN', since='v1')\n"
+        '    """A status.\n\n    Deprecated:\n        Use B instead.\n    """\n'
+    )
+    with griffe.temporary_visited_module(
+        code,
+        docstring_parser=Parser.google,
+        extensions=griffe.load_extensions(DeprecationsExtension()),
+    ) as module:
+        member = attribute(module, "Status.A")
+        assert "deprecated" in member.labels
+        sections = admonitions(member)
+        assert [section.value.contents for section in sections] == ["Use B instead."]
+        assert member.docstring is not None
+        assert member.docstring.parsed[0] is sections[0]
 
 
 def test_a_non_literal_alias_message_is_not_needed(
@@ -636,11 +811,6 @@ def test_an_unreadable_alias_entry_is_skipped_loudly(
     ):
         assert "Thing" not in module.members
     assert any(logged in record.message for record in caplog.records)
-
-
-_TO_NEW = "Deprecated. Use [`pkg.new.Thing`][] instead."
-_NO_SINCE = "can't say since which version it is deprecated"
-_NO_TARGET = "what to use instead, because the target can't be read"
 
 
 @pytest.mark.parametrize(
@@ -821,12 +991,17 @@ def test_a_bad_default_message_falls_back_to_a_generic_one(
     assert attribute(package, "oldmod.MAX_WIDGETS").deprecated == (
         "Deprecated since v1.4.0. Use [`samplepkg.newmod.MAX_WIDGETS`][] instead."
     )
-    assert any(
-        record.levelno == logging.WARNING
-        and "samplepkg.oldmod.MAX_WIDGETS: " in record.message
-        and "can only use {old}, {new}, {new_link} and {since}" in record.message
-        for record in caplog.records
+    assert attribute(package, "statuses.TaskStatus.PAUSED").deprecated == (
+        "Deprecated since v1.5.0. Use "
+        "[`IN_PROGRESS`][samplepkg.statuses.TaskStatus.IN_PROGRESS] instead."
     )
+    for path in ("oldmod.MAX_WIDGETS", "statuses.TaskStatus.PAUSED"):
+        assert any(
+            record.levelno == logging.WARNING
+            and f"samplepkg.{path}: " in record.message
+            and "can only use {old}, {new}, {new_link} and {since}" in record.message
+            for record in caplog.records
+        )
 
 
 def test_the_module_argument_is_not_an_entry() -> None:
@@ -888,6 +1063,12 @@ def test_the_default_message_is_configurable() -> None:
     # An entry without `since` can't use the template.
     assert attribute(package, "oldmod2.Thing").deprecated == (
         "Deprecated. Use [`samplepkg.newmod.Widget`][] instead."
+    )
+    # Enum notices use the same template.
+    assert attribute(package, "statuses.TaskStatus.PAUSED").deprecated == (
+        "samplepkg.statuses.TaskStatus.PAUSED is gone since v1.5.0, see "
+        "samplepkg.statuses.TaskStatus.IN_PROGRESS or "
+        "[`IN_PROGRESS`][samplepkg.statuses.TaskStatus.IN_PROGRESS]."
     )
 
 

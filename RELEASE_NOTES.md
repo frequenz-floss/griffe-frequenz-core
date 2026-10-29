@@ -10,17 +10,17 @@ The extension generates the notice when the code has enough information. A hand-
 
 ## Upgrading
 
-- The `default_message` option is now used for the notice of every alias. Its default is now `Deprecated since {since}. Use {new_link} instead.`:
+- The `default_message` option is now used for the notice of every alias and enum member with `new_name`. Its default is now `Deprecated since {since}. Use {new_link} instead.`:
 
   - `{old}` and `{new}` are now plain paths.
-  - `{new_link}` is a link to the target in code font. If the target is in the same module, the link only shows its name.
+  - `{new_link}` is a link to the replacement in code font. If the replacement is in the same module or enum, the link only shows its name.
   - The result is rendered as Markdown.
 
   If you changed `default_message`, add `{since}`, and use `{new_link}` or write the link yourself, like ``[`{new}`][]``.
 
 - The `message` of an alias is now only used for the runtime warning, not for the notice. If an alias has no `since`, its notice is ``Deprecated. Use [`<new>`][] instead.``, and the extension logs a warning. Pass `since` or write a `Deprecated:` section in the docstring of the alias declared under `TYPE_CHECKING`.
 
-- An enum member deprecated with `deprecated_member()` only has a runtime warning, so you now need to write its `Deprecated:` notice by hand. If you don't, the runtime warning is still shown as the notice, but the extension logs a warning.
+- If you deprecate an enum member using only a `message`, you now need to write its `Deprecated:` notice by hand. You can pass `new_name` and `since` instead, if the member has a replacement (see [New Features](#new-features)). Without either change, the extension still shows the runtime warning as the notice, but also logs a warning. If you pass `since`, the notice starts with `Deprecated since <since>.`, followed by the warning.
 
 - The extension now logs a warning when the documentation can't show a deprecation the way the guide asks for, so `mkdocs build --strict` fails. This happens when:
 
@@ -35,6 +35,14 @@ The extension generates the notice when the code has enough information. A hand-
 - `mkdocs-autorefs` now reports alias targets it can't resolve. To fix this, add the inventory of the target's project.
 
 ## New Features
+
+- The extension now reads the `new_name` and `since` arguments added to `deprecated_member()` and `DeprecatedMember` in `frequenz-core` v1.6.0. If you pass both, it generates a notice using `default_message`:
+
+  ```text
+  Deprecated since <since>. Use <new_name> instead.
+  ```
+
+  The replacement links to the member in the same enum. Without `since`, the notice only says what to use instead, and the extension logs a warning. If you also pass a `message`, it only changes the runtime warning, not the notice. The only exception is when `new_name` isn't a string literal: then the notice shows the message, because it's the only thing that can say what to use instead.
 
 - The new `alias_classes` option lists the callables that create alias entries. It defaults to `frequenz.core.warnings.DeprecatedAlias`. You can use it if your project has its own helper.
 

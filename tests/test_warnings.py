@@ -62,6 +62,47 @@ _SINCE_FIX = (
             _DOCSTRING_FIX,
         ),
         (
+            "from frequenz.core.enum import Enum, deprecated_member\n"
+            "class Status(Enum):\n"
+            "    B = 7\n"
+            "    A = deprecated_member(7, new_name='B')\n",
+            "A: the notice can't say since which version it is deprecated, because "
+            "`since` isn't given",
+            _SINCE_FIX,
+        ),
+        (
+            "from frequenz.core.enum import Enum, deprecated_member\n"
+            "class Status(Enum):\n"
+            "    B = 7\n"
+            "    A = deprecated_member(7, new_name='B', since=SINCE)\n",
+            "A: the notice can't say since which version it is deprecated, because "
+            "`since` isn't a string literal",
+            _DOCSTRING_FIX,
+        ),
+        (
+            "from frequenz.core.enum import Enum, deprecated_member\n"
+            "class Status(Enum):\n"
+            "    A = deprecated_member(7, new_name=NEW, since='v1')\n",
+            "A: the notice can't say what to use instead",
+            _DOCSTRING_FIX,
+        ),
+        (
+            "from frequenz.core.enum import Enum, deprecated_member\n"
+            "class Status(Enum):\n"
+            "    A = deprecated_member(7, new_name=NEW)\n",
+            "A: the notice can't say since which version it is deprecated, because "
+            "`since` isn't given, nor what to use instead",
+            _DOCSTRING_FIX,
+        ),
+        (
+            "from frequenz.core.enum import Enum, deprecated_member\n"
+            "class Status(Enum):\n"
+            "    A = deprecated_member(7, 'mod.Status.A is deprecated.', since='v1')\n",
+            "A: there is no notice written for the documentation, so the runtime "
+            "warning is shown instead",
+            _DOCSTRING_FIX,
+        ),
+        (
             "from frequenz.core.warnings import DeprecatedAlias, deprecated_aliases\n"
             "__getattr__ = deprecated_aliases(\n"
             "    __name__, DeprecatedAlias('A', new_module='pkg.new', since=SINCE)\n"
@@ -92,6 +133,11 @@ _SINCE_FIX = (
     ids=[
         "enum-unreadable",
         "enum-runtime-only",
+        "enum-no-since",
+        "enum-unreadable-since",
+        "enum-unreadable-new-name",
+        "enum-no-since-unreadable-new-name",
+        "enum-message-and-since",
         "alias-unreadable",
         "alias-message",
         "alias-no-since",
@@ -236,8 +282,12 @@ def test_an_alias_that_cannot_be_fully_documented_is_warned_about(
     ("wrapper", "warned"),
     [
         ("deprecated_member(*ARGS)", "its value is shown as the whole call"),
-        ("deprecated_member(1)", "don't match `deprecated_member(value, message)`"),
+        (
+            "deprecated_member(1)",
+            "the deprecation wrapper's arguments don't match",
+        ),
         ("deprecated_member(1, 'Gone')", None),
+        ("deprecated_member(1, new_name='B', since='v1')", None),
     ],
 )
 def test_an_enum_member_that_cannot_be_fully_documented_is_warned_about(
@@ -269,3 +319,30 @@ def test_an_enum_member_that_cannot_be_fully_documented_is_warned_about(
     else:
         assert len(logged) == 1
         assert warned in logged[0]
+
+
+@pytest.mark.parametrize(
+    "wrapper",
+    [
+        "deprecated_member(1, new_name='B', since='v1')",
+        "deprecated_member(1, 'mod.Status.A is deprecated.', new_name='B', since='v1')",
+    ],
+)
+def test_a_generated_enum_notice_is_not_warned_about(
+    caplog: pytest.LogCaptureFixture, wrapper: str
+) -> None:
+    """Ensure a complete generated enum notice doesn't produce a warning."""
+    code = (
+        "from frequenz.core.enum import Enum, deprecated_member\n"
+        "class Status(Enum):\n"
+        "    B = 1\n"
+        f"    A = {wrapper}\n"
+    )
+    with (
+        caplog.at_level(logging.DEBUG, logger=_LOGGER),
+        griffe.temporary_visited_module(
+            code, extensions=griffe.load_extensions(DeprecationsExtension())
+        ),
+    ):
+        pass
+    assert not _warnings(caplog)
