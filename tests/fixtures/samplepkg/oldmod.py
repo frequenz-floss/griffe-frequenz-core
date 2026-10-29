@@ -8,6 +8,7 @@ It has three kinds of aliases, on purpose:
 - `Widget`: the recommended way, with a hand-written `Deprecated:` admonition
   that the extension must keep instead of adding its own notice.
 - `Doohickey`: a renamed alias with a docstring, but without an admonition.
+  Its custom message only changes the runtime warning.
 - `MAX_WIDGETS`: an alias without a docstring.
 """
 
@@ -40,6 +41,7 @@ else:
             new_module="samplepkg.newmod",
             new_name="Gadget",
             since="v1.3.0",
+            message="{old} is deprecated. Use {new} instead, it was renamed.",
         ),
         DeprecatedAlias("MAX_WIDGETS", new_module="samplepkg.newmod", since="v1.4.0"),
     )
