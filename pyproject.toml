@@ -84,7 +84,7 @@ dev-pytest = [
   "frequenz-repo-config[extra-lint-examples] == 0.19.0",
   "pytest-mock == 3.16.0",
   "pytest-asyncio == 1.4.1",
-  "async-solipsism == 0.9",
+  "async-solipsism == 0.10",
   # Only for tests, never a runtime dependency. `tests/compat/` runs the real
   # helpers to check that the documentation matches the runtime warnings. We pin
   # the exact version we last tested with, so when Dependabot bumps it, we know
