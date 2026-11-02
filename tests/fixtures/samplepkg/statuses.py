@@ -30,3 +30,6 @@ class TaskStatus(Enum):
 
     WAITING = DeprecatedMember(1, "WAITING is deprecated, use OPEN instead")
     """A member using the wrapper class instead of the function."""
+
+    PAUSED = deprecated_member(2, new_name="IN_PROGRESS", since="v1.5.0")
+    """A member with enough information to generate its notice."""

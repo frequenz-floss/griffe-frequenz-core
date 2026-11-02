@@ -13,6 +13,8 @@ resolves the target before warning, so it must be importable. The aliases are:
 - `Rational`: not declared, moved and renamed, with its own message.
 - `Gadget`: renamed to `Widget` in this same module, so without `new_module`.
 - `Number`: moved, with its own message too.
+- `Complex`: has both `since` and a message.
+- `Integral`: has neither `since` nor a message.
 """
 
 from typing import TYPE_CHECKING, TypeAlias
@@ -45,4 +47,11 @@ else:
             new_module="numbers",
             message="{old} is deprecated. Use the abstract base class {new} instead.",
         ),
+        DeprecatedAlias(
+            "Complex",
+            new_module="numbers",
+            since="v1.5.0",
+            message="{old} is deprecated. Use the abstract base class {new} instead.",
+        ),
+        DeprecatedAlias("Integral", new_module="numbers"),
     )

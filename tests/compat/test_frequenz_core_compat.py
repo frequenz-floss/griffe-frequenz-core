@@ -11,10 +11,15 @@ These tests are the only ones that import it. They check the parts of
 `frequenz-core` this package depends on, by running the real helpers and
 comparing what they do at runtime with what we put in the documentation.
 
-An alias notice is written for the documentation and links the new path, so
-it's different from the runtime warning. The tests only check that both say the
-same things: since which version it is deprecated, and what to use instead. To
-compare them, the tests only remove the link markup.
+Generated notices are written for the documentation and link to the replacement.
+They cover aliases and enum members with `new_name`. The tests check that each
+notice points to the replacement used at runtime. Only the notice says since
+which version the object is deprecated. To compare the replacements, the tests
+remove the link markup.
+
+The argument tests check that the extension documents a call if and only if
+the real helper accepts it. A call that fails at runtime doesn't deprecate
+anything.
 """
 
 import inspect
@@ -37,14 +42,20 @@ _FIXTURES = Path(__file__).parent
 
 @pytest.fixture(name="task_status", scope="module")
 def task_status_fixture() -> griffe.Class:
-    """Load the fixture module with the extension applied.
+    """Load the enum fixture with the extension applied, under its runtime name.
+
+    A generated runtime warning names the enum by its module's `__name__`, so
+    Griffe has to know the module by the same dotted path pytest imported it
+    as.
 
     Returns:
         The `TaskStatus` class as Griffe sees it.
     """
+    name = fixture_enum.__name__
+    search_path = Path(fixture_enum.__file__).parents[name.count(".")]
     module = griffe.load(
-        "fixture_enum",
-        search_paths=[_FIXTURES],
+        name,
+        search_paths=[search_path],
         extensions=griffe.load_extensions(DeprecationsExtension()),
         docstring_parser=griffe.Parser.google,
     )
@@ -53,42 +64,108 @@ def task_status_fixture() -> griffe.Class:
     return task_status
 
 
-@pytest.fixture(name="pending_warning")
-def pending_warning_fixture() -> warnings.WarningMessage:
-    """Access the deprecated member and capture the warning it emits.
+def _member_warning(name: str) -> warnings.WarningMessage:
+    """Access a deprecated member and capture the warning it emits.
+
+    Args:
+        name: The member to access.
 
     Returns:
         The warning emitted by the real `frequenz-core`.
     """
     with warnings.catch_warnings(record=True) as caught:
         warnings.simplefilter("always")
-        _ = fixture_enum.TaskStatus.PENDING
+        _ = getattr(fixture_enum.TaskStatus, name)
 
     assert len(caught) == 1, f"expected exactly one warning, got {len(caught)}"
     return caught[0]
 
 
-def test_real_helper_is_recognized(task_status: griffe.Class) -> None:
-    """Ensure a `deprecated_member()` call from the real `frequenz-core` is recognized."""
-    pending = task_status["PENDING"]
-
-    assert pending.deprecated
-    assert "deprecated" in pending.labels
-    # The wrapper call is replaced with the member's actual value.
-    assert str(pending.value) == "1"
+_TASK_STATUS = f"{fixture_enum.__name__}.TaskStatus"
 
 
-def test_documented_message_matches_runtime_warning(
-    task_status: griffe.Class,
-    pending_warning: warnings.WarningMessage,
+@pytest.mark.parametrize(
+    ("name", "value"),
+    [("PENDING", "1"), ("STARTED", "2"), ("WAITING", "1"), ("CANCELLED", "4")],
+)
+def test_real_helper_is_recognized(
+    task_status: griffe.Class, name: str, value: str
 ) -> None:
-    """Ensure the documented message is exactly the runtime warning message.
+    """Ensure the extension recognizes all wrappers used with the real core."""
+    member = task_status[name]
 
-    This compares the two messages with each other, instead of with a copy in
-    this file, so the test can't pass because of an outdated copy.
+    assert member.deprecated
+    assert "deprecated" in member.labels
+    # The wrapper call is replaced with the member's actual value.
+    assert str(member.value) == value
+    assert fixture_enum.TaskStatus.__members__[name].value == int(value)
+
+
+def test_documented_message_matches_runtime_warning(task_status: griffe.Class) -> None:
+    """Ensure a member without `new_name` shows its runtime warning as the notice.
+
+    The notice starts with the version, because `since` isn't part of the
+    warning. This compares the two messages with each other, instead of with a
+    copy in this file, so the test can't pass because of an outdated copy.
     """
-    assert str(pending_warning.message) == task_status["PENDING"].deprecated
-    assert issubclass(pending_warning.category, DeprecationWarning)
+    warning = _member_warning("CANCELLED")
+    assert "v1.4.0" not in str(warning.message)
+    assert task_status["CANCELLED"].deprecated == (
+        f"Deprecated since v1.4.0. {warning.message}"
+    )
+    assert issubclass(warning.category, DeprecationWarning)
+
+
+@pytest.mark.parametrize(
+    ("name", "since", "new"),
+    [
+        ("PENDING", "v1.2.0", "OPEN"),
+        ("STARTED", None, "IN_PROGRESS"),
+        ("WAITING", "v1.3.0", "OPEN"),
+    ],
+)
+def test_member_documents_since_and_the_runtime_replacement(
+    task_status: griffe.Class, name: str, since: str | None, new: str
+) -> None:
+    """Ensure an enum notice links to the replacement used at runtime.
+
+    Only the notice says since which version the member is deprecated.
+    `new_name` selects the replacement, even with a custom runtime message.
+    """
+    runtime = str(_member_warning(name).message)
+    documented = _plain(str(task_status[name].deprecated))
+    target = f"{_TASK_STATUS}.{new}"
+
+    assert fixture_enum.TaskStatus.__members__[new].name == new
+    if since is None:
+        assert documented == f"Deprecated. Use {target} instead."
+    else:
+        assert documented == f"Deprecated since {since}. Use {target} instead."
+        assert since not in runtime
+
+
+@pytest.mark.parametrize(
+    ("name", "new"), [("PENDING", "OPEN"), ("STARTED", "IN_PROGRESS")]
+)
+def test_generated_member_warning_follows_the_guide(name: str, new: str) -> None:
+    """Ensure a generated enum warning follows the deprecations guide.
+
+    It gives the fully qualified names of the member and its replacement. Only
+    the notice says since which version the member is deprecated.
+    """
+    assert str(_member_warning(name).message) == (
+        f"{_TASK_STATUS}.{name} is deprecated. Use {_TASK_STATUS}.{new} instead."
+    )
+
+
+def test_member_message_is_only_the_runtime_warning(task_status: griffe.Class) -> None:
+    """Ensure `message` with `new_name` changes the runtime warning, not the notice."""
+    warning = _member_warning("WAITING")
+
+    assert str(warning.message) == (
+        "TaskStatus.WAITING is deprecated. Use TaskStatus.OPEN instead, it was renamed."
+    )
+    assert str(task_status["WAITING"].deprecated).startswith("Deprecated since ")
 
 
 def test_admonition_is_rendered(task_status: griffe.Class) -> None:
@@ -110,15 +187,23 @@ def test_admonition_is_rendered(task_status: griffe.Class) -> None:
     "wrapper",
     [frequenz.core.enum.deprecated_member, frequenz.core.enum.DeprecatedMember],
 )
-def test_wrapper_parameters_are_value_and_message(wrapper: Any) -> None:
-    """Ensure the extension uses the same argument names as `frequenz-core`.
+def test_wrapper_parameters_match_the_extension(wrapper: Any) -> None:
+    """Ensure the extension expects the same arguments as the core wrappers.
 
-    The extension reads `deprecated_member(value=..., message=...)` using these
-    names. If `frequenz-core` renamed them, calls using keywords wouldn't be
-    marked anymore.
+    It reads `deprecated_member(value, message=None, *, new_name=None,
+    since=None)`. If core changes these parameters, the extension could miss
+    members or read the wrong argument.
     """
-    bound = inspect.signature(wrapper).bind(value=1, message="Gone")
-    assert bound.arguments == {"value": 1, "message": "Gone"}
+    parameters = inspect.signature(wrapper).parameters
+    assert {
+        name: (parameter.kind, parameter.default)
+        for name, parameter in parameters.items()
+    } == {
+        "value": (inspect.Parameter.POSITIONAL_OR_KEYWORD, inspect.Parameter.empty),
+        "message": (inspect.Parameter.POSITIONAL_OR_KEYWORD, None),
+        "new_name": (inspect.Parameter.KEYWORD_ONLY, None),
+        "since": (inspect.Parameter.KEYWORD_ONLY, None),
+    }
 
 
 def test_plain_member_is_left_alone(task_status: griffe.Class) -> None:
@@ -188,14 +273,18 @@ def _alias_warning(name: str) -> warnings.WarningMessage:
     return caught[0]
 
 
+_ALIASES = [
+    ("Decimal", "v1.2.0", "decimal.Decimal"),
+    ("Rational", None, "fractions.Fraction"),
+    ("Gadget", "v1.4.0", f"{fixture_aliases.__name__}.Widget"),
+    ("Number", None, "numbers.Number"),
+    ("Complex", "v1.5.0", "numbers.Complex"),
+    ("Integral", None, "numbers.Integral"),
+]
+
+
 @pytest.mark.parametrize(
-    ("name", "target"),
-    [
-        ("Decimal", "decimal.Decimal"),
-        ("Rational", "fractions.Fraction"),
-        ("Gadget", f"{fixture_aliases.__name__}.Widget"),
-        ("Number", "numbers.Number"),
-    ],
+    ("name", "target"), [(name, target) for name, _, target in _ALIASES]
 )
 def test_real_alias_helper_is_recognized(
     aliases_module: griffe.Module, name: str, target: str
@@ -208,50 +297,61 @@ def test_real_alias_helper_is_recognized(
     assert alias.value == griffe.ExprName(target)
 
 
-@pytest.mark.parametrize(
-    ("name", "target"),
-    [("Rational", "fractions.Fraction"), ("Number", "numbers.Number")],
-)
-def test_alias_message_is_only_the_runtime_warning(
-    aliases_module: griffe.Module, name: str, target: str
+@pytest.mark.parametrize(("name", "since", "target"), _ALIASES)
+def test_alias_documents_since_and_the_runtime_target(
+    aliases_module: griffe.Module, name: str, since: str | None, target: str
 ) -> None:
-    """Ensure an alias with its own message warns with it, but documents its target.
+    """Ensure an alias notice gives the version and the runtime replacement.
 
-    The message is only for the runtime warning, so the notice says what to use
-    instead, with the same target the runtime uses.
-    """
-    warning = _alias_warning(name)
-
-    assert str(warning.message).startswith(f"{fixture_aliases.__name__}.{name} ")
-    assert issubclass(warning.category, DeprecationWarning)
-    assert _plain(str(aliases_module[name].deprecated)) == (
-        f"Deprecated. Use {target} instead."
-    )
-
-
-@pytest.mark.parametrize(
-    ("name", "since", "target"),
-    [
-        ("Decimal", "v1.2.0", "decimal.Decimal"),
-        ("Gadget", "v1.4.0", f"{fixture_aliases.__name__}.Widget"),
-    ],
-)
-def test_since_alias_documents_the_runtime_version_and_target(
-    aliases_module: griffe.Module, name: str, since: str, target: str
-) -> None:
-    """Ensure an alias with `since` documents the version and target it warns about.
-
-    The notice is written for the documentation, so it's different from the
-    runtime warning, but both must say the same version and replacement. `Gadget`
-    has no `new_module`, so this also checks that both resolve it to the module
+    The notice and runtime warning must point to the same replacement, even
+    with a custom message. Only the notice says since which version the alias
+    is deprecated. `Gadget` has no `new_module`, so both must use the module
     where the alias is defined.
     """
     runtime = str(_alias_warning(name).message)
     documented = _plain(str(aliases_module[name].deprecated))
 
-    for part in (f"since {since}.", f"Use {target} instead."):
-        assert part in runtime
-        assert part in documented
+    assert target in runtime
+    if since is None:
+        assert documented == f"Deprecated. Use {target} instead."
+    else:
+        assert documented == f"Deprecated since {since}. Use {target} instead."
+        assert since not in runtime
+
+
+@pytest.mark.parametrize("name", ["Rational", "Number", "Complex"])
+def test_alias_message_is_only_the_runtime_warning(
+    aliases_module: griffe.Module, name: str
+) -> None:
+    """Ensure a custom message changes the runtime warning, not the notice.
+
+    The message is written for a terminal, so the notice is generated anyway,
+    with or without `since`.
+    """
+    warning = _alias_warning(name)
+
+    assert str(warning.message).startswith(f"{fixture_aliases.__name__}.{name} ")
+    assert issubclass(warning.category, DeprecationWarning)
+    assert str(aliases_module[name].deprecated).startswith("Deprecated")
+
+
+@pytest.mark.parametrize(
+    ("name", "target"),
+    [
+        ("Decimal", "decimal.Decimal"),
+        ("Gadget", f"{fixture_aliases.__name__}.Widget"),
+        ("Integral", "numbers.Integral"),
+    ],
+)
+def test_generated_alias_warning_follows_the_guide(name: str, target: str) -> None:
+    """Ensure a generated alias warning follows the deprecations guide.
+
+    It gives the fully qualified names of the alias and its replacement. Only
+    the notice says since which version the alias is deprecated.
+    """
+    assert str(_alias_warning(name).message) == (
+        f"{fixture_aliases.__name__}.{name} is deprecated. Use {target} instead."
+    )
 
 
 def test_alias_entry_parameters_match_the_extension() -> None:
@@ -287,3 +387,103 @@ def test_alias_table_takes_entries_after_the_module() -> None:
     assert all(
         parameter.kind is inspect.Parameter.KEYWORD_ONLY for parameter in parameters[2:]
     )
+
+
+def _accepted(code: str, **names: Any) -> bool:
+    """Return whether the real `frequenz-core` accepts some code.
+
+    Args:
+        code: The code, as written in the documented module.
+        **names: The names the code refers to.
+
+    Returns:
+        Whether the code runs without raising `TypeError` or `ValueError`.
+            Python raises `TypeError` when arguments don't match the signature.
+            `frequenz-core` also raises it when a required combination of
+            arguments is missing, and raises `ValueError` for invalid values.
+            The extension doesn't check values, so a case that raises
+            `ValueError` fails the test instead of stopping it with an error.
+    """
+    try:
+        exec(code, names)  # pylint: disable=exec-used
+    except (TypeError, ValueError):
+        return False
+    return True
+
+
+@pytest.mark.parametrize(
+    "entry",
+    [
+        "DeprecatedAlias('Thing', new_module='decimal', since='v1')",
+        "DeprecatedAlias('Thing', new_module='decimal', message='{old} gone.')",
+        "DeprecatedAlias('Thing', new_module='decimal', since='v1', "
+        "message='{old} gone.')",
+        "DeprecatedAlias('Thing', new_module='decimal')",
+        "DeprecatedAlias('Thing', new_name='Other')",
+        "DeprecatedAlias('Thing', new_module='decimal', since=None, message=None)",
+        "DeprecatedAlias('Thing')",
+        "DeprecatedAlias('Thing', since='v1', message='{old} gone.')",
+        "DeprecatedAlias('Thing', new_module=None, new_name=None, since='v1')",
+        "DeprecatedAlias(name='Thing', new_module='decimal')",
+        "DeprecatedAlias('Thing', 'decimal')",
+        "DeprecatedAlias('Thing', new_module='decimal', until='v2')",
+    ],
+)
+def test_alias_entries_bind_as_at_runtime(entry: str) -> None:
+    """Ensure an alias entry is documented if and only if core accepts it.
+
+    This checks the combinations of arguments, not their values, which the
+    extension doesn't validate.
+    """
+    accepted = _accepted(entry, DeprecatedAlias=frequenz.core.warnings.DeprecatedAlias)
+    code = (
+        "from frequenz.core.warnings import DeprecatedAlias, deprecated_aliases\n"
+        f"__getattr__ = deprecated_aliases(__name__, {entry})\n"
+    )
+    with griffe.temporary_visited_module(
+        code, extensions=griffe.load_extensions(DeprecationsExtension())
+    ) as module:
+        assert ("Thing" in module.members) == accepted
+
+
+@pytest.mark.parametrize(
+    "wrapper",
+    [
+        "deprecated_member(1, 'Gone')",
+        "deprecated_member(value=1, message='Gone')",
+        "deprecated_member(1, new_name='OPEN')",
+        "deprecated_member(1, new_name='OPEN', since='v1')",
+        "deprecated_member(1, 'Gone', since='v1')",
+        "deprecated_member(1, 'Gone', new_name='OPEN', since='v1')",
+        "deprecated_member(1, None, new_name='OPEN')",
+        "deprecated_member(1, message=None, new_name='OPEN', since=None)",
+        "DeprecatedMember(1, new_name='OPEN', since='v1')",
+        "DeprecatedMember(1, 'Gone', since='v1')",
+        "deprecated_member(1)",
+        "deprecated_member(1, None)",
+        "deprecated_member(1, since='v1')",
+        "deprecated_member(1, message=None, new_name=None, since='v1')",
+        "deprecated_member(1, 'Gone', 'OPEN')",
+        "deprecated_member(new_name='OPEN')",
+        "deprecated_member(1, 'Gone', until='v2')",
+        "DeprecatedMember(1, since='v1')",
+    ],
+)
+def test_member_wrappers_bind_as_at_runtime(wrapper: str) -> None:
+    """Ensure an enum member is documented if and only if core accepts its wrapper.
+
+    Create the enum too, because that's when `frequenz-core` checks `new_name`.
+    This checks the combinations of arguments, not their values, which the
+    extension doesn't validate.
+    """
+    code = (
+        "from frequenz.core.enum import DeprecatedMember, Enum, deprecated_member\n"
+        "class Status(Enum):\n"
+        "    OPEN = 1\n"
+        f"    A = {wrapper}\n"
+    )
+    accepted = _accepted(code)
+    with griffe.temporary_visited_module(
+        code, extensions=griffe.load_extensions(DeprecationsExtension())
+    ) as module:
+        assert bool(module["Status.A"].deprecated) == accepted

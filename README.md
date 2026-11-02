@@ -131,10 +131,10 @@ Each old name is described by a `DeprecatedAlias` entry. You can provide:
 - `new_module`: The module where the object lives now.
 - `new_name`: Its new name, if it was renamed.
 - `since`: The version where the old name became deprecated.
-- `message`: A custom runtime warning, instead of `since`.
+- `message`: A custom runtime warning.
 
-You need to provide `new_module`, `new_name` or both, and exactly one of
-`since` and `message`.
+You need to provide `new_module`, `new_name` or both. In `frequenz-core` 1.6.0,
+`since` and `message` are optional. You can pass either, both or neither.
 
 For example:
 
@@ -185,9 +185,9 @@ A few other things worth knowing:
   appears next to the alias in the documentation, so it doesn't repeat the
   deprecated name. It links the replacement using code formatting.
 - **The `message` argument only affects runtime warnings.** It doesn't change
-  the documentation notice. If an entry has a `message` instead of `since`, the
+  the documentation notice. If an entry has no `since`, the
   notice only says what to use instead, and the extension logs a warning. To
-  fix this, write a `Deprecated:` section in the docstring under
+  fix this, pass `since` or write a `Deprecated:` section in the docstring under
   `TYPE_CHECKING`.
 - **Replacement links use normal cross-references.** If a link can't be
   resolved, `mkdocs-autorefs` reports it. For replacements in another project,
@@ -202,8 +202,10 @@ A few other things worth knowing:
 ### Deprecated enum members
 
 You can deprecate an enum member by wrapping its value with
-`deprecated_member()` or `DeprecatedMember`, giving the message for the runtime
-warning.
+`deprecated_member()` or `DeprecatedMember`. In `frequenz-core` 1.6.0, you can
+pass `new_name` to say which member to use instead, and `since` to say when the
+member became deprecated. If there is no replacement, pass a runtime `message`
+and write the notice by hand.
 
 For example:
 
@@ -213,32 +215,46 @@ from frequenz.core.enum import DeprecatedMember, Enum, deprecated_member
 
 class TaskStatus(Enum):
     OPEN = 1
-    PENDING = deprecated_member(
-        1, "mypkg.TaskStatus.PENDING is deprecated. Use mypkg.TaskStatus.OPEN instead."
+    PENDING = deprecated_member(1, new_name="OPEN", since="v1.2.0")
+    WAITING = DeprecatedMember(1, new_name="OPEN")
+
+    CANCELLED = deprecated_member(
+        4,
+        "mypkg.TaskStatus.CANCELLED is deprecated. Cancelled tasks are deleted now.",
+        since="v1.3.0",
     )
-    """The task is pending.
+    """The task was cancelled.
 
     Deprecated:
-        Deprecated since v1.2.0. Use [`OPEN`][mypkg.TaskStatus.OPEN] instead.
+        Deprecated since v1.3.0. Cancelled tasks are deleted now.
     """
-
-    WAITING = DeprecatedMember(
-        1, "mypkg.TaskStatus.WAITING is deprecated. Use mypkg.TaskStatus.OPEN instead."
-    )
 ```
 
-The extension marks both members and shows their actual value instead of the
+The extension marks all three members and shows their actual value instead of the
 wrapper. For example, the documentation shows `PENDING = 1`, not the call to
 `deprecated_member()`.
 
-The wrapper only has the runtime warning, so you should write the notice by
-hand, as for `PENDING`. `WAITING` doesn't have one, so the extension shows its
-runtime warning as the notice, rendered as Markdown, and logs a warning.
+Here's how the notices differ:
 
-If the message comes from a variable or a function call, the extension can't
-read it. It still marks the member as deprecated and shows its value without the
-wrapper. If you didn't write a notice by hand, it uses a generic notice and logs
-a warning:
+- `PENDING` has `new_name` and `since`, so the extension generates its notice
+  using `default_message`: "Deprecated since v1.2.0. Use `OPEN` instead."
+  `OPEN` links to `mypkg.TaskStatus.OPEN`. The link only shows the member's
+  name, because it's in the same enum.
+- `WAITING` has `new_name` but no `since`. Its notice only says what to use
+  instead, and the extension logs a warning about the missing version.
+- `CANCELLED` has no `new_name`, so it needs a hand-written notice. Without
+  one, the extension shows the runtime message as Markdown and logs a warning.
+  Because `CANCELLED` passes `since`, that notice would start with "Deprecated
+  since v1.3.0.", followed by the message.
+
+If you pass both `new_name` and `message`, the message only changes the runtime
+warning. The extension still builds the notice from `new_name` and `since`.
+
+If an argument comes from a variable or a function call, the extension can't
+read it. It still marks the member as deprecated and shows its value without
+the wrapper. Unless you write a notice by hand, it uses the information it can
+read and logs a warning about anything missing. If it can't read any
+information for the notice, it uses:
 
 > Deprecated. It will be removed in a future release.
 
@@ -294,12 +310,14 @@ Here are the main limitations:
   read, and the alias value is only shown as the target if the extension can
   read the target. The `message` argument is never read for module aliases.
 
-- **Enum messages need literal strings.** If there is no hand-written notice,
-  the extension can only show the message if it's a string literal. Constants,
+- **Enum notices need literal strings.** The extension can only read
+  `new_name`, `since` and `message` if they're string literals. It reads
+  `message` only when `new_name` isn't passed or can't be read. Constants,
   function calls, f-strings, and strings joined with `+` aren't evaluated.
   Adjacent string literals are fine, because Python joins them automatically.
-  If the message isn't a literal, the member is still marked as deprecated and
-  its value is shown without the wrapper, but with a generic notice.
+  If an argument isn't a literal, the member is still marked as deprecated and
+  its value is shown without the wrapper. The notice uses whatever information
+  the extension can read.
 
 - **Alias entries must appear directly in the call.** Each entry must be a
   `DeprecatedAlias(...)` call inside `deprecated_aliases()`. Entries stored in
@@ -354,8 +372,16 @@ Broken links to replacements are reported separately by `mkdocs-autorefs`.
 | `alias_table_functions`    | `frequenz.core.warnings.deprecated_aliases` | The paths of the functions that create a module `__getattr__`.          |
 | `alias_classes`            | `frequenz.core.warnings.DeprecatedAlias`    | The paths of the callables that create one alias entry.                 |
 | `member_wrapper_functions` | `frequenz.core.enum.deprecated_member`, `frequenz.core.enum.DeprecatedMember` | The paths of the callables that wrap a deprecated enum member's value. |
-| `default_message`          | `Deprecated since {since}. Use {new_link} instead.` | The notice for aliases. `{new}` is the replacement's path, and `{new_link}` a link to it in code font, showing only its name if it's in the same module. |
+| `default_message`          | `Deprecated since {since}. Use {new_link} instead.` | The notice template for aliases and enum members with `new_name`. See the placeholders below. |
 | `show_target`              | `true`                                      | Show an alias' value as its target, instead of the private name.        |
+
+You can use these placeholders in `default_message`:
+
+- `{old}`: The fully qualified path of the deprecated object.
+- `{new}`: The fully qualified path of its replacement.
+- `{new_link}`: A link to the replacement in code font. If the replacement is
+  in the same module or enum, the link only shows its name.
+- `{since}`: The version string, as written in the call.
 
 The three path options are lists. If you set one, it replaces the default. To
 use your own helper as well as the `frequenz-core` one, list both:
@@ -377,10 +403,13 @@ they replace, because the extension reads their calls the same way:
 - **Alias entries** work like `DeprecatedAlias(name, /, *, new_module=None,
   new_name=None, since=None, message=None)`. The name is positional, and
   everything else is passed by keyword. You need to pass `new_module`,
-  `new_name` or both, and exactly one of `since` and `message`. Passing `None`
-  is the same as not passing the argument.
-- **Enum member wrappers** work like `deprecated_member(value, message)`. You
-  can pass both arguments positionally or by keyword.
+  `new_name` or both. `since` and `message` are optional and independent.
+  Passing `None` is the same as not passing the argument.
+- **Enum member wrappers** work like `deprecated_member(value, message=None,
+  *, new_name=None, since=None)`. You can pass the value and message
+  positionally or by keyword. `new_name` and `since` must be keyword
+  arguments. You need to pass `message`, `new_name` or both. Passing `None`
+  for an optional argument is the same as not passing it.
 
 If `frequenz-core` renames or moves a helper, you can update these options with
 the new path. You don't need to wait for a new release of this package.
