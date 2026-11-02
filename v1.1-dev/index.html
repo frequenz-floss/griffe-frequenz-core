@@ -1042,10 +1042,10 @@ type checkers can still find them.</p>
 <li><code>new_module</code>: The module where the object lives now.</li>
 <li><code>new_name</code>: Its new name, if it was renamed.</li>
 <li><code>since</code>: The version where the old name became deprecated.</li>
-<li><code>message</code>: A custom runtime warning, instead of <code>since</code>.</li>
+<li><code>message</code>: A custom runtime warning.</li>
 </ul>
-<p>You need to provide <code>new_module</code>, <code>new_name</code> or both, and exactly one of
-<code>since</code> and <code>message</code>.</p>
+<p>You need to provide <code>new_module</code>, <code>new_name</code> or both. In <code>frequenz-core</code> 1.6.0,
+<code>since</code> and <code>message</code> are optional. You can pass either, both or neither.</p>
 <p>For example:</p>
 <div class="language-python highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">TYPE_CHECKING</span><span class="p">,</span> <span class="n">TypeAlias</span>
 </span><span id="__span-3-2"><a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a>
@@ -1092,9 +1092,9 @@ documentation:</p>
   appears next to the alias in the documentation, so it doesn't repeat the
   deprecated name. It links the replacement using code formatting.</li>
 <li><strong>The <code>message</code> argument only affects runtime warnings.</strong> It doesn't change
-  the documentation notice. If an entry has a <code>message</code> instead of <code>since</code>, the
+  the documentation notice. If an entry has no <code>since</code>, the
   notice only says what to use instead, and the extension logs a warning. To
-  fix this, write a <code>Deprecated:</code> section in the docstring under
+  fix this, pass <code>since</code> or write a <code>Deprecated:</code> section in the docstring under
   <code>TYPE_CHECKING</code>.</li>
 <li><strong>Replacement links use normal cross-references.</strong> If a link can't be
   resolved, <code>mkdocs-autorefs</code> reports it. For replacements in another project,
@@ -1108,37 +1108,53 @@ documentation:</p>
 </ul>
 <h3 id="deprecated-enum-members">Deprecated enum members<a class="headerlink" href="#deprecated-enum-members" title="Permanent link">¤</a></h3>
 <p>You can deprecate an enum member by wrapping its value with
-<code>deprecated_member()</code> or <code>DeprecatedMember</code>, giving the message for the runtime
-warning.</p>
+<code>deprecated_member()</code> or <code>DeprecatedMember</code>. In <code>frequenz-core</code> 1.6.0, you can
+pass <code>new_name</code> to say which member to use instead, and <code>since</code> to say when the
+member became deprecated. If there is no replacement, pass a runtime <code>message</code>
+and write the notice by hand.</p>
 <p>For example:</p>
 <div class="language-python highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">frequenz.core.enum</span><span class="w"> </span><span class="kn">import</span> <span class="n">DeprecatedMember</span><span class="p">,</span> <span class="n">Enum</span><span class="p">,</span> <span class="n">deprecated_member</span>
 </span><span id="__span-4-2"><a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a>
 </span><span id="__span-4-3"><a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a>
 </span><span id="__span-4-4"><a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a><span class="k">class</span><span class="w"> </span><span class="nc">TaskStatus</span><span class="p">(</span><span class="n">Enum</span><span class="p">):</span>
 </span><span id="__span-4-5"><a id="__codelineno-4-5" name="__codelineno-4-5" href="#__codelineno-4-5"></a>    <span class="n">OPEN</span> <span class="o">=</span> <span class="mi">1</span>
-</span><span id="__span-4-6"><a id="__codelineno-4-6" name="__codelineno-4-6" href="#__codelineno-4-6"></a>    <span class="n">PENDING</span> <span class="o">=</span> <span class="n">deprecated_member</span><span class="p">(</span>
-</span><span id="__span-4-7"><a id="__codelineno-4-7" name="__codelineno-4-7" href="#__codelineno-4-7"></a>        <span class="mi">1</span><span class="p">,</span> <span class="s2">"mypkg.TaskStatus.PENDING is deprecated. Use mypkg.TaskStatus.OPEN instead."</span>
-</span><span id="__span-4-8"><a id="__codelineno-4-8" name="__codelineno-4-8" href="#__codelineno-4-8"></a>    <span class="p">)</span>
-</span><span id="__span-4-9"><a id="__codelineno-4-9" name="__codelineno-4-9" href="#__codelineno-4-9"></a><span class="w">    </span><span class="sd">"""The task is pending.</span>
-</span><span id="__span-4-10"><a id="__codelineno-4-10" name="__codelineno-4-10" href="#__codelineno-4-10"></a>
-</span><span id="__span-4-11"><a id="__codelineno-4-11" name="__codelineno-4-11" href="#__codelineno-4-11"></a><span class="sd">    Deprecated:</span>
-</span><span id="__span-4-12"><a id="__codelineno-4-12" name="__codelineno-4-12" href="#__codelineno-4-12"></a><span class="sd">        Deprecated since v1.2.0. Use [`OPEN`][mypkg.TaskStatus.OPEN] instead.</span>
-</span><span id="__span-4-13"><a id="__codelineno-4-13" name="__codelineno-4-13" href="#__codelineno-4-13"></a><span class="sd">    """</span>
-</span><span id="__span-4-14"><a id="__codelineno-4-14" name="__codelineno-4-14" href="#__codelineno-4-14"></a>
-</span><span id="__span-4-15"><a id="__codelineno-4-15" name="__codelineno-4-15" href="#__codelineno-4-15"></a>    <span class="n">WAITING</span> <span class="o">=</span> <span class="n">DeprecatedMember</span><span class="p">(</span>
-</span><span id="__span-4-16"><a id="__codelineno-4-16" name="__codelineno-4-16" href="#__codelineno-4-16"></a>        <span class="mi">1</span><span class="p">,</span> <span class="s2">"mypkg.TaskStatus.WAITING is deprecated. Use mypkg.TaskStatus.OPEN instead."</span>
-</span><span id="__span-4-17"><a id="__codelineno-4-17" name="__codelineno-4-17" href="#__codelineno-4-17"></a>    <span class="p">)</span>
+</span><span id="__span-4-6"><a id="__codelineno-4-6" name="__codelineno-4-6" href="#__codelineno-4-6"></a>    <span class="n">PENDING</span> <span class="o">=</span> <span class="n">deprecated_member</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="n">new_name</span><span class="o">=</span><span class="s2">"OPEN"</span><span class="p">,</span> <span class="n">since</span><span class="o">=</span><span class="s2">"v1.2.0"</span><span class="p">)</span>
+</span><span id="__span-4-7"><a id="__codelineno-4-7" name="__codelineno-4-7" href="#__codelineno-4-7"></a>    <span class="n">WAITING</span> <span class="o">=</span> <span class="n">DeprecatedMember</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="n">new_name</span><span class="o">=</span><span class="s2">"OPEN"</span><span class="p">)</span>
+</span><span id="__span-4-8"><a id="__codelineno-4-8" name="__codelineno-4-8" href="#__codelineno-4-8"></a>
+</span><span id="__span-4-9"><a id="__codelineno-4-9" name="__codelineno-4-9" href="#__codelineno-4-9"></a>    <span class="n">CANCELLED</span> <span class="o">=</span> <span class="n">deprecated_member</span><span class="p">(</span>
+</span><span id="__span-4-10"><a id="__codelineno-4-10" name="__codelineno-4-10" href="#__codelineno-4-10"></a>        <span class="mi">4</span><span class="p">,</span>
+</span><span id="__span-4-11"><a id="__codelineno-4-11" name="__codelineno-4-11" href="#__codelineno-4-11"></a>        <span class="s2">"mypkg.TaskStatus.CANCELLED is deprecated. Cancelled tasks are deleted now."</span><span class="p">,</span>
+</span><span id="__span-4-12"><a id="__codelineno-4-12" name="__codelineno-4-12" href="#__codelineno-4-12"></a>        <span class="n">since</span><span class="o">=</span><span class="s2">"v1.3.0"</span><span class="p">,</span>
+</span><span id="__span-4-13"><a id="__codelineno-4-13" name="__codelineno-4-13" href="#__codelineno-4-13"></a>    <span class="p">)</span>
+</span><span id="__span-4-14"><a id="__codelineno-4-14" name="__codelineno-4-14" href="#__codelineno-4-14"></a><span class="w">    </span><span class="sd">"""The task was cancelled.</span>
+</span><span id="__span-4-15"><a id="__codelineno-4-15" name="__codelineno-4-15" href="#__codelineno-4-15"></a>
+</span><span id="__span-4-16"><a id="__codelineno-4-16" name="__codelineno-4-16" href="#__codelineno-4-16"></a><span class="sd">    Deprecated:</span>
+</span><span id="__span-4-17"><a id="__codelineno-4-17" name="__codelineno-4-17" href="#__codelineno-4-17"></a><span class="sd">        Deprecated since v1.3.0. Cancelled tasks are deleted now.</span>
+</span><span id="__span-4-18"><a id="__codelineno-4-18" name="__codelineno-4-18" href="#__codelineno-4-18"></a><span class="sd">    """</span>
 </span></code></pre></div>
-<p>The extension marks both members and shows their actual value instead of the
+<p>The extension marks all three members and shows their actual value instead of the
 wrapper. For example, the documentation shows <code>PENDING = 1</code>, not the call to
 <code>deprecated_member()</code>.</p>
-<p>The wrapper only has the runtime warning, so you should write the notice by
-hand, as for <code>PENDING</code>. <code>WAITING</code> doesn't have one, so the extension shows its
-runtime warning as the notice, rendered as Markdown, and logs a warning.</p>
-<p>If the message comes from a variable or a function call, the extension can't
-read it. It still marks the member as deprecated and shows its value without the
-wrapper. If you didn't write a notice by hand, it uses a generic notice and logs
-a warning:</p>
+<p>Here's how the notices differ:</p>
+<ul>
+<li><code>PENDING</code> has <code>new_name</code> and <code>since</code>, so the extension generates its notice
+  using <code>default_message</code>: "Deprecated since v1.2.0. Use <code>OPEN</code> instead."
+  <code>OPEN</code> links to <code>mypkg.TaskStatus.OPEN</code>. The link only shows the member's
+  name, because it's in the same enum.</li>
+<li><code>WAITING</code> has <code>new_name</code> but no <code>since</code>. Its notice only says what to use
+  instead, and the extension logs a warning about the missing version.</li>
+<li><code>CANCELLED</code> has no <code>new_name</code>, so it needs a hand-written notice. Without
+  one, the extension shows the runtime message as Markdown and logs a warning.
+  Because <code>CANCELLED</code> passes <code>since</code>, that notice would start with "Deprecated
+  since v1.3.0.", followed by the message.</li>
+</ul>
+<p>If you pass both <code>new_name</code> and <code>message</code>, the message only changes the runtime
+warning. The extension still builds the notice from <code>new_name</code> and <code>since</code>.</p>
+<p>If an argument comes from a variable or a function call, the extension can't
+read it. It still marks the member as deprecated and shows its value without
+the wrapper. Unless you write a notice by hand, it uses the information it can
+read and logs a warning about anything missing. If it can't read any
+information for the notice, it uses:</p>
 <blockquote>
 <p>Deprecated. It will be removed in a future release.</p>
 </blockquote>
@@ -1185,12 +1201,14 @@ it can't read all the arguments of the call.</p>
   read the target. The <code>message</code> argument is never read for module aliases.</p>
 </li>
 <li>
-<p><strong>Enum messages need literal strings.</strong> If there is no hand-written notice,
-  the extension can only show the message if it's a string literal. Constants,
+<p><strong>Enum notices need literal strings.</strong> The extension can only read
+  <code>new_name</code>, <code>since</code> and <code>message</code> if they're string literals. It reads
+  <code>message</code> only when <code>new_name</code> isn't passed or can't be read. Constants,
   function calls, f-strings, and strings joined with <code>+</code> aren't evaluated.
   Adjacent string literals are fine, because Python joins them automatically.
-  If the message isn't a literal, the member is still marked as deprecated and
-  its value is shown without the wrapper, but with a generic notice.</p>
+  If an argument isn't a literal, the member is still marked as deprecated and
+  its value is shown without the wrapper. The notice uses whatever information
+  the extension can read.</p>
 </li>
 <li>
 <p><strong>Alias entries must appear directly in the call.</strong> Each entry must be a
@@ -1278,7 +1296,7 @@ incomplete notices, but not other problems.</p>
 <tr>
 <td><code>default_message</code></td>
 <td><code>Deprecated since {since}. Use {new_link} instead.</code></td>
-<td>The notice for aliases. <code>{new}</code> is the replacement's path, and <code>{new_link}</code> a link to it in code font, showing only its name if it's in the same module.</td>
+<td>The notice template for aliases and enum members with <code>new_name</code>. See the placeholders below.</td>
 </tr>
 <tr>
 <td><code>show_target</code></td>
@@ -1287,6 +1305,14 @@ incomplete notices, but not other problems.</p>
 </tr>
 </tbody>
 </table>
+<p>You can use these placeholders in <code>default_message</code>:</p>
+<ul>
+<li><code>{old}</code>: The fully qualified path of the deprecated object.</li>
+<li><code>{new}</code>: The fully qualified path of its replacement.</li>
+<li><code>{new_link}</code>: A link to the replacement in code font. If the replacement is
+  in the same module or enum, the link only shows its name.</li>
+<li><code>{since}</code>: The version string, as written in the call.</li>
+</ul>
 <p>The three path options are lists. If you set one, it replaces the default. To
 use your own helper as well as the <code>frequenz-core</code> one, list both:</p>
 <div class="language-yaml highlight"><pre><span></span><code><span id="__span-7-1"><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a><span class="nt">extensions</span><span class="p">:</span>
@@ -1304,10 +1330,13 @@ they replace, because the extension reads their calls the same way:</p>
 <li><strong>Alias entries</strong> work like <code>DeprecatedAlias(name, /, *, new_module=None,
   new_name=None, since=None, message=None)</code>. The name is positional, and
   everything else is passed by keyword. You need to pass <code>new_module</code>,
-  <code>new_name</code> or both, and exactly one of <code>since</code> and <code>message</code>. Passing <code>None</code>
-  is the same as not passing the argument.</li>
-<li><strong>Enum member wrappers</strong> work like <code>deprecated_member(value, message)</code>. You
-  can pass both arguments positionally or by keyword.</li>
+  <code>new_name</code> or both. <code>since</code> and <code>message</code> are optional and independent.
+  Passing <code>None</code> is the same as not passing the argument.</li>
+<li><strong>Enum member wrappers</strong> work like <code>deprecated_member(value, message=None,
+  *, new_name=None, since=None)</code>. You can pass the value and message
+  positionally or by keyword. <code>new_name</code> and <code>since</code> must be keyword
+  arguments. You need to pass <code>message</code>, <code>new_name</code> or both. Passing <code>None</code>
+  for an optional argument is the same as not passing it.</li>
 </ul>
 <p>If <code>frequenz-core</code> renames or moves a helper, you can update these options with
 the new path. You don't need to wait for a new release of this package.</p>
