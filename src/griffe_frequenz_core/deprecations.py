@@ -1,17 +1,18 @@
 # License: MIT
 # Copyright © 2026 Frequenz Energy-as-a-Service GmbH
 
-"""Document deprecations made with function calls.
+# pylint: disable=too-many-lines
 
-Python APIs are usually deprecated with a decorator, and Griffe already supports
-that. [`griffe-warnings-deprecated`](https://mkdocstrings.github.io/griffe-warnings-deprecated/)
-adds an admonition and a label to anything decorated with `@warnings.deprecated`
-or `@typing_extensions.deprecated`.
+"""Document deprecations made with decorators and function calls.
 
-Some [`frequenz-core`](https://github.com/frequenz-floss/frequenz-core-python)
-helpers can't use a decorator, so they use a function call instead. Griffe
-doesn't detect these calls. This module adds support for the two cases
-`frequenz-core` has: module aliases and enum members. See
+This module recognizes the `@deprecated` decorator and the module alias and enum
+member helpers from
+[`frequenz-core`](https://github.com/frequenz-floss/frequenz-core-python).
+It documents all three the same way, following the
+[deprecations guide](https://github.com/frequenz-floss/docs/blob/v0.x.x/python/deprecations.md).
+You can use it instead of
+[`griffe-warnings-deprecated`](https://mkdocstrings.github.io/griffe-warnings-deprecated/)
+to document the decorator. See
 [`DeprecationsExtension`][griffe_frequenz_core.deprecations.DeprecationsExtension]
 for examples and how to enable the extension.
 """
@@ -19,12 +20,15 @@ for examples and how to enable the extension.
 from __future__ import annotations
 
 import ast
-from collections.abc import Sequence
+import functools
+import weakref
+from collections.abc import Callable, Iterable, Sequence
 from typing import Any, NamedTuple
 
 from griffe import (
     Attribute,
     Class,
+    Decorator,
     Docstring,
     DocstringSection,
     DocstringSectionAdmonition,
@@ -35,11 +39,148 @@ from griffe import (
     ExprVarKeyword,
     ExprVarPositional,
     Extension,
+    Extensions,
+    Function,
     Module,
+    Object,
     get_logger,
+    safe_get_expression,
 )
 
 _logger = get_logger(__name__)
+
+_NAMESPACE = "griffe_frequenz_core"
+"""The key for the extension's data in an object's `extra` dictionary."""
+
+_OVERLOAD_DECORATORS = frozenset({"typing.overload", "typing_extensions.overload"})
+"""The overload decorators Griffe recognizes."""
+
+_PART_NOTICES = {
+    "an overload": "One of its overloads is deprecated.",
+    "its setter": "Setting it is deprecated.",
+    "its deleter": "Deleting it is deprecated.",
+}
+"""The generic notices for parts whose messages can't be read."""
+
+_Notice = Callable[[list[DocstringSection]], None]
+"""A callback that adds a deprecation notice to parsed docstring sections."""
+
+
+class _Part(NamedTuple):
+    """A deprecated overload, property setter or deleter."""
+
+    part: str
+    """Which part is deprecated, as in "an overload"."""
+
+    text: str
+    """Its notice."""
+
+    problem: str
+    """Why it needs a hand-written notice."""
+
+
+class _Parts:
+    """The deprecated parts of a function or property, and their notice.
+
+    Another extension can parse the docstring while Griffe is still visiting, so
+    a part can come after the notice was placed. The notice is updated then.
+    """
+
+    def __init__(self, path: str, parts: list[_Part]) -> None:
+        """Initialize the parts.
+
+        Args:
+            path: The path of the function or property, used in warnings.
+            parts: The deprecated parts found so far.
+        """
+        self.path = path
+        """The path of the function or property, used in warnings."""
+
+        self.parts = parts
+        """The deprecated parts found so far."""
+
+        self.admonition: DocstringSectionAdmonition | None = None
+        """The generated notice, once the docstring is parsed.
+
+        It stays `None` if the docstring has a hand-written notice.
+        """
+
+    def text(self) -> str:
+        """Return the text of the combined notice.
+
+        Returns:
+            The notices of all parts, without repeating any.
+        """
+        return "\n\n".join(dict.fromkeys(part.text for part in self.parts))
+
+
+class _NoticedDocstring(Docstring):
+    """A docstring that gets its deprecation notices when it is parsed.
+
+    Wait until parsing to warn about incomplete notices. mkdocstrings parses
+    docstrings when rendering them, so this avoids warnings for objects that
+    aren't documented.
+
+    Griffe visits every module in a package. For a namespace package like
+    `frequenz`, mkdocstrings also loads other installed packages using that
+    namespace. Their missing notices shouldn't make this project's build fail.
+    """
+
+    def __init__(self, *args: Any, **kwargs: Any) -> None:
+        """Initialize the docstring.
+
+        Args:
+            *args: Positional arguments for [`Docstring`][griffe.Docstring].
+            **kwargs: Keyword arguments for [`Docstring`][griffe.Docstring].
+        """
+        super().__init__(*args, **kwargs)
+        self.notices: list[_Notice] = []
+        """The callbacks that add notices, in the order they were added."""
+
+    def parse(self, parser: Any = None, **options: Any) -> list[DocstringSection]:
+        """Parse the docstring and add its deprecation notices.
+
+        Args:
+            parser: The docstring parser to use, as for
+                [`Docstring.parse()`][griffe.Docstring.parse].
+            **options: Additional docstring parsing options.
+
+        Returns:
+            The parsed docstring as a list of sections.
+        """
+        sections = super().parse(parser, **options)
+        for notice in self.notices:
+            notice(sections)
+        return sections
+
+
+def _add_notice(obj: Object, notice: _Notice) -> None:
+    """Add a deprecation notice when the object's docstring is parsed.
+
+    Args:
+        obj: The object whose docstring gets the notice.
+        notice: The callback that adds the notice to the parsed sections.
+    """
+    docstring = obj.docstring
+    if docstring is not None and "parsed" in vars(docstring):
+        # Another extension already parsed it, so add the notice now.
+        notice(docstring.parsed)
+        return
+    if not isinstance(docstring, _NoticedDocstring):
+        docstring = (
+            _NoticedDocstring("", parent=obj)
+            if docstring is None
+            else _NoticedDocstring(
+                docstring.value,
+                lineno=docstring.lineno,
+                endlineno=docstring.endlineno,
+                parent=docstring.parent,
+                parser=docstring.parser,
+                parser_options=docstring.parser_options,
+            )
+        )
+        obj.docstring = docstring
+    docstring.notices.append(notice)
 
 
 def _literal(node: Any) -> Any:
@@ -241,19 +382,80 @@ def _wrapper_arguments(call: ExprCall) -> _WrapperArguments | None:
     )
 
 
+def _decorator_message(call: ExprCall) -> Any:
+    """Find the message passed to a deprecation decorator call.
+
+    Match arguments as Python does for `deprecated(message, /, *,
+    category=DeprecationWarning, stacklevel=1)`. The message must be positional.
+    The other arguments must be passed by keyword. `**kwargs` can't change the
+    position of the message.
+
+    The caller must check for `*args` first, because this function would treat
+    it as a normal argument.
+
+    Args:
+        call: The decorator call to read.
+
+    Returns:
+        The message expression, or `None` if the arguments don't match the
+            signature. This happens if the message is missing or passed by
+            keyword, or if an argument is repeated or unknown.
+    """
+    keywords = ("category", "stacklevel")
+    message: Any = None
+    seen: set[str] = set()
+    for argument in call.arguments:
+        if isinstance(argument, ExprVarKeyword):
+            continue
+        if isinstance(argument, ExprKeyword):
+            if argument.name not in keywords or argument.name in seen:
+                return None
+            seen.add(argument.name)
+        elif message is None:
+            message = argument
+        else:
+            return None
+    return message
+
+
 # Each option is a key in `mkdocs.yml`, so we can't group them.
 class DeprecationsExtension(Extension):  # pylint: disable=too-many-instance-attributes
-    """An extension to document deprecations made with `frequenz-core` helpers.
+    """An extension to document deprecations made with decorators and helpers.
 
-    The extension understands two kinds of calls. For each deprecated object it
-    finds, it does the same as `griffe-warnings-deprecated` does for decorated
-    objects:
+    The extension recognizes three ways to deprecate an object. For each object
+    it finds, it:
 
     - Adds a `deprecated` label.
     - Stores the deprecation notice in the object's `deprecated` field.
     - Adds an admonition with the notice at the top of its docstring.
 
-    The first kind is a table of module aliases, used by a module `__getattr__` to
+    The first is the `@deprecated` decorator, on a class, function, method or
+    property:
+
+    ```python
+    from typing_extensions import deprecated
+
+    @deprecated("mypkg.OldThing is deprecated. Use mypkg.NewThing instead.")
+    class OldThing:
+        '''A thing, now called `NewThing`.
+
+        Deprecated:
+            Deprecated since v1.2.0. Use [`NewThing`][mypkg.NewThing] instead.
+        '''
+    ```
+
+    The decorator only takes a runtime warning. Write the documentation notice
+    yourself, using a `Deprecated:` section in the docstring. Without one, the
+    extension shows the decorator's message as the notice and logs a warning.
+
+    mkdocstrings doesn't show the docstrings of overloads, property setters or
+    deleters. Their notices go in the function or property's docstring instead.
+    Only the deprecated parts get a label and field, not the whole object.
+    A hand-written notice there stays where it was written. Without one, the
+    extension combines the parts' messages into one notice and logs warnings.
+    If the whole object is deprecated too, its own notice covers its parts.
+
+    The second is a table of module aliases, used by a module's `__getattr__` to
     keep old names working:
 
     ```python
@@ -283,7 +485,7 @@ class DeprecationsExtension(Extension):  # pylint: disable=too-many-instance-att
     `message` is only used for the runtime warning, and doesn't change the
     notice. To change the notice, write it by hand.
 
-    The second kind is an enum member with a wrapped value:
+    The third is an enum member with a wrapped value:
 
     ```python
     from frequenz.core.enum import Enum, deprecated_member
@@ -333,6 +535,8 @@ class DeprecationsExtension(Extension):  # pylint: disable=too-many-instance-att
           `**kwargs`, the member also gets the generic message. Its value is
           shown as the whole wrapper call, because the extension can't tell
           which argument is the value.
+        - If a decorator's message isn't a string literal, or its arguments use
+          `*args`, the object gets a generic notice.
 
         The extension can't mark an alias if it can't read its name. This
         happens when:
@@ -345,15 +549,23 @@ class DeprecationsExtension(Extension):  # pylint: disable=too-many-instance-att
         - The arguments don't match the ones of the runtime helper. The
           extension doesn't check the argument values, though.
 
+        An invalid decorator call also leaves the object unmarked. For example,
+        `@deprecated` without a call, or `@deprecated(message="Gone")`, would
+        fail at runtime.
+
         The extension logs a warning in all these cases, so a strict build
         fails. It also logs a warning if a notice doesn't say since which
         version the object is deprecated and what to use instead, or if it
         shows the runtime warning. If you wrote the notice by hand, these
-        warnings about the notice aren't logged. You can see why something
-        couldn't be read with `mkdocs -v`, which shows the debug logs.
+        warnings about the notice aren't logged.
 
-    To enable it, add it to the mkdocstrings Python handler, together with
-    `griffe-warnings-deprecated`:
+        Warnings about incomplete notices wait until the docstring is parsed
+        for rendering. Griffe may also visit code that isn't documented, such
+        as other installed packages using the same namespace. Their missing
+        notices shouldn't make your build fail. To see why something couldn't
+        be read, use `mkdocs build --verbose` to show the debug logs.
+
+    To enable it, add it to the mkdocstrings Python handler:
 
     ```yaml
     plugins:
@@ -362,17 +574,27 @@ class DeprecationsExtension(Extension):  # pylint: disable=too-many-instance-att
             python:
               options:
                 extensions:
-                  - griffe_warnings_deprecated
                   - griffe_frequenz_core.deprecations
     ```
 
-    By default, both extensions use the same format, so all deprecations look the
-    same. You can change this and other settings using options:
+    Don't enable it alongside `griffe-warnings-deprecated`. That extension adds
+    an admonition that this extension can't tell apart from a hand-written
+    notice. You could get the runtime warning as your notice, or two notices.
+    The extension logs a warning if both are enabled, so a strict build fails.
+    To keep the other extension for decorators, set `decorator_functions` to an
+    empty list. This also turns off the warning.
+
+    By default, the notices look the same as `griffe-warnings-deprecated`'s.
+    You can change this and other settings using options:
 
     ```yaml
                 extensions:
                   - griffe_frequenz_core.deprecations:
                       kind: deprecated
+                      decorator_functions:
+                        - warnings.deprecated
+                        - typing_extensions.deprecated
+                        - mypkg.compat.deprecated
                       alias_table_functions:
                         - frequenz.core.warnings.deprecated_aliases
                         - mypkg.compat.moved_to
@@ -402,6 +624,10 @@ class DeprecationsExtension(Extension):  # pylint: disable=too-many-instance-att
         title: str | None = "Deprecated",
         label: str | None = "deprecated",
         *,
+        decorator_functions: Sequence[str] = (
+            "warnings.deprecated",
+            "typing_extensions.deprecated",
+        ),
         alias_table_functions: Sequence[str] = (
             "frequenz.core.warnings.deprecated_aliases",
         ),
@@ -421,6 +647,11 @@ class DeprecationsExtension(Extension):  # pylint: disable=too-many-instance-att
                 title.
             label: The label added to deprecated objects, or `None` to add no
                 label.
+            decorator_functions: The fully qualified paths of the decorators that
+                deprecate a class or function. Their calls are read as if they
+                were calls to `deprecated(message, /, *,
+                category=DeprecationWarning, stacklevel=1)`. The message must be
+                positional. The other arguments must be passed by keyword.
             alias_table_functions: The fully qualified paths of the functions that
                 create a module `__getattr__` from an alias table. Their calls are
                 read as if they were calls to
@@ -457,6 +688,8 @@ class DeprecationsExtension(Extension):  # pylint: disable=too-many-instance-att
         """The title of the admonition added to the docstring."""
         self.label = label
         """The label added to deprecated objects."""
+        self.decorator_functions = frozenset(decorator_functions)
+        """The paths of the decorators that deprecate a class or a function."""
         self.alias_table_functions = frozenset(alias_table_functions)
         """The paths of the functions that create a `__getattr__` from an alias table."""
         self.alias_classes = frozenset(alias_classes)
@@ -467,6 +700,294 @@ class DeprecationsExtension(Extension):  # pylint: disable=too-many-instance-att
         """The template for notices built from `since` and a replacement."""
         self.show_target = show_target
         """Whether to show an alias' value as its target."""
+        self._checked: weakref.WeakSet[Extensions] = weakref.WeakSet()
+        """The extension sets already checked for `griffe-warnings-deprecated`."""
+
+    def on_module_instance(self, *, agent: Any, **kwargs: Any) -> None:
+        """Warn once per extension set if both decorator extensions are enabled.
+
+        Args:
+            agent: The visitor or inspector creating the module.
+            **kwargs: Other arguments passed by Griffe, not used.
+        """
+        extensions = getattr(agent, "extensions", None)
+        if (
+            not self.decorator_functions
+            or not isinstance(extensions, Extensions)
+            or extensions in self._checked
+        ):
+            return
+        self._checked.add(extensions)
+        # Griffe has no public API to list loaded extensions. Skip the check
+        # if the private attribute changes. Tests check that it still works.
+        for extension in getattr(extensions, "_extensions", ()):
+            if type(extension).__module__.partition(".")[0] == (
+                "griffe_warnings_deprecated"
+            ):
+                _logger.warning(
+                    "griffe_warnings_deprecated is enabled too. Both extensions "
+                    "document `@deprecated`, which can produce duplicate or "
+                    "incorrect notices. Remove griffe_warnings_deprecated from "
+                    "the extensions list, or set `decorator_functions` to an "
+                    "empty list to keep using it for decorators."
+                )
+                return
+
+    def on_class_instance(self, *, cls: Class, **kwargs: Any) -> None:
+        """Mark the class if it is decorated as deprecated.
+
+        Args:
+            cls: The class just created.
+            **kwargs: Other arguments passed by Griffe, not used.
+        """
+        self._mark_decorated(cls, cls.decorators)
+
+    def on_function_instance(self, *, func: Function, **kwargs: Any) -> None:
+        """Mark the function or method if it is decorated as deprecated.
+
+        mkdocstrings doesn't show the docstrings of overloads, property setters
+        or deleters. Put their notices in the function or property's docstring
+        instead. Griffe visits overloads before the function, so we keep their
+        messages until it is created.
+
+        Args:
+            func: The function just created.
+            **kwargs: Other arguments passed by Griffe, not used.
+        """
+        owner = None if func.parent is None else func.parent.members.get(func.name)
+        if isinstance(owner, Attribute) and (
+            func is owner.setter or func is owner.deleter
+        ):
+            part = "its setter" if func is owner.setter else "its deleter"
+            read = self._flag_part(func)
+            if read is not None:
+                self._note_part(owner, part, *read)
+            return
+        if any(d.callable_path in _OVERLOAD_DECORATORS for d in func.decorators):
+            read = self._flag_part(func)
+            if read is not None:
+                func.extra[_NAMESPACE]["part_notice"] = read
+            return
+        self._mark_decorated(func, func.decorators)
+        for overload in func.overloads or ():
+            read = overload.extra[_NAMESPACE].get("part_notice")
+            if read is not None:
+                self._note_part(func, "an overload", *read)
+
+    def on_attribute_instance(
+        self, *, node: Any, attr: Attribute, **kwargs: Any
+    ) -> None:
+        """Mark the property if its getter is decorated as deprecated.
+
+        Griffe turns the getter into an attribute. It keeps the docstring and
+        labels, but not the decorators, so we read those from the syntax tree.
+
+        Args:
+            node: The node the attribute was created from.
+            attr: The attribute just created.
+            **kwargs: Other arguments passed by Griffe, not used.
+        """
+        if "property" not in attr.labels or not isinstance(
+            node, (ast.FunctionDef, ast.AsyncFunctionDef)
+        ):
+            return
+        if attr.parent is None:
+            return
+        decorators = []
+        for decorator_node in node.decorator_list:
+            value = safe_get_expression(
+                decorator_node, parent=attr.parent, parse_strings=False
+            )
+            if value is not None:
+                decorators.append(
+                    Decorator(
+                        value,
+                        lineno=decorator_node.lineno,
+                        endlineno=decorator_node.end_lineno,
+                    )
+                )
+        self._mark_decorated(attr, decorators)
+
+    def _mark_decorated(self, obj: Object, decorators: Iterable[Decorator]) -> None:
+        """Mark an object if one of its decorators deprecates it.
+
+        Args:
+            obj: The decorated object.
+            decorators: Its decorators.
+        """
+        decorator = next(
+            (d for d in decorators if d.callable_path in self.decorator_functions),
+            None,
+        )
+        if decorator is None:
+            return
+        read = self._read_decorator(obj, decorator)
+        if read is None:
+            return
+        message, problem = read
+        self._mark(
+            obj,
+            _generic_message() if message is None else message,
+            problem=problem,
+            generic=message is None,
+        )
+
+    def _flag_part(self, func: Function) -> tuple[str | None, str] | None:
+        """Mark a deprecated overload, property setter or deleter.
+
+        It gets the label and the `deprecated` field, but no notice, since its
+        docstring is never shown.
+
+        Args:
+            func: The overload or accessor.
+
+        Returns:
+            The message and why it needs a hand-written notice. The message is
+                `None` if it can't be read. Return `None` instead of a pair if
+                there is no valid deprecation decorator.
+        """
+        decorator = next(
+            (d for d in func.decorators if d.callable_path in self.decorator_functions),
+            None,
+        )
+        if decorator is None:
+            return None
+        read = self._read_decorator(func, decorator)
+        if read is None:
+            return None
+        message = read[0]
+        if message is None and isinstance(func.deprecated, str):
+            # Another extension could read the message, so use that one.
+            message = func.deprecated
+        func.deprecated = _generic_message() if message is None else message
+        if self.label:
+            func.labels.add(self.label)
+        return message, read[1]
+
+    def _note_part(
+        self, owner: Object, part: str, message: str | None, problem: str
+    ) -> None:
+        """Add a notice for a deprecated part to its function or property.
+
+        Don't mark the whole object as deprecated, and leave a hand-written
+        notice where it was written. Without one, combine this message with
+        those of the other deprecated parts.
+
+        Args:
+            owner: The function or property the part belongs to.
+            part: Which part is deprecated, as in "an overload".
+            message: The part's message, or `None` if it can't be read.
+            problem: Why the notice needs to be written by hand.
+        """
+        if owner.deprecated:
+            # The notice of the whole object covers its parts too.
+            return
+        entry = _Part(
+            part, _PART_NOTICES[part] if message is None else message, problem
+        )
+        state = owner.extra[_NAMESPACE]
+        parts: _Parts | None = state.get("parts")
+        if parts is None:
+            parts = state["parts"] = _Parts(owner.path, [entry])
+            _add_notice(owner, functools.partial(self._place_parts, parts))
+            return
+        parts.parts.append(entry)
+        if parts.admonition is not None:
+            # Another extension parsed the docstring before Griffe visited this
+            # part, so update the notice that is already there.
+            self._warn_part(parts.path, entry)
+            parts.admonition.value.description = parts.text()
+
+    def _place_parts(self, parts: _Parts, sections: list[DocstringSection]) -> None:
+        """Add one notice for an object's deprecated parts.
+
+        Args:
+            parts: The object's deprecated parts.
+            sections: The parsed sections of the object's docstring.
+        """
+        parts.admonition = None
+        if self._handwritten_notice(sections) is not None:
+            return
+        for entry in parts.parts:
+            self._warn_part(parts.path, entry)
+        parts.admonition = DocstringSectionAdmonition(
+            kind=self.kind, text=parts.text(), title=self.title
+        )
+        sections.insert(0, parts.admonition)
+
+    @staticmethod
+    def _warn_part(path: str, entry: _Part) -> None:
+        """Warn that a deprecated part needs a hand-written notice.
+
+        Args:
+            path: The path of the part's function or property.
+            entry: The deprecated part.
+        """
+        _logger.warning(
+            "%s: %s is deprecated, and %s. Write a `Deprecated:` section in "
+            "the docstring saying which part is deprecated.",
+            path,
+            entry.part,
+            entry.problem,
+        )
+
+    def _read_decorator(
+        self, obj: Object, decorator: Decorator
+    ) -> tuple[str | None, str] | None:
+        """Read the message of a deprecation decorator.
+
+        Args:
+            obj: The decorated object, used in log messages.
+            decorator: The deprecation decorator.
+
+        Returns:
+            The message and the reason it needs a hand-written notice. The
+                message is `None` if it can't be read. Return `None` instead of
+                a pair if the decorator call would fail at runtime.
+        """
+        call = decorator.value
+        if not isinstance(call, ExprCall):
+            # The object itself would be taken for the message.
+            _logger.warning(
+                "%s: `@%s` needs to be called with a message, so the object "
+                "isn't marked",
+                obj.path,
+                call,
+            )
+            return None
+        unreadable = (
+            None,
+            "the deprecation message can't be read, so a generic notice is shown",
+        )
+        if any(isinstance(argument, ExprVarPositional) for argument in call.arguments):
+            _logger.debug(
+                "%s: the deprecation decorator uses `*args`, so the object "
+                "gets a generic notice",
+                obj.path,
+            )
+            return unreadable
+        node = _decorator_message(call)
+        if node is None:
+            _logger.warning(
+                "%s: the deprecation decorator's arguments don't match "
+                "`deprecated(message, /, *, category=DeprecationWarning, "
+                "stacklevel=1)`, so the object isn't marked",
+                obj.path,
+            )
+            return None
+        message = _literal(node)
+        if not isinstance(message, str):
+            _logger.debug(
+                "%s: the deprecation message isn't a string literal, so the "
+                "object gets a generic notice",
+                obj.path,
+            )
+            return unreadable
+        # The decorator only takes the runtime warning, written for a terminal.
+        return message, (
+            "there is no notice written for the documentation, so the runtime "
+            "warning is shown instead"
+        )
 
     def on_module_members(self, *, mod: Module, **kwargs: Any) -> None:
         """Mark every name in the module's alias table, if it has one.
@@ -883,21 +1404,22 @@ class DeprecationsExtension(Extension):  # pylint: disable=too-many-instance-att
 
     def _mark(
         self,
-        member: Attribute,
+        member: Object,
         text: str,
         *,
         problem: str | None = None,
         fix: str = "Write a `Deprecated:` section in the docstring",
         generic: bool = False,
     ) -> None:
-        """Mark one member as deprecated and add its notice.
+        """Mark one object as deprecated and schedule its notice.
 
         If the docstring has a hand-written notice, it's used instead of `text`.
         It's also moved to the top of the docstring, where a generated notice
-        would go.
+        would go. Add the notice and log any warnings when the docstring is
+        parsed.
 
         Args:
-            member: The member to mark.
+            member: The object to mark.
             text: The notice.
             problem: Why the notice is incomplete, if it is. It's logged as a
                 warning, unless there is a hand-written notice.
@@ -913,9 +1435,28 @@ class DeprecationsExtension(Extension):  # pylint: disable=too-many-instance-att
         member.deprecated = text
         if self.label:
             member.labels.add(self.label)
-        if member.docstring is None:
-            member.docstring = Docstring("", parent=member)
-        sections = member.docstring.parsed
+        _add_notice(
+            member,
+            functools.partial(self._place_notice, member.path, text, problem, fix),
+        )
+
+    def _place_notice(
+        self,
+        path: str,
+        text: str,
+        problem: str | None,
+        fix: str,
+        sections: list[DocstringSection],
+    ) -> None:
+        """Add a deprecation notice to the parsed docstring sections.
+
+        Args:
+            path: The object's path, used in warnings.
+            text: The notice.
+            problem: Why the notice is incomplete, or `None` if it's complete.
+            fix: How to fix the problem, added to the warning.
+            sections: The parsed sections of the object's docstring.
+        """
         written = self._handwritten_notice(sections)
         if written is not None:
             # A docstring must start with its summary, so the hand-written notice
@@ -926,7 +1467,7 @@ class DeprecationsExtension(Extension):  # pylint: disable=too-many-instance-att
         if problem is not None:
             # The documentation says less than the guide asks for, so a strict
             # build should fail.
-            _logger.warning("%s: %s. %s to fix this.", member.path, problem, fix)
+            _logger.warning("%s: %s. %s to fix this.", path, problem, fix)
         sections.insert(
             0,
             DocstringSectionAdmonition(kind=self.kind, text=text, title=self.title),

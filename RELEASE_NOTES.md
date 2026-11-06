@@ -4,11 +4,22 @@
 
 This release supports the `frequenz.core.warnings.deprecated_aliases()` API from `frequenz-core` v1.5.0 and v1.6.0. Each alias is a `DeprecatedAlias` entry. The entry says where the object is now, using `new_module`, `new_name` or both. You can pass `since` to say when the old name became deprecated, and `message` to change its runtime warning. In v1.6.0, these two arguments are optional and independent.
 
+It also documents the `@deprecated` decorator, so you no longer need `griffe-warnings-deprecated`.
+
 The extension now also follows the [deprecations guide](https://github.com/frequenz-floss/docs/blob/v0.x.x/python/deprecations.md). The guide separates the runtime warning, which is shown in a terminal, from the notice in the documentation. The notice says since which version the object is deprecated, and links to what to use instead.
 
 The extension generates the notice when the code has enough information. A hand-written `Deprecated:` notice always takes priority. If a notice is missing something the guide asks for, the extension logs a warning.
 
 ## Upgrading
+
+- This extension now replaces `griffe-warnings-deprecated`. To switch:
+
+  1. Remove `griffe_warnings_deprecated` from the mkdocstrings `extensions` list and remove `griffe-warnings-deprecated` from your documentation dependencies.
+  2. Add `griffe_frequenz_core.deprecations` to the `extensions` list.
+  3. If you set `kind`, `title` or `label`, move those options to this extension.
+  4. Write a `Deprecated:` notice in each decorated object's docstring. Without one, the extension logs a warning, so a strict build fails.
+
+  Don't enable both extensions for the decorator. You could get the runtime warning as your notice, or two notices. The extension logs a warning if both are enabled, so a strict build fails. To keep using `griffe-warnings-deprecated` for the decorator, set this extension's new `decorator_functions` option to an empty list.
 
 - The `default_message` option is now used for the notice of every alias and enum member with `new_name`. Its default is now `Deprecated since {since}. Use {new_link} instead.`:
 
@@ -32,9 +43,22 @@ The extension generates the notice when the code has enough information. A hand-
 
   To fix these warnings, write the arguments as string literals, or write the `Deprecated:` notice by hand.
 
+  Warnings about incomplete notices are only logged when the object's docstring is parsed for rendering. Griffe may also visit dependency code that never appears in your documentation, for example other packages in the `frequenz` namespace. Missing notices in that code no longer make your build fail.
+
 - `mkdocs-autorefs` now reports alias targets it can't resolve. To fix this, add the inventory of the target's project.
 
 ## New Features
+
+- The extension now documents classes, functions, methods and properties deprecated with `@warnings.deprecated` or `@typing_extensions.deprecated`:
+
+  - A hand-written `Deprecated:` notice takes priority and moves to the top of the docstring.
+  - Without a hand-written notice, the extension shows the decorator's message as the notice and logs a warning.
+  - If the message can't be read, the object still gets a generic notice and a warning.
+  - If the decorator call would fail at runtime, the object isn't marked, and the extension logs a warning.
+
+  You can change which decorators the extension recognizes with the new `decorator_functions` option.
+
+- Notices for deprecated overloads, property setters and deleters now appear in the function or property's docstring. mkdocstrings doesn't show the parts' own docstrings. The whole function or property isn't marked as deprecated unless it has its own `@deprecated` decorator.
 
 - The extension now reads the `new_name` and `since` arguments added to `deprecated_member()` and `DeprecatedMember` in `frequenz-core` v1.6.0. If you pass both, it generates a notice using `default_message`:
 
