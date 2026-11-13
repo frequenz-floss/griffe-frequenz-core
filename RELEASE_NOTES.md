@@ -53,8 +53,8 @@ The extension generates the notice when the code has enough information. A hand-
 
   - A hand-written `Deprecated:` notice takes priority and moves to the top of the docstring.
   - Without a hand-written notice, the extension shows the decorator's message as the notice and logs a warning.
-  - If the message can't be read, the object still gets a generic notice and a warning.
-  - If the decorator call would fail at runtime, the object isn't marked, and the extension logs a warning.
+  - If the message can't be read or is empty, the object still gets a generic notice and a warning.
+  - If the decorator call would fail at runtime, the object still gets a generic notice, and the extension logs a warning. A hand-written notice takes priority, but doesn't silence the invalid-call warning.
 
   You can change which decorators the extension recognizes with the new `decorator_functions` option.
 

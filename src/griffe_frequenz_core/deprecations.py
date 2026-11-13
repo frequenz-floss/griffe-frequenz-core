@@ -75,7 +75,7 @@ class _Part(NamedTuple):
     text: str
     """Its notice."""
 
-    problem: str
+    problem: str | None
     """Why it needs a hand-written notice."""
 
 
@@ -535,8 +535,8 @@ class DeprecationsExtension(Extension):  # pylint: disable=too-many-instance-att
           `**kwargs`, the member also gets the generic message. Its value is
           shown as the whole wrapper call, because the extension can't tell
           which argument is the value.
-        - If a decorator's message isn't a string literal, or its arguments use
-          `*args`, the object gets a generic notice.
+        - If a decorator's message isn't a non-empty string literal, or its
+          arguments use `*args`, the object gets a generic notice.
 
         The extension can't mark an alias if it can't read its name. This
         happens when:
@@ -549,9 +549,11 @@ class DeprecationsExtension(Extension):  # pylint: disable=too-many-instance-att
         - The arguments don't match the ones of the runtime helper. The
           extension doesn't check the argument values, though.
 
-        An invalid decorator call also leaves the object unmarked. For example,
-        `@deprecated` without a call, or `@deprecated(message="Gone")`, would
-        fail at runtime.
+        An invalid decorator call still marks the object with a generic notice
+        and logs a warning. For example, `@deprecated` without a call, or
+        `@deprecated(message="Gone")`, would fail at runtime, but still shows
+        the intent to deprecate the object. A hand-written notice takes priority
+        over the generic notice, but doesn't silence the invalid-call warning.
 
         The extension logs a warning in all these cases, so a strict build
         fails. It also logs a warning if a notice doesn't say since which
@@ -821,10 +823,7 @@ class DeprecationsExtension(Extension):  # pylint: disable=too-many-instance-att
         )
         if decorator is None:
             return
-        read = self._read_decorator(obj, decorator)
-        if read is None:
-            return
-        message, problem = read
+        message, problem = self._read_decorator(obj, decorator)
         self._mark(
             obj,
             _generic_message() if message is None else message,
@@ -832,7 +831,7 @@ class DeprecationsExtension(Extension):  # pylint: disable=too-many-instance-att
             generic=message is None,
         )
 
-    def _flag_part(self, func: Function) -> tuple[str | None, str] | None:
+    def _flag_part(self, func: Function) -> tuple[str | None, str | None] | None:
         """Mark a deprecated overload, property setter or deleter.
 
         It gets the label and the `deprecated` field, but no notice, since its
@@ -844,7 +843,7 @@ class DeprecationsExtension(Extension):  # pylint: disable=too-many-instance-att
         Returns:
             The message and why it needs a hand-written notice. The message is
                 `None` if it can't be read. Return `None` instead of a pair if
-                there is no valid deprecation decorator.
+                there is no recognized deprecation decorator.
         """
         decorator = next(
             (d for d in func.decorators if d.callable_path in self.decorator_functions),
@@ -853,8 +852,6 @@ class DeprecationsExtension(Extension):  # pylint: disable=too-many-instance-att
         if decorator is None:
             return None
         read = self._read_decorator(func, decorator)
-        if read is None:
-            return None
         message = read[0]
         if message is None and isinstance(func.deprecated, str):
             # Another extension could read the message, so use that one.
@@ -865,7 +862,7 @@ class DeprecationsExtension(Extension):  # pylint: disable=too-many-instance-att
         return message, read[1]
 
     def _note_part(
-        self, owner: Object, part: str, message: str | None, problem: str
+        self, owner: Object, part: str, message: str | None, problem: str | None
     ) -> None:
         """Add a notice for a deprecated part to its function or property.
 
@@ -923,6 +920,8 @@ class DeprecationsExtension(Extension):  # pylint: disable=too-many-instance-att
             path: The path of the part's function or property.
             entry: The deprecated part.
         """
+        if entry.problem is None:
+            return
         _logger.warning(
             "%s: %s is deprecated, and %s. Write a `Deprecated:` section in "
             "the docstring saying which part is deprecated.",
@@ -933,7 +932,7 @@ class DeprecationsExtension(Extension):  # pylint: disable=too-many-instance-att
 
     def _read_decorator(
         self, obj: Object, decorator: Decorator
-    ) -> tuple[str | None, str] | None:
+    ) -> tuple[str | None, str | None]:
         """Read the message of a deprecation decorator.
 
         Args:
@@ -942,19 +941,19 @@ class DeprecationsExtension(Extension):  # pylint: disable=too-many-instance-att
 
         Returns:
             The message and the reason it needs a hand-written notice. The
-                message is `None` if it can't be read. Return `None` instead of
-                a pair if the decorator call would fail at runtime.
+                message is `None` if it can't be read. The reason is `None` if
+                an invalid-call warning was already logged.
         """
         call = decorator.value
         if not isinstance(call, ExprCall):
             # The object itself would be taken for the message.
             _logger.warning(
                 "%s: `@%s` needs to be called with a message, so the object "
-                "isn't marked",
+                "gets a generic notice",
                 obj.path,
                 call,
             )
-            return None
+            return None, None
         unreadable = (
             None,
             "the deprecation message can't be read, so a generic notice is shown",
@@ -971,14 +970,14 @@ class DeprecationsExtension(Extension):  # pylint: disable=too-many-instance-att
             _logger.warning(
                 "%s: the deprecation decorator's arguments don't match "
                 "`deprecated(message, /, *, category=DeprecationWarning, "
-                "stacklevel=1)`, so the object isn't marked",
+                "stacklevel=1)`, so the object gets a generic notice",
                 obj.path,
             )
-            return None
+            return None, None
         message = _literal(node)
-        if not isinstance(message, str):
+        if not isinstance(message, str) or not message.strip():
             _logger.debug(
-                "%s: the deprecation message isn't a string literal, so the "
+                "%s: the deprecation message isn't a non-empty string literal, so the "
                 "object gets a generic notice",
                 obj.path,
             )

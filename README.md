@@ -436,15 +436,18 @@ Here are the main limitations:
   overloads to the function defined after them. If they're declared only in a
   stub file, they still get a label and field, but no visible notice.
 
-- **Decorator messages need literal strings.** If the message isn't a string
-  literal, or the arguments use `*args`, the object gets a generic notice.
+- **Decorator messages need non-empty literal strings.** If the message isn't a
+  non-empty string literal, or the arguments use `*args`, the object gets a
+  generic notice.
   A decorator used without a call, like `@deprecated`, fails at runtime.
   So does a call whose arguments don't match the signature, for example
-  `@deprecated(message="Gone")`. These leave the object unmarked.
+  `@deprecated(message="Gone")`. These still mark the object with a generic
+  notice and log a warning, even with a hand-written notice.
 
 - **The extension doesn't validate your code.** It matches arguments the same
   way Python would when calling the function. If the arguments don't match the
-  function's signature, the call is skipped. But the extension doesn't check
+  function's signature, the call is skipped, except for decorators, which still
+  mark the object with a generic notice. The extension doesn't check
   whether the argument values are valid. That's a job for your tests, which
   should catch invalid calls when the module is imported.
 

@@ -311,7 +311,14 @@ def test_the_notice_goes_first() -> None:
 
 @pytest.mark.parametrize(
     "message",
-    ["MESSAGE", "f'{NAME} is deprecated.'", "'mod.Thing ' + 'is deprecated.'", "1"],
+    [
+        "MESSAGE",
+        "f'{NAME} is deprecated.'",
+        "'mod.Thing ' + 'is deprecated.'",
+        "1",
+        "''",
+        "'   '",
+    ],
 )
 def test_an_unreadable_message_gets_a_generic_notice(
     caplog: pytest.LogCaptureFixture, message: str
@@ -348,7 +355,9 @@ def test_unpacked_arguments_get_a_generic_notice(
     assert _UNREADABLE in warning
 
 
-@pytest.mark.parametrize("message", ["MESSAGE", "'mod.Thing is deprecated.'", "*ARGS"])
+@pytest.mark.parametrize(
+    "message", ["MESSAGE", "'mod.Thing is deprecated.'", "*ARGS", "''", "'   '"]
+)
 def test_a_handwritten_notice_silences_the_warning(
     caplog: pytest.LogCaptureFixture, message: str
 ) -> None:
@@ -404,19 +413,22 @@ def test_a_missing_notice_is_warned_about(caplog: pytest.LogCaptureFixture) -> N
         ),
     ],
 )
-def test_a_decorator_that_does_not_bind_leaves_the_object_unmarked(
-    caplog: pytest.LogCaptureFixture, decorator: str, logged: str
+@pytest.mark.parametrize("handwritten", [False, True])
+def test_a_decorator_that_does_not_bind_gets_a_generic_notice(
+    caplog: pytest.LogCaptureFixture, decorator: str, logged: str, handwritten: bool
 ) -> None:
-    """Warn and leave the object unmarked if the runtime would reject the call."""
+    """Mark the intent to deprecate and warn even with a hand-written notice."""
     code = (
         "from typing_extensions import deprecated\n"
         f"@{decorator}\n"
-        "def Thing():\n" + _HANDWRITTEN
+        "def Thing():\n" + (_HANDWRITTEN if handwritten else "    ...\n")
     )
     with caplog.at_level(logging.DEBUG, logger=_LOGGER):
         obj = visit(code)["Thing"]
-    assert "deprecated" not in obj.labels
-    assert obj.deprecated is None
+    assert "deprecated" in obj.labels
+    assert obj.deprecated == _GENERIC
+    [admonition] = admonitions(obj)
+    assert admonition.value.contents == ("Use B instead." if handwritten else _GENERIC)
     [warning] = warned(caplog)
     assert logged in warning
 
@@ -482,10 +494,10 @@ if sys.version_info >= (3, 13):
         "'Gone', until='v2'",
     ],
 )
-def test_decorators_bind_as_at_runtime(
+def test_decorator_messages_follow_runtime_argument_binding(
     module_name: str, decorator: Any, arguments: str
 ) -> None:
-    """Mark the object exactly when the real decorator accepts the call.
+    """Read the message when the real decorator accepts the call.
 
     This checks the combinations of arguments, not their values, which the
     extension doesn't validate.
@@ -500,7 +512,8 @@ def test_decorators_bind_as_at_runtime(
         accepted = True
     path = f"{module_name}.deprecated"
     module = visit(f"import {module_name}\n@{path}({arguments})\ndef Thing(): ...\n")
-    assert bool(module["Thing"].deprecated) == accepted
+    assert "deprecated" in module["Thing"].labels
+    assert module["Thing"].deprecated == ("Gone" if accepted else _GENERIC)
 
 
 _OVERLOADS = (
@@ -624,7 +637,7 @@ def test_a_deprecated_function_covers_its_overloads(
 def test_an_overload_decorator_that_does_not_bind_is_reported(
     caplog: pytest.LogCaptureFixture,
 ) -> None:
-    """Don't add a notice for an invalid decorator call."""
+    """Mark an overload and show a generic notice even with an invalid call."""
     code = (
         "from typing import overload\n"
         "from typing_extensions import deprecated\n"
@@ -635,9 +648,10 @@ def test_an_overload_decorator_that_does_not_bind_is_reported(
     )
     with caplog.at_level(logging.DEBUG, logger=_LOGGER):
         func = visit(code)["f"]
-    assert not admonitions(func)
+    [admonition] = admonitions(func)
+    assert admonition.value.contents == "One of its overloads is deprecated."
     assert func.overloads is not None
-    assert func.overloads[0].deprecated is None
+    assert func.overloads[0].deprecated == _GENERIC
     [warning] = warned(caplog)
     assert "the deprecation decorator's arguments don't match" in warning
 
@@ -729,6 +743,29 @@ def test_a_deprecated_property_covers_its_setter(
     assert prop.deprecated == "mod.Owner.p is deprecated."
     [admonition] = admonitions(prop)
     assert admonition.value.contents == "Use B instead."
+
+
+def test_an_empty_property_message_still_covers_its_setter(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """An empty getter message marks the whole property, not just its setter."""
+    code = (
+        "from typing_extensions import deprecated\n"
+        "class Owner:\n"
+        "    @property\n"
+        "    @deprecated('')\n"
+        "    def p(self) -> int: ...\n"
+        "    @p.setter\n"
+        "    @deprecated('Setting it is deprecated.')\n"
+        "    def p(self, value: int) -> None: ...\n"
+    )
+    prop = visit(code)["Owner.p"]
+    assert prop.deprecated == _GENERIC
+    assert "deprecated" in prop.labels
+    [admonition] = admonitions(prop)
+    assert admonition.value.contents == _GENERIC
+    [warning] = warned(caplog)
+    assert _UNREADABLE in warning
 
 
 def _warnings_deprecated() -> griffe.Extension:
