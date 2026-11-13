@@ -55,6 +55,8 @@ The extension generates the notice when the code has enough information. A hand-
 
 ## New Features
 
+- CI now tests Python 3.11 through 3.15.
+
 - The extension now documents classes, functions, methods and properties deprecated with `@warnings.deprecated` or `@typing_extensions.deprecated`:
 
   - A hand-written `Deprecated:` notice takes priority and moves to the top of the docstring.
