@@ -21,6 +21,7 @@ from __future__ import annotations
 
 import ast
 import functools
+import re
 import weakref
 from collections.abc import Callable, Iterable, Sequence
 from typing import Any, NamedTuple
@@ -51,6 +52,13 @@ _logger = get_logger(__name__)
 
 _NAMESPACE = "griffe_frequenz_core"
 """The key for the extension's data in an object's `extra` dictionary."""
+
+_KIND = re.compile(r"\w[\w-]*")
+"""The form of the admonition kinds the docstring parser produces, if lowercase.
+
+The Google parser takes the word before the colon, lowercases it and replaces
+spaces with dashes.
+"""
 
 _OVERLOAD_DECORATORS = frozenset({"typing.overload", "typing_extensions.overload"})
 """The overload decorators Griffe recognizes."""
@@ -587,13 +595,16 @@ class DeprecationsExtension(Extension):  # pylint: disable=too-many-instance-att
     empty list. This also turns off the warning.
 
     By default, notices use the `deprecated` admonition kind, the same kind a
-    hand-written `Deprecated:` section gets. You can change this and other
-    settings using options:
+    hand-written `Deprecated:` section gets. Any admonition of the configured
+    `kind` counts as a hand-written notice. For a general kind like `danger`,
+    also set `match_title`, so only admonitions with the configured `title`
+    count. You can change this and other settings using options:
 
     ```yaml
                 extensions:
                   - griffe_frequenz_core.deprecations:
                       kind: danger
+                      match_title: true
                       decorator_functions:
                         - warnings.deprecated
                         - typing_extensions.deprecated
@@ -615,9 +626,8 @@ class DeprecationsExtension(Extension):  # pylint: disable=too-many-instance-att
         There is one difference from `griffe-warnings-deprecated`, on purpose.
         If `title` is empty, `griffe-warnings-deprecated` puts the message in
         the admonition title, but this extension doesn't. The notice contains a
-        link to the target, which doesn't belong in a title. The extension also
-        uses the title to find out if a docstring already has its own
-        deprecation admonition. Please don't "fix" this.
+        link to the target, which doesn't belong in a title. Please don't "fix"
+        this.
     """
 
     # Each option is a key in `mkdocs.yml`, so we can't group them.
@@ -627,6 +637,7 @@ class DeprecationsExtension(Extension):  # pylint: disable=too-many-instance-att
         title: str | None = "Deprecated",
         label: str | None = "deprecated",
         *,
+        match_title: bool = False,
         decorator_functions: Sequence[str] = (
             "warnings.deprecated",
             "typing_extensions.deprecated",
@@ -645,11 +656,18 @@ class DeprecationsExtension(Extension):  # pylint: disable=too-many-instance-att
         """Initialize the extension.
 
         Args:
-            kind: The kind of the admonition added to the docstring.
+            kind: The kind of the admonition added to the docstring. An
+                admonition of this kind in the docstring is a hand-written
+                notice, used instead. It must be a kind the docstring parser
+                can produce: lowercase, with dashes instead of spaces.
             title: The title of that admonition. If empty, the admonition has no
                 title.
             label: The label added to deprecated objects, or `None` to add no
                 label.
+            match_title: Whether a hand-written notice also needs `title` as
+                its title (case-insensitive). Use it with a general `kind`, like
+                `danger`, so other admonitions of that kind aren't taken as
+                notices.
             decorator_functions: The fully qualified paths of the decorators that
                 deprecate a class or function. Their calls are read as if they
                 were calls to `deprecated(message, /, *,
@@ -683,7 +701,27 @@ class DeprecationsExtension(Extension):  # pylint: disable=too-many-instance-att
                 repeat its name.
             show_target: Whether to show an alias' value as its target, instead
                 of the private name imported for type checkers.
+
+        Raises:
+            ValueError: If `kind` isn't a kind the docstring parser can produce,
+                or if `match_title` is set and `title` is empty.
         """
+        if (
+            not isinstance(kind, str)
+            or not _KIND.fullmatch(kind)
+            or kind != kind.lower()
+        ):
+            raise ValueError(
+                f"The `kind` option must be lowercase, with dashes instead of "
+                f"spaces, like `deprecated` or `my-kind`, not `{kind}`. "
+                f"Hand-written admonitions always get kinds in this form, so "
+                f"no other kind could match them."
+            )
+        if match_title and not title:
+            raise ValueError(
+                "The `match_title` option needs a `title`. Hand-written "
+                "notices can't have an empty title, so none would match."
+            )
         super().__init__()
         self.kind = kind
         """The kind of the admonition added to the docstring."""
@@ -691,6 +729,14 @@ class DeprecationsExtension(Extension):  # pylint: disable=too-many-instance-att
         """The title of the admonition added to the docstring."""
         self.label = label
         """The label added to deprecated objects."""
+        self.match_title = match_title
+        """Whether a hand-written notice also needs the configured title."""
+        self._heading = (
+            f"`{kind.capitalize()}: {self.title}`"
+            if match_title
+            else f"`{kind.capitalize()}:`"
+        )
+        """The heading of a hand-written notice, as suggested in warnings."""
         self.decorator_functions = frozenset(decorator_functions)
         """The paths of the decorators that deprecate a class or a function."""
         self.alias_table_functions = frozenset(alias_table_functions)
@@ -913,8 +959,7 @@ class DeprecationsExtension(Extension):  # pylint: disable=too-many-instance-att
         )
         sections.insert(0, parts.admonition)
 
-    @staticmethod
-    def _warn_part(path: str, entry: _Part) -> None:
+    def _warn_part(self, path: str, entry: _Part) -> None:
         """Warn that a deprecated part needs a hand-written notice.
 
         Args:
@@ -924,11 +969,12 @@ class DeprecationsExtension(Extension):  # pylint: disable=too-many-instance-att
         if entry.problem is None:
             return
         _logger.warning(
-            "%s: %s is deprecated, and %s. Write a `Deprecated:` section in "
-            "the docstring saying which part is deprecated.",
+            "%s: %s is deprecated, and %s. Write a %s section in the docstring "
+            "saying which part is deprecated.",
             path,
             entry.part,
             entry.problem,
+            self._heading,
         )
 
     def _read_decorator(
@@ -1077,7 +1123,7 @@ class DeprecationsExtension(Extension):  # pylint: disable=too-many-instance-att
                 to fix it. A notice is complete if it says everything the
                 deprecations guide asks for.
         """
-        fix = "Write a `Deprecated:` section in the docstring"
+        fix = f"Write a {self._heading} section in the docstring"
         link = None if new is None else _link(new, local=local)
         if since is not None and link is not None:
             try:
@@ -1102,7 +1148,9 @@ class DeprecationsExtension(Extension):  # pylint: disable=too-many-instance-att
             reason = unknown_since if since_given else "because `since` isn't given"
             missing.append(f"since which version it is deprecated, {reason}")
             if not since_given and link is not None:
-                fix = "Pass `since` or write a `Deprecated:` section in the docstring"
+                fix = (
+                    f"Pass `since` or write a {self._heading} section in the docstring"
+                )
         if link is None:
             missing.append(f"what to use instead, {unknown_new}")
         return (
@@ -1408,7 +1456,7 @@ class DeprecationsExtension(Extension):  # pylint: disable=too-many-instance-att
         text: str,
         *,
         problem: str | None = None,
-        fix: str = "Write a `Deprecated:` section in the docstring",
+        fix: str | None = None,
         generic: bool = False,
     ) -> None:
         """Mark one object as deprecated and schedule its notice.
@@ -1423,7 +1471,8 @@ class DeprecationsExtension(Extension):  # pylint: disable=too-many-instance-att
             text: The notice.
             problem: Why the notice is incomplete, if it is. It's logged as a
                 warning, unless there is a hand-written notice.
-            fix: How to fix the problem, added to the warning.
+            fix: How to fix the problem, added to the warning. By default, it
+                asks for a hand-written notice.
             generic: Whether `text` is the generic notice. If it is, and another
                 extension already set a message, that message is used instead,
                 also as the notice.
@@ -1432,6 +1481,8 @@ class DeprecationsExtension(Extension):  # pylint: disable=too-many-instance-att
             # Another extension could read the message, so we show that one,
             # and nothing is missing from the docs.
             text, problem = member.deprecated, None
+        if fix is None:
+            fix = f"Write a {self._heading} section in the docstring"
         member.deprecated = text
         if self.label:
             member.labels.add(self.label)
@@ -1476,8 +1527,10 @@ class DeprecationsExtension(Extension):  # pylint: disable=too-many-instance-att
     def _handwritten_notice(self, sections: list[DocstringSection]) -> int | None:
         """Find a hand-written deprecation notice in a docstring.
 
-        A hand-written notice is a `Deprecated` section, or an admonition with the
-        same title as the ones this extension adds (case-insensitive).
+        A hand-written notice is an admonition of the configured kind. If
+        `match_title` is set, its title must also be the configured title
+        (case-insensitive). A numpy-style `Deprecated` section always counts,
+        because it isn't an admonition and has no kind.
 
         Args:
             sections: The parsed sections of the docstring.
@@ -1491,8 +1544,12 @@ class DeprecationsExtension(Extension):  # pylint: disable=too-many-instance-att
                 return index
             if (
                 section.kind is DocstringSectionKind.admonition
-                and str(getattr(section, "title", "")).strip().lower()
-                == self.title.strip().lower()
+                and getattr(section.value, "annotation", None) == self.kind
+                and (
+                    not self.match_title
+                    or str(getattr(section, "title", "")).strip().lower()
+                    == self.title.strip().lower()
+                )
             ):
                 return index
         return None

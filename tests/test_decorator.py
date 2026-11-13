@@ -245,8 +245,10 @@ def test_other_objects_are_untouched(code: str) -> None:
     assert not admonitions(obj)
 
 
+@pytest.mark.parametrize("title", ["Deprecated", "Gone", "", None])
+@pytest.mark.parametrize("heading", ["Deprecated:", "Deprecated: Old API"])
 def test_a_handwritten_notice_wins_and_moves_to_the_top(
-    caplog: pytest.LogCaptureFixture,
+    caplog: pytest.LogCaptureFixture, title: str | None, heading: str
 ) -> None:
     """Use the hand-written notice instead of the decorator's message."""
     code = (
@@ -255,12 +257,12 @@ def test_a_handwritten_notice_wins_and_moves_to_the_top(
         "class Thing:\n"
         '    """A thing.\n\n'
         "    Some details.\n\n"
-        "    Deprecated:\n"
+        f"    {heading}\n"
         "        Deprecated since v1.2.0. Use [`New`][mod.New] instead.\n"
         '    """\n'
     )
     with caplog.at_level(logging.DEBUG, logger=_LOGGER):
-        obj = visit(code)["Thing"]
+        obj = visit(code, title=title)["Thing"]
     assert not warned(caplog)
     [admonition] = admonitions(obj)
     assert admonition.value.contents == (
@@ -291,6 +293,95 @@ def test_a_handwritten_notice_on_a_property_moves_to_the_top() -> None:
     [admonition] = admonitions(obj)
     assert obj.docstring.parsed[0] is admonition
     assert "Deprecated since v1.2.0" in admonition.value.contents
+
+
+def _with_notice(heading: str) -> str:
+    """Return the code of a decorated function with a hand-written notice.
+
+    Args:
+        heading: The first line of the notice, like `Deprecated:`.
+
+    Returns:
+        The code of the module.
+    """
+    return (
+        "from typing_extensions import deprecated\n"
+        "@deprecated('Gone')\n"
+        "def f():\n"
+        '    """Do f.\n\n'
+        f"    {heading}\n"
+        "        Use g instead.\n"
+        '    """\n'
+    )
+
+
+@pytest.mark.parametrize(
+    ("options", "heading"),
+    [
+        ({}, "Deprecated:"),
+        ({"title": "Gone"}, "deprecated: Old API"),
+        ({"kind": "deprecation"}, "Deprecation:"),
+        ({"kind": "my-kind"}, "My Kind:"),
+        ({"kind": "danger"}, "Danger: Anything"),
+        ({"kind": "danger", "match_title": True}, "Danger: Deprecated"),
+        ({"kind": "danger", "match_title": True}, "Danger: deprecated"),
+        ({"kind": "danger", "title": "Gone", "match_title": True}, "Danger: Gone"),
+    ],
+)
+def test_a_notice_of_the_configured_kind_is_recognized(
+    caplog: pytest.LogCaptureFixture, options: dict[str, Any], heading: str
+) -> None:
+    """An admonition of the configured kind is a hand-written notice.
+
+    With `match_title`, its title must also be the configured title.
+    """
+    with caplog.at_level(logging.DEBUG, logger=_LOGGER):
+        func = visit(_with_notice(heading), **options)["f"]
+    [admonition] = admonitions(func)
+    assert admonition.value.contents == "Use g instead."
+    assert func.docstring is not None
+    assert func.docstring.parsed[0] is admonition
+    assert not warned(caplog)
+
+
+@pytest.mark.parametrize(
+    ("options", "heading", "expected"),
+    [
+        ({}, "Warning: Deprecated", "`Deprecated:`"),
+        ({}, "Danger: Deprecated", "`Deprecated:`"),
+        ({"kind": "deprecation"}, "Deprecated:", "`Deprecation:`"),
+        (
+            {"kind": "danger", "match_title": True},
+            "Danger: Not thread-safe",
+            "`Danger: Deprecated`",
+        ),
+        (
+            {"kind": "danger", "title": "Gone", "match_title": True},
+            "Danger: Deprecated",
+            "`Danger: Gone`",
+        ),
+    ],
+)
+def test_other_admonitions_are_not_notices(
+    caplog: pytest.LogCaptureFixture,
+    options: dict[str, Any],
+    heading: str,
+    expected: str,
+) -> None:
+    """Admonitions of another kind, or title with `match_title`, stay as they are.
+
+    The warning says how to write a notice the configuration recognizes.
+    """
+    with caplog.at_level(logging.DEBUG, logger=_LOGGER):
+        func = visit(_with_notice(heading), **options)["f"]
+    generated, written = admonitions(func)
+    assert generated.value.contents == "Gone"
+    assert written.value.contents == "Use g instead."
+    [warning] = warned(caplog)
+    assert warning == (
+        f"module.f: {_RUNTIME_ONLY}. "
+        f"Write a {expected} section in the docstring to fix this."
+    )
 
 
 def test_the_notice_goes_first() -> None:
@@ -558,6 +649,27 @@ def test_a_deprecated_overload_is_noted_on_its_function(
     )
 
 
+def test_a_deprecated_part_follows_the_configured_notice(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """Recognize the configured notice for parts, and suggest it in warnings."""
+    function = (
+        'def f(x):\n    """Do f.\n\n    Danger: Deprecated\n        Old.\n    """\n'
+    )
+    with caplog.at_level(logging.DEBUG, logger=_LOGGER):
+        visit(_OVERLOADS + function, kind="danger", match_title=True)
+    assert not warned(caplog)
+    with caplog.at_level(logging.DEBUG, logger=_LOGGER):
+        visit(
+            _OVERLOADS + 'def f(x):\n    """Do f."""\n', kind="danger", match_title=True
+        )
+    [warning] = warned(caplog)
+    assert warning.endswith(
+        "Write a `Danger: Deprecated` section in the docstring saying which part "
+        "is deprecated."
+    )
+
+
 def test_deprecated_overloads_of_a_method_share_one_notice(
     caplog: pytest.LogCaptureFixture,
 ) -> None:
@@ -593,8 +705,9 @@ def test_deprecated_overloads_of_a_method_share_one_notice(
     ]
 
 
+@pytest.mark.parametrize("title", ["Deprecated", "Gone", "", None])
 def test_a_handwritten_notice_covers_a_deprecated_overload(
-    caplog: pytest.LogCaptureFixture,
+    caplog: pytest.LogCaptureFixture, title: str | None
 ) -> None:
     """The notice says which overload, and stays where it is written.
 
@@ -608,7 +721,7 @@ def test_a_handwritten_notice_covers_a_deprecated_overload(
         '    """\n'
     )
     with caplog.at_level(logging.DEBUG, logger=_LOGGER):
-        func = visit(code)["f"]
+        func = visit(code, title=title)["f"]
     assert not warned(caplog)
     [admonition] = admonitions(func)
     assert "since v1.2.0" in admonition.value.contents

@@ -203,9 +203,10 @@ def test_the_admonition_goes_first(samplepkg: Module) -> None:
     assert kinds[0] is DocstringSectionKind.admonition
 
 
-def test_a_handwritten_admonition_is_left_alone(samplepkg: Module) -> None:
+@pytest.mark.parametrize("title", ["Deprecated", "Gone", "", None])
+def test_a_handwritten_admonition_is_left_alone(title: str | None) -> None:
     """Ensure a hand-written admonition is kept, and moved to the top."""
-    member = attribute(samplepkg, "oldmod.Widget")
+    member = attribute(load(title=title), "oldmod.Widget")
     sections = admonitions(member)
     assert len(sections) == 1
     assert "see the migration guide" in sections[0].value.contents
@@ -1041,6 +1042,27 @@ def test_the_defaults() -> None:
     assert extension.kind == "deprecated"
     assert extension.title == "Deprecated"
     assert extension.label == "deprecated"
+    assert extension.match_title is False
+
+
+@pytest.mark.parametrize("kind", ["", "Deprecated", "my kind", "-deprecated", None])
+def test_a_kind_the_parser_cant_produce_is_rejected(kind: str | None) -> None:
+    """Hand-written admonitions could never match these kinds."""
+    with pytest.raises(ValueError, match="The `kind` option must be lowercase"):
+        DeprecationsExtension(kind=kind)  # type: ignore[arg-type]
+
+
+@pytest.mark.parametrize("title", ["", None])
+def test_match_title_needs_a_title(title: str | None) -> None:
+    """No hand-written admonition has an empty title."""
+    with pytest.raises(ValueError, match="The `match_title` option needs a `title`"):
+        DeprecationsExtension(title=title, match_title=True)
+
+
+@pytest.mark.parametrize("title", ["", None])
+def test_an_empty_title_is_allowed_without_match_title(title: str | None) -> None:
+    """The title only changes how generated notices look."""
+    assert DeprecationsExtension(title=title).title == ""
 
 
 def test_the_admonition_is_configurable() -> None:

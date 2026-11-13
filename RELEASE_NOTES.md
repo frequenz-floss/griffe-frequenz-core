@@ -16,12 +16,16 @@ The extension generates the notice when the code has enough information. A hand-
 
   1. Remove `griffe_warnings_deprecated` from the mkdocstrings `extensions` list and remove `griffe-warnings-deprecated` from your documentation dependencies.
   2. Add `griffe_frequenz_core.deprecations` to the `extensions` list.
-  3. If you set `kind`, `title` or `label`, move those options to this extension. If you didn't set `kind`, set `kind: danger` to keep the style of `griffe-warnings-deprecated` (see below).
+  3. If you set `kind`, `title` or `label`, move those options to this extension. If you didn't set `kind`, set `kind: danger` and `match_title: true` to keep the style of `griffe-warnings-deprecated` (see below).
   4. Write a `Deprecated:` notice in each decorated object's docstring. Without one, the extension logs a warning, so a strict build fails.
 
   Don't enable both extensions for the decorator. You could get the runtime warning as your notice, or two notices. The extension logs a warning if both are enabled, so a strict build fails. To keep using `griffe-warnings-deprecated` for the decorator, set this extension's new `decorator_functions` option to an empty list.
 
-- The default `kind` is now `deprecated` instead of `danger`. This is the kind a hand-written `Deprecated:` section gets, so generated and hand-written notices look the same. Your theme needs CSS for it, which the Frequenz repository template includes. To keep the old style, set `kind: danger`.
+- The default `kind` is now `deprecated` instead of `danger`. This is the kind a hand-written `Deprecated:` section gets, so generated and hand-written notices look the same. Your theme needs CSS for it, which the Frequenz repository template includes. To keep the old style, set `kind: danger` and `match_title: true`.
+
+- Hand-written notices are now recognized by their admonition kind, which must be the one in the `kind` option. Before, they were recognized by their title, which had to be the one in the `title` option. With the default `kind`, a `Deprecated:` section is recognized, also with its own title, like `Deprecated: Old API`. If you use a general kind, like `danger`, set the new `match_title` option to `true`, so only admonitions with the configured `title` count, like `Danger: Deprecated`.
+
+  The `kind` option must now be lowercase, with dashes instead of spaces, like the kinds of hand-written admonitions. `match_title` needs a `title`. Other values raise an error.
 
 - The `default_message` option is now used for the notice of every alias and enum member with `new_name`. Its default is now `Deprecated since {since}. Use {new_link} instead.`:
 

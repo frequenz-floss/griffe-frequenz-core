@@ -83,8 +83,11 @@ missing notice yourself.
 Notices use the `deprecated` admonition kind by default, the same kind a
 hand-written `Deprecated:` section gets. Your theme needs CSS for it, which the
 Frequenz repository template includes. If you use a different admonition style
-for deprecations, you can change the `kind` option. For example, to use the
-`danger` style of `griffe-warnings-deprecated`:
+for deprecations, you can change the `kind` option. Hand-written notices then
+need the same kind, see [Hand-written admonitions](#hand-written-admonitions).
+
+For example, to use the `danger` style of `griffe-warnings-deprecated`, with
+hand-written notices written as `Danger: Deprecated`:
 
 ```yaml
 plugins:
@@ -95,6 +98,7 @@ plugins:
             extensions:
               - griffe_frequenz_core.deprecations:
                   kind: danger
+                  match_title: true
 ```
 
 ### Switching from griffe-warnings-deprecated
@@ -113,7 +117,7 @@ To switch:
 2. Add `griffe_frequenz_core.deprecations` to the `extensions` list.
 3. If you set `kind`, `title` or `label`, move those options to this extension.
    If you didn't set `kind`, notices now use the `deprecated` kind instead of
-   `danger`. Set `kind: danger` to keep the old style.
+   `danger`. Set `kind: danger` and `match_title: true` to keep the old style.
 4. Add a hand-written `Deprecated:` notice to each decorated object's docstring.
 
 Don't enable both extensions for the decorator. The other extension inserts
@@ -372,11 +376,17 @@ The extension also moves your notice to the top of the docstring, before the
 summary, so it appears in the same place as a generated notice. You can't write
 it there yourself, because a docstring must start with its summary.
 
-It recognizes two kinds of hand-written admonitions:
+The extension recognizes your notice by its admonition kind, which must be the
+one in the `kind` option. In a Google-style docstring, the kind is the word
+before the colon, in lowercase, with dashes instead of spaces. With the default
+`kind`, that's a `Deprecated:` section. It can also have its own title, like
+`Deprecated: Old API`. In a numpy-style docstring, a `Deprecated` section also
+counts.
 
-- A `Deprecated:` section in the docstring.
-- An admonition whose title matches the extension's `title` option
-  (case-insensitive).
+If you use a general kind, like `danger`, also set `match_title: true`. Then an
+admonition only counts if its title is also the one in the `title` option
+(case-insensitive), like `Danger: Deprecated`. Other `Danger:` admonitions are
+left alone.
 
 For example:
 
@@ -485,8 +495,9 @@ Broken links to replacements are reported separately by `mkdocs-autorefs`.
 
 | Option                     | Default                                     | Effect                                                                  |
 |----------------------------|---------------------------------------------|-------------------------------------------------------------------------|
-| `kind`                     | `deprecated`                                | The kind of the admonition, which is also its CSS class.                |
+| `kind`                     | `deprecated`                                | The kind of the admonition, which is also its CSS class. Hand-written notices need the same kind. Use lowercase, with dashes instead of spaces. |
 | `title`                    | `Deprecated`                                | The title of the admonition. An empty title or `null` means no title.   |
+| `match_title`              | `false`                                     | Hand-written notices also need the configured `title`. Needs a `title`. |
 | `label`                    | `deprecated`                                | The label added to deprecated objects. `null` means no label.           |
 | `decorator_functions`      | `warnings.deprecated`, `typing_extensions.deprecated` | The paths of the decorators that deprecate a class or function. |
 | `alias_table_functions`    | `frequenz.core.warnings.deprecated_aliases` | The paths of the functions that create a module `__getattr__`.          |
@@ -539,11 +550,8 @@ the new path. You don't need to wait for a new release of this package.
 
 There is one difference from `griffe-warnings-deprecated`, on purpose. If
 `title` is empty, `griffe-warnings-deprecated` puts the message in the
-admonition title, but this extension doesn't, for two reasons:
-
-- The notice contains a link to the replacement, which doesn't belong in a
-  title.
-- The extension uses the title to recognize hand-written admonitions.
+admonition title, but this extension doesn't. The notice contains a link to the
+replacement, which doesn't belong in a title.
 
 ## Supported Platforms
 
