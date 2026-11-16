@@ -16,10 +16,12 @@ The extension generates the notice when the code has enough information. A hand-
 
   1. Remove `griffe_warnings_deprecated` from the mkdocstrings `extensions` list and remove `griffe-warnings-deprecated` from your documentation dependencies.
   2. Add `griffe_frequenz_core.deprecations` to the `extensions` list.
-  3. If you set `kind`, `title` or `label`, move those options to this extension.
+  3. If you set `kind`, `title` or `label`, move those options to this extension. If you didn't set `kind`, set `kind: danger` to keep the style of `griffe-warnings-deprecated` (see below).
   4. Write a `Deprecated:` notice in each decorated object's docstring. Without one, the extension logs a warning, so a strict build fails.
 
   Don't enable both extensions for the decorator. You could get the runtime warning as your notice, or two notices. The extension logs a warning if both are enabled, so a strict build fails. To keep using `griffe-warnings-deprecated` for the decorator, set this extension's new `decorator_functions` option to an empty list.
+
+- The default `kind` is now `deprecated` instead of `danger`. This is the kind a hand-written `Deprecated:` section gets, so generated and hand-written notices look the same. Your theme needs CSS for it, which the Frequenz repository template includes. To keep the old style, set `kind: danger`.
 
 - The `default_message` option is now used for the notice of every alias and enum member with `new_name`. Its default is now `Deprecated since {since}. Use {new_link} instead.`:
 

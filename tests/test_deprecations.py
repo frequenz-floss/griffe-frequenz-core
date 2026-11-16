@@ -1035,22 +1035,22 @@ def test_the_module_argument_is_not_an_entry() -> None:
         assert "Wrong" not in module.members
 
 
-def test_the_defaults_match_griffe_warnings_deprecated() -> None:
-    """Ensure the defaults are the same as in `griffe-warnings-deprecated`."""
+def test_the_defaults() -> None:
+    """Ensure notices use the kind of a hand-written `Deprecated:` section."""
     extension = DeprecationsExtension()
-    assert extension.kind == "danger"
+    assert extension.kind == "deprecated"
     assert extension.title == "Deprecated"
     assert extension.label == "deprecated"
 
 
 def test_the_admonition_is_configurable() -> None:
     """Ensure the admonition style can be changed."""
-    package = load(kind="deprecated", title="No longer supported", label="old")
+    package = load(kind="danger", title="No longer supported", label="old")
     member = attribute(package, "oldmod.MAX_WIDGETS")
     assert member.labels == {"old", "module-attribute"}
     sections = admonitions(member)
     assert len(sections) == 1
-    assert sections[0].value.kind == "deprecated"
+    assert sections[0].value.kind == "danger"
     assert sections[0].title == "No longer supported"
 
 

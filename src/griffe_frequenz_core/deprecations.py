@@ -586,13 +586,14 @@ class DeprecationsExtension(Extension):  # pylint: disable=too-many-instance-att
     To keep the other extension for decorators, set `decorator_functions` to an
     empty list. This also turns off the warning.
 
-    By default, the notices look the same as `griffe-warnings-deprecated`'s.
-    You can change this and other settings using options:
+    By default, notices use the `deprecated` admonition kind, the same kind a
+    hand-written `Deprecated:` section gets. You can change this and other
+    settings using options:
 
     ```yaml
                 extensions:
                   - griffe_frequenz_core.deprecations:
-                      kind: deprecated
+                      kind: danger
                       decorator_functions:
                         - warnings.deprecated
                         - typing_extensions.deprecated
@@ -622,7 +623,7 @@ class DeprecationsExtension(Extension):  # pylint: disable=too-many-instance-att
     # Each option is a key in `mkdocs.yml`, so we can't group them.
     def __init__(  # pylint: disable=too-many-arguments
         self,
-        kind: str = "danger",
+        kind: str = "deprecated",
         title: str | None = "Deprecated",
         label: str | None = "deprecated",
         *,

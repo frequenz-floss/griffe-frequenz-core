@@ -80,8 +80,11 @@ whatever information is available, but also logs a warning. This makes
 `mkdocs build --strict` fail, so you can fix the documentation by writing the
 missing notice yourself.
 
-If you use a different admonition style for deprecations, you can change the
-`kind` option. For example:
+Notices use the `deprecated` admonition kind by default, the same kind a
+hand-written `Deprecated:` section gets. Your theme needs CSS for it, which the
+Frequenz repository template includes. If you use a different admonition style
+for deprecations, you can change the `kind` option. For example, to use the
+`danger` style of `griffe-warnings-deprecated`:
 
 ```yaml
 plugins:
@@ -91,13 +94,13 @@ plugins:
           options:
             extensions:
               - griffe_frequenz_core.deprecations:
-                  kind: deprecated
+                  kind: danger
 ```
 
 ### Switching from griffe-warnings-deprecated
 
-You can use this extension instead of `griffe-warnings-deprecated`. By default,
-the notices look the same, but this extension follows the deprecations guide:
+You can use this extension instead of `griffe-warnings-deprecated`. This
+extension follows the deprecations guide:
 
 - A hand-written notice takes priority over the decorator's message.
 - An object is still marked as deprecated if the message can't be read.
@@ -109,6 +112,8 @@ To switch:
    and remove `griffe-warnings-deprecated` from your documentation dependencies.
 2. Add `griffe_frequenz_core.deprecations` to the `extensions` list.
 3. If you set `kind`, `title` or `label`, move those options to this extension.
+   If you didn't set `kind`, notices now use the `deprecated` kind instead of
+   `danger`. Set `kind: danger` to keep the old style.
 4. Add a hand-written `Deprecated:` notice to each decorated object's docstring.
 
 Don't enable both extensions for the decorator. The other extension inserts
@@ -480,7 +485,7 @@ Broken links to replacements are reported separately by `mkdocs-autorefs`.
 
 | Option                     | Default                                     | Effect                                                                  |
 |----------------------------|---------------------------------------------|-------------------------------------------------------------------------|
-| `kind`                     | `danger`                                    | The kind of the admonition, which is also its CSS class.                |
+| `kind`                     | `deprecated`                                | The kind of the admonition, which is also its CSS class.                |
 | `title`                    | `Deprecated`                                | The title of the admonition. An empty title or `null` means no title.   |
 | `label`                    | `deprecated`                                | The label added to deprecated objects. `null` means no label.           |
 | `decorator_functions`      | `warnings.deprecated`, `typing_extensions.deprecated` | The paths of the decorators that deprecate a class or function. |

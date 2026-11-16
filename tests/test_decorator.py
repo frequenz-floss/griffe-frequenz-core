@@ -218,7 +218,7 @@ def test_a_decorated_object_is_marked(code: str, path: str) -> None:
     assert obj.deprecated == "mod.Thing is deprecated."
     [admonition] = admonitions(obj)
     assert admonition.title == "Deprecated"
-    assert admonition.value.annotation == "danger"
+    assert admonition.value.annotation == "deprecated"
     assert admonition.value.contents == "mod.Thing is deprecated."
 
 
@@ -467,11 +467,11 @@ def test_the_admonition_follows_the_options() -> None:
         "@deprecated('mod.Thing is deprecated.')\n"
         "def Thing(): ...\n"
     )
-    obj = visit(code, kind="deprecated", title="Gone", label=None)["Thing"]
+    obj = visit(code, kind="danger", title="Gone", label=None)["Thing"]
     assert not obj.labels
     [admonition] = admonitions(obj)
     assert admonition.title == "Gone"
-    assert admonition.value.annotation == "deprecated"
+    assert admonition.value.annotation == "danger"
 
 
 _DECORATORS = [("typing_extensions", typing_extensions.deprecated)]
