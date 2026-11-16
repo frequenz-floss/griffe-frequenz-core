@@ -55,8 +55,8 @@ def visit(code: str, **options: Any) -> Module:
 def render(obj: griffe.Object) -> None:
     """Parse the docstrings of an object and its members, as rendering does.
 
-    The extension adds notices and warns about missing information during
-    parsing, just before mkdocstrings renders the docstring.
+    The extension adds notices and warns about problems during parsing, just
+    before mkdocstrings renders the docstring.
 
     Args:
         obj: The object to render.

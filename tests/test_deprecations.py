@@ -69,8 +69,8 @@ def load(
 def render(obj: griffe.Object) -> None:
     """Parse the docstrings of an object and its members, as rendering does.
 
-    The extension adds notices and warns about missing information during
-    parsing, just before mkdocstrings renders the docstring.
+    The extension adds notices and warns about problems during parsing, just
+    before mkdocstrings renders the docstring.
 
     Args:
         obj: The object to render.
@@ -505,6 +505,7 @@ def test_an_unpacked_enum_wrapper_call_is_marked_as_written(
         assert member.deprecated == _GENERIC
         assert "deprecated" in member.labels
         assert str(member.value) == f"deprecated_member({arguments})"
+        render(module)
     assert any(
         "Status.A" in record.message and "arguments are unpacked" in record.message
         for record in caplog.records
@@ -555,6 +556,7 @@ def test_an_unreadable_enum_wrapper_call_is_skipped_loudly(
         assert not member.deprecated
         assert "deprecated" not in member.labels
         assert str(member.value) == f"deprecated_member({arguments})"
+        render(module)
     assert any(
         "Status.A" in record.message and logged in record.message
         for record in caplog.records
@@ -861,6 +863,7 @@ def test_an_unreadable_alias_entry_is_skipped_loudly(
         ) as module,
     ):
         assert "Thing" not in module.members
+        render(module)
     assert any(logged in record.message for record in caplog.records)
 
 
@@ -1225,3 +1228,20 @@ def test_a_list_option_given_as_a_string_is_rejected(option: str) -> None:
         griffe.load_extensions(
             {"griffe_frequenz_core.deprecations": {option: "frequenz"}}
         )
+
+
+@pytest.mark.parametrize("option", ["title", "label", "default_message"])
+@pytest.mark.parametrize("value", [123, True])
+def test_a_text_option_that_isnt_a_string_is_rejected(option: str, value: Any) -> None:
+    """Reject numbers and booleans, which YAML reads from unquoted values.
+
+    They could otherwise cause an unclear error while rendering.
+    """
+    with pytest.raises(TypeError, match=rf'`{option}: "{value}"`'):
+        griffe.load_extensions({"griffe_frequenz_core.deprecations": {option: value}})
+
+
+@pytest.mark.parametrize("option", ["title", "label"])
+def test_a_text_option_can_be_none_if_it_is_optional(option: str) -> None:
+    """`None` turns off the title or the label, so it isn't rejected."""
+    griffe.load_extensions({"griffe_frequenz_core.deprecations": {option: None}})
