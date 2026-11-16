@@ -484,11 +484,12 @@ For example, you'll get a warning if:
 Writing your own deprecation admonition fixes warnings about missing or
 incomplete notices, but not other problems.
 
-Warnings about incomplete notices are only logged when the object's docstring
-is parsed for rendering. Griffe may visit code that never appears in your
-documentation. For example, loading a namespace package like `frequenz` also
-visits other installed packages using that namespace. Their missing notices
-shouldn't make your build fail.
+All these warnings are only logged when the object's docstring is parsed for
+rendering. Griffe may visit code that never appears in your documentation. For
+example, loading a namespace package like `frequenz` also visits other installed
+packages using that namespace. Their problems shouldn't make your build fail.
+An alias entry that can't be read isn't documented as an object, so its warning
+is logged when the docstring of the module with the alias table is parsed.
 
 The extension only logs warnings for code in the packages listed in
 `checked_packages`, which is `frequenz` by default. Your documentation can still

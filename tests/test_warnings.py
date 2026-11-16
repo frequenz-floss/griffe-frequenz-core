@@ -42,8 +42,8 @@ def _warnings(caplog: pytest.LogCaptureFixture) -> list[str]:
 def _render(obj: griffe.Object) -> None:
     """Parse the docstrings of an object and its members, as rendering does.
 
-    The extension adds notices and warns about missing information during
-    parsing, just before mkdocstrings renders the docstring.
+    The extension adds notices and warns about problems during parsing, just
+    before mkdocstrings renders the docstring.
 
     Args:
         obj: The object to render.
@@ -652,6 +652,88 @@ def _logged(
     ):
         _render(module)
     return [record for record in caplog.records if record.name == _LOGGER]
+
+
+def test_no_problem_is_warned_about_before_rendering(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """Wait until rendering to warn about every kind of problem.
+
+    mkdocstrings visits every package in the `frequenz` namespace, including
+    dependencies that the project doesn't document. Invalid calls and alias
+    entries that can't be read there shouldn't make the build fail either.
+    """
+    with (
+        caplog.at_level(logging.DEBUG, logger=_LOGGER),
+        griffe.temporary_visited_package(
+            "frequenz",
+            {"mod/__init__.py": _PROBLEMS},
+            extensions=griffe.load_extensions(DeprecationsExtension()),
+        ) as package,
+    ):
+        assert not _warnings(caplog)
+        _render(package)
+    assert len(_warnings(caplog)) == 9
+
+
+@pytest.mark.parametrize(
+    ("code", "path"),
+    [
+        (
+            "from typing_extensions import deprecated\n"
+            "class Owner:\n"
+            "    @property\n"
+            "    def p(self) -> int:\n"
+            '        """The p.\n\n'
+            "        Deprecated:\n"
+            "            Setting it is deprecated since v1.2.0.\n"
+            '        """\n'
+            "    @p.setter\n"
+            "    @deprecated\n"
+            "    def p(self, value: int) -> None: ...\n",
+            "Owner.p",
+        ),
+        (
+            "from typing import overload\n"
+            "from typing_extensions import deprecated\n"
+            "@overload\n"
+            "@deprecated\n"
+            "def f(x: int) -> int: ...\n"
+            "@overload\n"
+            "def f(x: str) -> str: ...\n"
+            "@deprecated('mod.f is deprecated.')\n"
+            "def f(x):\n"
+            '    """Do f.\n\n'
+            "    Deprecated:\n"
+            "        Deprecated since v1.2.0.\n"
+            '    """\n',
+            "f",
+        ),
+    ],
+    ids=["handwritten-notice", "deprecated-owner"],
+)
+def test_an_invalid_call_on_a_part_is_warned_about_with_its_owner(
+    caplog: pytest.LogCaptureFixture, code: str, path: str
+) -> None:
+    """Warn about an invalid call on a part when its owner is rendered.
+
+    mkdocstrings never shows a part's own docstring. The warning is logged even
+    if the owner's notice covers the part.
+    """
+    with (
+        caplog.at_level(logging.DEBUG, logger=_LOGGER),
+        griffe.temporary_visited_module(
+            code,
+            docstring_parser=Parser.google,
+            extensions=griffe.load_extensions(
+                DeprecationsExtension(checked_packages=_CHECKED)
+            ),
+        ) as module,
+    ):
+        assert not _warnings(caplog)
+        _render(module)
+    [warning] = _warnings(caplog)
+    assert warning.startswith(f"module.{path}: `@deprecated` needs to be called")
 
 
 @pytest.mark.parametrize(

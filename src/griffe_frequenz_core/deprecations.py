@@ -72,7 +72,29 @@ _PART_NOTICES = {
 """The generic notices for parts whose messages can't be read."""
 
 _Notice = Callable[[list[DocstringSection]], None]
-"""A callback that adds a deprecation notice to parsed docstring sections."""
+"""A callback that adds a deprecation notice to parsed docstring sections.
+
+It can also only log a problem, without adding anything.
+"""
+
+
+class _DecoratorMessage(NamedTuple):
+    """What the extension could read from a deprecation decorator."""
+
+    message: str | None
+    """The deprecation message, or `None` if it can't be read."""
+
+    problem: str | None
+    """Why the object needs a hand-written notice.
+
+    It's `None` for an invalid call, since `invalid` covers that.
+    """
+
+    invalid: tuple[Any, ...] | None = None
+    """The arguments of the warning about an invalid call, for `_warn()`.
+
+    It's logged even if there is a hand-written notice.
+    """
 
 
 class _Part(NamedTuple):
@@ -126,9 +148,9 @@ class _Parts:
 class _NoticedDocstring(Docstring):
     """A docstring that gets its deprecation notices when it is parsed.
 
-    Wait until parsing to warn about incomplete notices. mkdocstrings parses
-    docstrings when rendering them, so this avoids warnings for objects that
-    aren't documented.
+    Wait until parsing to warn about any problem with a deprecation, too.
+    mkdocstrings parses docstrings when rendering them, so this avoids warnings
+    for objects that aren't documented.
 
     Griffe visits every module in a package. For a namespace package like
     `frequenz`, mkdocstrings also loads other installed packages using that
@@ -570,11 +592,13 @@ class DeprecationsExtension(Extension):  # pylint: disable=too-many-instance-att
         shows the runtime warning. If you wrote the notice by hand, these
         warnings about the notice aren't logged.
 
-        Warnings about incomplete notices wait until the docstring is parsed
-        for rendering. Griffe may also visit code that isn't documented, such
-        as other installed packages using the same namespace. Their missing
-        notices shouldn't make your build fail. To see why something couldn't
-        be read, use `mkdocs build --verbose` to show the debug logs.
+        All these warnings wait until the object's docstring is parsed for
+        rendering. Griffe may also visit code that isn't documented, such as
+        other installed packages using the same namespace. Their problems
+        shouldn't make your build fail. An alias entry that can't be read has
+        no object, so its warning waits for the docstring of the module with
+        the alias table. To see why something couldn't be read, use
+        `mkdocs build --verbose` to show the debug logs.
 
         These warnings are only logged for code in `checked_packages`, which
         is `frequenz` by default. Your documentation can still show code from
@@ -900,7 +924,9 @@ class DeprecationsExtension(Extension):  # pylint: disable=too-many-instance-att
         )
         if decorator is None:
             return
-        message, problem = self._read_decorator(obj, decorator)
+        message, problem, invalid = self._read_decorator(obj, decorator)
+        if invalid is not None:
+            self._warn_later(obj, *invalid)
         self._mark(
             obj,
             _generic_message() if message is None else message,
@@ -908,7 +934,7 @@ class DeprecationsExtension(Extension):  # pylint: disable=too-many-instance-att
             generic=message is None,
         )
 
-    def _flag_part(self, func: Function) -> tuple[str | None, str | None] | None:
+    def _flag_part(self, func: Function) -> _DecoratorMessage | None:
         """Mark a deprecated overload, property setter or deleter.
 
         It gets the label and the `deprecated` field, but no notice, since its
@@ -918,9 +944,9 @@ class DeprecationsExtension(Extension):  # pylint: disable=too-many-instance-att
             func: The overload or accessor.
 
         Returns:
-            The message and why it needs a hand-written notice. The message is
-                `None` if it can't be read. Return `None` instead of a pair if
-                there is no recognized deprecation decorator.
+            What could be read from the decorator, or `None` if there is no
+                recognized deprecation decorator. If another extension could
+                read the message, it's used instead.
         """
         decorator = next(
             (d for d in func.decorators if d.callable_path in self.decorator_functions),
@@ -929,17 +955,21 @@ class DeprecationsExtension(Extension):  # pylint: disable=too-many-instance-att
         if decorator is None:
             return None
         read = self._read_decorator(func, decorator)
-        message = read[0]
-        if message is None and isinstance(func.deprecated, str):
+        if read.message is None and isinstance(func.deprecated, str):
             # Another extension could read the message, so use that one.
-            message = func.deprecated
-        func.deprecated = _generic_message() if message is None else message
+            read = read._replace(message=func.deprecated)
+        func.deprecated = _generic_message() if read.message is None else read.message
         if self.label:
             func.labels.add(self.label)
-        return message, read[1]
+        return read
 
-    def _note_part(
-        self, owner: Object, part: str, message: str | None, problem: str | None
+    def _note_part(  # pylint: disable=too-many-arguments
+        self,
+        owner: Object,
+        part: str,
+        message: str | None,
+        problem: str | None,
+        invalid: tuple[Any, ...] | None,
     ) -> None:
         """Add a notice for a deprecated part to its function or property.
 
@@ -947,12 +977,20 @@ class DeprecationsExtension(Extension):  # pylint: disable=too-many-instance-att
         notice where it was written. Without one, combine this message with
         those of the other deprecated parts.
 
+        The part's own docstring is never shown, so a warning about an invalid
+        call waits for the owner's docstring. It's logged even if the owner
+        has a hand-written notice, or is deprecated as a whole.
+
         Args:
             owner: The function or property the part belongs to.
             part: Which part is deprecated, as in "an overload".
             message: The part's message, or `None` if it can't be read.
             problem: Why the notice needs to be written by hand.
+            invalid: The arguments of the warning about an invalid decorator
+                call, for `_warn()`, if there is one.
         """
+        if invalid is not None:
+            self._warn_later(owner, *invalid)
         if owner.deprecated:
             # The notice of the whole object covers its parts too.
             return
@@ -1032,9 +1070,22 @@ class DeprecationsExtension(Extension):  # pylint: disable=too-many-instance-att
             stacklevel=2,
         )
 
-    def _read_decorator(
-        self, obj: Object, decorator: Decorator
-    ) -> tuple[str | None, str | None]:
+    def _warn_later(self, obj: Object, message: str, path: str, *args: Any) -> None:
+        """Log a problem with a deprecation when the docstring is parsed.
+
+        Griffe also visits code that isn't documented, so wait until the
+        docstring is parsed for rendering, like for notices.
+
+        Args:
+            obj: The object whose docstring is parsed before logging. For
+                problems with alias entries, the module with the alias table.
+            message: The log message, starting with `%s` for the path.
+            path: The path of the object, or of the module for alias tables.
+            *args: The other arguments for the log message.
+        """
+        _add_notice(obj, lambda _: self._warn(message, path, *args))
+
+    def _read_decorator(self, obj: Object, decorator: Decorator) -> _DecoratorMessage:
         """Read the message of a deprecation decorator.
 
         Args:
@@ -1042,21 +1093,22 @@ class DeprecationsExtension(Extension):  # pylint: disable=too-many-instance-att
             decorator: The deprecation decorator.
 
         Returns:
-            The message and the reason it needs a hand-written notice. The
-                message is `None` if it can't be read. The reason is `None` if
-                an invalid-call warning was already logged.
+            What could be read from the decorator.
         """
         call = decorator.value
         if not isinstance(call, ExprCall):
             # The object itself would be taken for the message.
-            self._warn(
-                "%s: `@%s` needs to be called with a message, so the object "
-                "gets a generic notice",
-                obj.path,
-                call,
+            return _DecoratorMessage(
+                None,
+                None,
+                (
+                    "%s: `@%s` needs to be called with a message, so the object "
+                    "gets a generic notice",
+                    obj.path,
+                    call,
+                ),
             )
-            return None, None
-        unreadable = (
+        unreadable = _DecoratorMessage(
             None,
             "the deprecation message can't be read, so a generic notice is shown",
         )
@@ -1069,13 +1121,16 @@ class DeprecationsExtension(Extension):  # pylint: disable=too-many-instance-att
             return unreadable
         node = _decorator_message(call)
         if node is None:
-            self._warn(
-                "%s: the deprecation decorator's arguments don't match "
-                "`deprecated(message, /, *, category=DeprecationWarning, "
-                "stacklevel=1)`, so the object gets a generic notice",
-                obj.path,
+            return _DecoratorMessage(
+                None,
+                None,
+                (
+                    "%s: the deprecation decorator's arguments don't match "
+                    "`deprecated(message, /, *, category=DeprecationWarning, "
+                    "stacklevel=1)`, so the object gets a generic notice",
+                    obj.path,
+                ),
             )
-            return None, None
         message = _literal(node)
         if not isinstance(message, str) or not message.strip():
             _logger.debug(
@@ -1085,9 +1140,10 @@ class DeprecationsExtension(Extension):  # pylint: disable=too-many-instance-att
             )
             return unreadable
         # The decorator only takes the runtime warning, written for a terminal.
-        return message, (
+        return _DecoratorMessage(
+            message,
             "there is no notice written for the documentation, so the runtime "
-            "warning is shown instead"
+            "warning is shown instead",
         )
 
     def on_module_members(self, *, mod: Module, **kwargs: Any) -> None:
@@ -1128,7 +1184,8 @@ class DeprecationsExtension(Extension):  # pylint: disable=too-many-instance-att
 
             if self.show_target:
                 if entry.new is None:
-                    self._warn(
+                    self._warn_later(
+                        member,
                         "%s.%s: the target of the alias can't be read, so its "
                         "value is shown as written",
                         mod.path,
@@ -1235,7 +1292,8 @@ class DeprecationsExtension(Extension):  # pylint: disable=too-many-instance-att
                 isinstance(argument, (ExprVarPositional, ExprVarKeyword))
                 for argument in value.arguments
             ):
-                self._warn(
+                self._warn_later(
+                    member,
                     "%s: the deprecation wrapper's arguments are unpacked, so "
                     "its value is shown as the whole call",
                     member.path,
@@ -1252,7 +1310,8 @@ class DeprecationsExtension(Extension):  # pylint: disable=too-many-instance-att
             if arguments is None:
                 # This call would fail at runtime, so it doesn't deprecate
                 # anything.
-                self._warn(
+                self._warn_later(
+                    member,
                     "%s: the deprecation wrapper's arguments don't match "
                     "`deprecated_member(value, message=None, *, new_name=None, "
                     "since=None)`, which needs `message` or `new_name`, so the "
@@ -1371,7 +1430,8 @@ class DeprecationsExtension(Extension):  # pylint: disable=too-many-instance-att
                 # Only `module` could be in there, so we stop skipping the first
                 # argument. A module name is never an entry anyway.
                 module_seen = True
-                self._warn(
+                self._warn_later(
+                    mod,
                     "%s: the alias entries in `%s` are unpacked, so they aren't "
                     "marked",
                     mod.path,
@@ -1404,7 +1464,8 @@ class DeprecationsExtension(Extension):  # pylint: disable=too-many-instance-att
         if not (
             isinstance(node, ExprCall) and node.canonical_path in self.alias_classes
         ):
-            self._warn(
+            self._warn_later(
+                mod,
                 "%s: the alias entry `%s` isn't a call to a known alias class, "
                 "so it's skipped",
                 mod.path,
@@ -1412,7 +1473,8 @@ class DeprecationsExtension(Extension):  # pylint: disable=too-many-instance-att
             )
             return None
         if any(isinstance(argument, ExprVarPositional) for argument in node.arguments):
-            self._warn(
+            self._warn_later(
+                mod,
                 "%s: the arguments of the alias entry `%s` are unpacked, so "
                 "it's skipped",
                 mod.path,
@@ -1424,7 +1486,8 @@ class DeprecationsExtension(Extension):  # pylint: disable=too-many-instance-att
         arguments = _alias_entry_arguments(node)
         if arguments is None:
             # This call would fail at runtime, so it doesn't deprecate anything.
-            self._warn(
+            self._warn_later(
+                mod,
                 "%s: the alias entry `%s` needs a positional name, `new_module`, "
                 "`new_name` or both, and only accepts `since` and `message` "
                 "as extra arguments, so it's skipped",
@@ -1435,7 +1498,8 @@ class DeprecationsExtension(Extension):  # pylint: disable=too-many-instance-att
         name_node, *other_nodes = arguments
         name = _string(name_node)
         if name is None:
-            self._warn(
+            self._warn_later(
+                mod,
                 "%s: the name of the alias entry `%s` isn't a string literal, so "
                 "it's skipped",
                 mod.path,
@@ -1490,7 +1554,8 @@ class DeprecationsExtension(Extension):  # pylint: disable=too-many-instance-att
         ]
         name = _literal(positional[0]) if len(positional) == 1 else None
         if not isinstance(name, str):
-            self._warn(
+            self._warn_later(
+                mod,
                 "%s: the arguments of the alias entry `%s` are unpacked, so "
                 "it's skipped",
                 mod.path,

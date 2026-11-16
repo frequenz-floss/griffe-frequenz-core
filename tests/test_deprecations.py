@@ -69,8 +69,8 @@ def load(
 def render(obj: griffe.Object) -> None:
     """Parse the docstrings of an object and its members, as rendering does.
 
-    The extension adds notices and warns about missing information during
-    parsing, just before mkdocstrings renders the docstring.
+    The extension adds notices and warns about problems during parsing, just
+    before mkdocstrings renders the docstring.
 
     Args:
         obj: The object to render.
@@ -505,6 +505,7 @@ def test_an_unpacked_enum_wrapper_call_is_marked_as_written(
         assert member.deprecated == _GENERIC
         assert "deprecated" in member.labels
         assert str(member.value) == f"deprecated_member({arguments})"
+        render(module)
     assert any(
         "Status.A" in record.message and "arguments are unpacked" in record.message
         for record in caplog.records
@@ -555,6 +556,7 @@ def test_an_unreadable_enum_wrapper_call_is_skipped_loudly(
         assert not member.deprecated
         assert "deprecated" not in member.labels
         assert str(member.value) == f"deprecated_member({arguments})"
+        render(module)
     assert any(
         "Status.A" in record.message and logged in record.message
         for record in caplog.records
@@ -861,6 +863,7 @@ def test_an_unreadable_alias_entry_is_skipped_loudly(
         ) as module,
     ):
         assert "Thing" not in module.members
+        render(module)
     assert any(logged in record.message for record in caplog.records)
 
 
