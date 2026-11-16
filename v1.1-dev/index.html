@@ -453,10 +453,32 @@
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
-  <a href="#recognized-frequenz-core-helpers" class="md-nav__link">
+  <a href="#switching-from-griffe-warnings-deprecated" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Recognized frequenz-core helpers
+        Switching from griffe-warnings-deprecated
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#recognized-decorators-and-helpers" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Recognized decorators and helpers
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#deprecated-classes-and-functions" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Deprecated classes and functions
       
     </span>
   </a>
@@ -805,10 +827,32 @@
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
-  <a href="#recognized-frequenz-core-helpers" class="md-nav__link">
+  <a href="#switching-from-griffe-warnings-deprecated" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Recognized frequenz-core helpers
+        Switching from griffe-warnings-deprecated
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#recognized-decorators-and-helpers" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Recognized decorators and helpers
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#deprecated-classes-and-functions" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Deprecated classes and functions
       
     </span>
   </a>
@@ -931,9 +975,9 @@ reading the source code. This means that some information might be missing from
 the generated API documentation.</p>
 <p>The extensions fill in these gaps. The first one handles deprecations:
 <code>frequenz-core</code> can deprecate APIs using function calls instead of decorators.
-Neither Griffe's built-in support for <code>@deprecated</code> nor
-<a href="https://mkdocstrings.github.io/griffe-warnings-deprecated/"><code>griffe-warnings-deprecated</code></a>
-can detect these calls.</p>
+This package documents both these calls and the <code>@deprecated</code> decorator. It
+replaces
+<a href="https://mkdocstrings.github.io/griffe-warnings-deprecated/"><code>griffe-warnings-deprecated</code></a>.</p>
 <p>The extensions recognize helpers by their fully qualified names, without
 importing <code>frequenz-core</code>. So you don't need <code>frequenz-core</code> as a dependency,
 and you can use the extensions to document any project that uses these helpers.</p>
@@ -944,20 +988,18 @@ and you can use the extensions to document any project that uses these helpers.<
 mkdocstrings Python handler, as shown below.</p>
 <h2 id="documenting-deprecations">Documenting deprecations<a class="headerlink" href="#documenting-deprecations" title="Permanent link">¤</a></h2>
 <p>The <code>griffe_frequenz_core.deprecations</code> extension finds deprecations made using
-<code>frequenz-core</code> helper functions.</p>
-<p>It works alongside <code>griffe-warnings-deprecated</code>, which handles deprecations
-made using decorators. You can enable both:</p>
+<code>@deprecated</code> and <code>frequenz-core</code> helper functions. Enable it like this:</p>
 <div class="language-yaml highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nt">plugins</span><span class="p">:</span>
 </span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">mkdocstrings</span><span class="p">:</span>
 </span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="w">      </span><span class="nt">handlers</span><span class="p">:</span>
 </span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="w">        </span><span class="nt">python</span><span class="p">:</span>
 </span><span id="__span-0-5"><a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="w">          </span><span class="nt">options</span><span class="p">:</span>
 </span><span id="__span-0-6"><a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a><span class="w">            </span><span class="nt">extensions</span><span class="p">:</span>
-</span><span id="__span-0-7"><a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a><span class="w">              </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">griffe_warnings_deprecated</span>
-</span><span id="__span-0-8"><a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a><span class="w">              </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">griffe_frequenz_core.deprecations</span>
+</span><span id="__span-0-7"><a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a><span class="w">              </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">griffe_frequenz_core.deprecations</span>
 </span></code></pre></div>
-<p>By default, both extensions use the same format, so all deprecations look the
-same in your documentation.</p>
+<p>Don't enable it alongside <code>griffe-warnings-deprecated</code>. See <a href="#switching-from-griffe-warnings-deprecated">Switching from
+griffe-warnings-deprecated</a> for how
+to update your configuration.</p>
 <p>For each deprecated object, the extension:</p>
 <ul>
 <li>Adds a <code>deprecated</code> label.</li>
@@ -981,30 +1023,72 @@ only have the runtime warning. In that case, it still adds a notice with
 whatever information is available, but also logs a warning. This makes
 <code>mkdocs build --strict</code> fail, so you can fix the documentation by writing the
 missing notice yourself.</p>
-<p>If you use a different admonition style for deprecations, you can change the
-<code>kind</code> option. For example:</p>
+<p>Notices use the <code>deprecated</code> admonition kind by default, the same kind a
+hand-written <code>Deprecated:</code> section gets. Your theme needs CSS for it, which the
+Frequenz repository template includes. If you use a different admonition style
+for deprecations, you can change the <code>kind</code> option. Hand-written notices then
+need the same kind, see <a href="#hand-written-admonitions">Hand-written admonitions</a>.</p>
+<p>For example, to use the <code>danger</code> style of <code>griffe-warnings-deprecated</code>, with
+hand-written notices written as <code>Danger: Deprecated</code>:</p>
 <div class="language-yaml highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="nt">plugins</span><span class="p">:</span>
 </span><span id="__span-1-2"><a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">mkdocstrings</span><span class="p">:</span>
 </span><span id="__span-1-3"><a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a><span class="w">      </span><span class="nt">handlers</span><span class="p">:</span>
 </span><span id="__span-1-4"><a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a><span class="w">        </span><span class="nt">python</span><span class="p">:</span>
 </span><span id="__span-1-5"><a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a><span class="w">          </span><span class="nt">options</span><span class="p">:</span>
 </span><span id="__span-1-6"><a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a><span class="w">            </span><span class="nt">extensions</span><span class="p">:</span>
-</span><span id="__span-1-7"><a id="__codelineno-1-7" name="__codelineno-1-7" href="#__codelineno-1-7"></a><span class="w">              </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">griffe_warnings_deprecated</span><span class="p">:</span>
-</span><span id="__span-1-8"><a id="__codelineno-1-8" name="__codelineno-1-8" href="#__codelineno-1-8"></a><span class="w">                  </span><span class="nt">kind</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">deprecated</span>
-</span><span id="__span-1-9"><a id="__codelineno-1-9" name="__codelineno-1-9" href="#__codelineno-1-9"></a><span class="w">              </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">griffe_frequenz_core.deprecations</span><span class="p">:</span>
-</span><span id="__span-1-10"><a id="__codelineno-1-10" name="__codelineno-1-10" href="#__codelineno-1-10"></a><span class="w">                  </span><span class="nt">kind</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">deprecated</span>
+</span><span id="__span-1-7"><a id="__codelineno-1-7" name="__codelineno-1-7" href="#__codelineno-1-7"></a><span class="w">              </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">griffe_frequenz_core.deprecations</span><span class="p">:</span>
+</span><span id="__span-1-8"><a id="__codelineno-1-8" name="__codelineno-1-8" href="#__codelineno-1-8"></a><span class="w">                  </span><span class="nt">kind</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">danger</span>
+</span><span id="__span-1-9"><a id="__codelineno-1-9" name="__codelineno-1-9" href="#__codelineno-1-9"></a><span class="w">                  </span><span class="nt">match_title</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span>
 </span></code></pre></div>
-<h3 id="recognized-frequenz-core-helpers">Recognized frequenz-core helpers<a class="headerlink" href="#recognized-frequenz-core-helpers" title="Permanent link">¤</a></h3>
-<p>The extension currently understands these helpers:</p>
+<h3 id="switching-from-griffe-warnings-deprecated">Switching from griffe-warnings-deprecated<a class="headerlink" href="#switching-from-griffe-warnings-deprecated" title="Permanent link">¤</a></h3>
+<p>You can use this extension instead of <code>griffe-warnings-deprecated</code>. This
+extension follows the deprecations guide:</p>
+<ul>
+<li>A hand-written notice takes priority over the decorator's message.</li>
+<li>An object is still marked as deprecated if the message can't be read.</li>
+<li>A missing notice produces a warning, even if the decorator has a message.</li>
+</ul>
+<p>To switch:</p>
+<ol>
+<li>Remove <code>griffe_warnings_deprecated</code> from the mkdocstrings <code>extensions</code> list
+   and remove <code>griffe-warnings-deprecated</code> from your documentation dependencies.</li>
+<li>Add <code>griffe_frequenz_core.deprecations</code> to the <code>extensions</code> list.</li>
+<li>If you set <code>kind</code>, <code>title</code> or <code>label</code>, move those options to this extension.
+   If you didn't set <code>kind</code>, notices now use the <code>deprecated</code> kind instead of
+   <code>danger</code>. Set <code>kind: danger</code> and <code>match_title: true</code> to keep the old style.</li>
+<li>Add a hand-written <code>Deprecated:</code> notice to each decorated object's docstring.</li>
+</ol>
+<p>If you document members inherited from another Frequenz package, that package
+needs its notices first. They are checked too, see <a href="#known-limitations">Known
+limitations</a>.</p>
+<p>Don't enable both extensions for the decorator. The other extension inserts
+the runtime warning as an admonition. This extension can't tell that apart
+from a hand-written notice, so you could get the runtime warning as your
+notice, or two notices.</p>
+<p>The extension logs a warning if both are enabled, so a strict build fails.</p>
+<p>If you want to keep <code>griffe-warnings-deprecated</code> for the decorator, set this
+extension's <code>decorator_functions</code> option to an empty list.</p>
+<h3 id="recognized-decorators-and-helpers">Recognized decorators and helpers<a class="headerlink" href="#recognized-decorators-and-helpers" title="Permanent link">¤</a></h3>
+<p>The extension understands these decorators and helpers:</p>
 <table>
 <thead>
 <tr>
-<th><code>frequenz-core</code> helper</th>
+<th>Decorator or helper</th>
 <th>How it's used</th>
 <th>What gets documented</th>
 </tr>
 </thead>
 <tbody>
+<tr>
+<td><code>warnings.deprecated</code></td>
+<td>Used as a decorator</td>
+<td>The decorated object</td>
+</tr>
+<tr>
+<td><code>typing_extensions.deprecated</code></td>
+<td>Used as a decorator</td>
+<td>The decorated object</td>
+</tr>
 <tr>
 <td><code>frequenz.core.warnings.deprecated_aliases()</code></td>
 <td>Assigned to a module's <code>__getattr__</code></td>
@@ -1031,6 +1115,66 @@ missing notice yourself.</p>
 example, this is recognized:</p>
 <div class="language-python highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">frequenz.core.enum</span><span class="w"> </span><span class="kn">import</span> <span class="n">deprecated_member</span> <span class="k">as</span> <span class="n">dm</span>
 </span></code></pre></div>
+<h3 id="deprecated-classes-and-functions">Deprecated classes and functions<a class="headerlink" href="#deprecated-classes-and-functions" title="Permanent link">¤</a></h3>
+<p>You can deprecate a class, function, method or property with
+<code>@warnings.deprecated</code> on Python 3.13 or later, or
+<code>@typing_extensions.deprecated</code> on older versions.</p>
+<p>The decorator only takes a runtime warning. Write the documentation notice
+yourself, using a <code>Deprecated:</code> section in the docstring:</p>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">typing_extensions</span><span class="w"> </span><span class="kn">import</span> <span class="n">deprecated</span>
+</span><span id="__span-3-2"><a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a>
+</span><span id="__span-3-3"><a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a>
+</span><span id="__span-3-4"><a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a><span class="nd">@deprecated</span><span class="p">(</span><span class="s2">"mypkg.OldThing is deprecated. Use mypkg.NewThing instead."</span><span class="p">)</span>
+</span><span id="__span-3-5"><a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a><span class="k">class</span><span class="w"> </span><span class="nc">OldThing</span><span class="p">:</span>
+</span><span id="__span-3-6"><a id="__codelineno-3-6" name="__codelineno-3-6" href="#__codelineno-3-6"></a><span class="w">    </span><span class="sd">"""A thing, now called `NewThing`.</span>
+</span><span id="__span-3-7"><a id="__codelineno-3-7" name="__codelineno-3-7" href="#__codelineno-3-7"></a>
+</span><span id="__span-3-8"><a id="__codelineno-3-8" name="__codelineno-3-8" href="#__codelineno-3-8"></a><span class="sd">    Deprecated:</span>
+</span><span id="__span-3-9"><a id="__codelineno-3-9" name="__codelineno-3-9" href="#__codelineno-3-9"></a><span class="sd">        Deprecated since v1.2.0. Use [`NewThing`][mypkg.NewThing] instead.</span>
+</span><span id="__span-3-10"><a id="__codelineno-3-10" name="__codelineno-3-10" href="#__codelineno-3-10"></a><span class="sd">    """</span>
+</span></code></pre></div>
+<p>The extension marks the object as deprecated and moves your notice to the top
+of its docstring. If you don't write a notice, it shows the decorator's
+message as Markdown and logs a warning. If it can't read the message either,
+it uses a generic notice and logs a warning:</p>
+<blockquote>
+<p>Deprecated. It will be removed in a future release.</p>
+</blockquote>
+<p>To deprecate a property, put <code>@deprecated(...)</code> on its getter, below <code>@property</code>.</p>
+<p>You can also deprecate an overload, or a property's setter or deleter.
+mkdocstrings doesn't show their docstrings, so write the notice in the
+function or property's docstring instead. Say which part is deprecated:</p>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">overload</span>
+</span><span id="__span-4-2"><a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a>
+</span><span id="__span-4-3"><a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a><span class="kn">from</span><span class="w"> </span><span class="nn">typing_extensions</span><span class="w"> </span><span class="kn">import</span> <span class="n">deprecated</span>
+</span><span id="__span-4-4"><a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a>
+</span><span id="__span-4-5"><a id="__codelineno-4-5" name="__codelineno-4-5" href="#__codelineno-4-5"></a>
+</span><span id="__span-4-6"><a id="__codelineno-4-6" name="__codelineno-4-6" href="#__codelineno-4-6"></a><span class="nd">@overload</span>
+</span><span id="__span-4-7"><a id="__codelineno-4-7" name="__codelineno-4-7" href="#__codelineno-4-7"></a><span class="nd">@deprecated</span><span class="p">(</span>
+</span><span id="__span-4-8"><a id="__codelineno-4-8" name="__codelineno-4-8" href="#__codelineno-4-8"></a>    <span class="s2">"Passing an int as factor to mypkg.scale is deprecated. Use a float instead."</span>
+</span><span id="__span-4-9"><a id="__codelineno-4-9" name="__codelineno-4-9" href="#__codelineno-4-9"></a><span class="p">)</span>
+</span><span id="__span-4-10"><a id="__codelineno-4-10" name="__codelineno-4-10" href="#__codelineno-4-10"></a><span class="k">def</span><span class="w"> </span><span class="nf">scale</span><span class="p">(</span><span class="n">factor</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span> <span class="o">...</span>
+</span><span id="__span-4-11"><a id="__codelineno-4-11" name="__codelineno-4-11" href="#__codelineno-4-11"></a><span class="nd">@overload</span>
+</span><span id="__span-4-12"><a id="__codelineno-4-12" name="__codelineno-4-12" href="#__codelineno-4-12"></a><span class="k">def</span><span class="w"> </span><span class="nf">scale</span><span class="p">(</span><span class="n">factor</span><span class="p">:</span> <span class="nb">float</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span> <span class="o">...</span>
+</span><span id="__span-4-13"><a id="__codelineno-4-13" name="__codelineno-4-13" href="#__codelineno-4-13"></a><span class="k">def</span><span class="w"> </span><span class="nf">scale</span><span class="p">(</span><span class="n">factor</span><span class="p">:</span> <span class="nb">int</span> <span class="o">|</span> <span class="nb">float</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+</span><span id="__span-4-14"><a id="__codelineno-4-14" name="__codelineno-4-14" href="#__codelineno-4-14"></a><span class="w">    </span><span class="sd">"""Scale the thing.</span>
+</span><span id="__span-4-15"><a id="__codelineno-4-15" name="__codelineno-4-15" href="#__codelineno-4-15"></a>
+</span><span id="__span-4-16"><a id="__codelineno-4-16" name="__codelineno-4-16" href="#__codelineno-4-16"></a><span class="sd">    Deprecated:</span>
+</span><span id="__span-4-17"><a id="__codelineno-4-17" name="__codelineno-4-17" href="#__codelineno-4-17"></a><span class="sd">        Passing an `int` is deprecated since v1.2.0. Use a `float` instead.</span>
+</span><span id="__span-4-18"><a id="__codelineno-4-18" name="__codelineno-4-18" href="#__codelineno-4-18"></a><span class="sd">    """</span>
+</span></code></pre></div>
+<p>Here, only the <code>int</code> overload gets a <code>deprecated</code> label and field. The function
+as a whole isn't deprecated, so the extension doesn't mark it or move its
+notice to the top.</p>
+<p>Without a hand-written notice, the extension combines the messages of all
+deprecated parts into one notice and logs a warning for each part. If it
+can't read a message, it uses one of these generic notices:</p>
+<ul>
+<li>"One of its overloads is deprecated."</li>
+<li>"Setting it is deprecated."</li>
+<li>"Deleting it is deprecated."</li>
+</ul>
+<p>If the whole function or property is deprecated too, its own notice covers
+its parts.</p>
 <h3 id="deprecated-module-aliases">Deprecated module aliases<a class="headerlink" href="#deprecated-module-aliases" title="Permanent link">¤</a></h3>
 <p>When you move or rename something, you might want to keep the old name working
 for a while.</p>
@@ -1047,28 +1191,28 @@ type checkers can still find them.</p>
 <p>You need to provide <code>new_module</code>, <code>new_name</code> or both. In <code>frequenz-core</code> 1.6.0,
 <code>since</code> and <code>message</code> are optional. You can pass either, both or neither.</p>
 <p>For example:</p>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">TYPE_CHECKING</span><span class="p">,</span> <span class="n">TypeAlias</span>
-</span><span id="__span-3-2"><a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a>
-</span><span id="__span-3-3"><a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a><span class="kn">from</span><span class="w"> </span><span class="nn">frequenz.core.warnings</span><span class="w"> </span><span class="kn">import</span> <span class="n">DeprecatedAlias</span><span class="p">,</span> <span class="n">deprecated_aliases</span>
-</span><span id="__span-3-4"><a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a>
-</span><span id="__span-3-5"><a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a><span class="k">if</span> <span class="n">TYPE_CHECKING</span><span class="p">:</span>
-</span><span id="__span-3-6"><a id="__codelineno-3-6" name="__codelineno-3-6" href="#__codelineno-3-6"></a>    <span class="kn">from</span><span class="w"> </span><span class="nn">mypkg.newmod</span><span class="w"> </span><span class="kn">import</span> <span class="n">Gadget</span> <span class="k">as</span> <span class="n">_Gadget</span>
-</span><span id="__span-3-7"><a id="__codelineno-3-7" name="__codelineno-3-7" href="#__codelineno-3-7"></a>    <span class="kn">from</span><span class="w"> </span><span class="nn">mypkg.newmod</span><span class="w"> </span><span class="kn">import</span> <span class="n">Widget</span> <span class="k">as</span> <span class="n">_Widget</span>
-</span><span id="__span-3-8"><a id="__codelineno-3-8" name="__codelineno-3-8" href="#__codelineno-3-8"></a>
-</span><span id="__span-3-9"><a id="__codelineno-3-9" name="__codelineno-3-9" href="#__codelineno-3-9"></a>    <span class="n">Widget</span><span class="p">:</span> <span class="n">TypeAlias</span> <span class="o">=</span> <span class="n">_Widget</span>
-</span><span id="__span-3-10"><a id="__codelineno-3-10" name="__codelineno-3-10" href="#__codelineno-3-10"></a><span class="w">    </span><span class="sd">"""A widget that does widget things."""</span>
-</span><span id="__span-3-11"><a id="__codelineno-3-11" name="__codelineno-3-11" href="#__codelineno-3-11"></a>
-</span><span id="__span-3-12"><a id="__codelineno-3-12" name="__codelineno-3-12" href="#__codelineno-3-12"></a>    <span class="n">Doohickey</span><span class="p">:</span> <span class="n">TypeAlias</span> <span class="o">=</span> <span class="n">_Gadget</span>
-</span><span id="__span-3-13"><a id="__codelineno-3-13" name="__codelineno-3-13" href="#__codelineno-3-13"></a><span class="w">    </span><span class="sd">"""A gadget, formerly known as `Doohickey`."""</span>
-</span><span id="__span-3-14"><a id="__codelineno-3-14" name="__codelineno-3-14" href="#__codelineno-3-14"></a><span class="k">else</span><span class="p">:</span>
-</span><span id="__span-3-15"><a id="__codelineno-3-15" name="__codelineno-3-15" href="#__codelineno-3-15"></a>    <span class="fm">__getattr__</span> <span class="o">=</span> <span class="n">deprecated_aliases</span><span class="p">(</span>
-</span><span id="__span-3-16"><a id="__codelineno-3-16" name="__codelineno-3-16" href="#__codelineno-3-16"></a>        <span class="vm">__name__</span><span class="p">,</span>
-</span><span id="__span-3-17"><a id="__codelineno-3-17" name="__codelineno-3-17" href="#__codelineno-3-17"></a>        <span class="n">DeprecatedAlias</span><span class="p">(</span><span class="s2">"Widget"</span><span class="p">,</span> <span class="n">new_module</span><span class="o">=</span><span class="s2">"mypkg.newmod"</span><span class="p">,</span> <span class="n">since</span><span class="o">=</span><span class="s2">"v1.2.0"</span><span class="p">),</span>
-</span><span id="__span-3-18"><a id="__codelineno-3-18" name="__codelineno-3-18" href="#__codelineno-3-18"></a>        <span class="n">DeprecatedAlias</span><span class="p">(</span>
-</span><span id="__span-3-19"><a id="__codelineno-3-19" name="__codelineno-3-19" href="#__codelineno-3-19"></a>            <span class="s2">"Doohickey"</span><span class="p">,</span> <span class="n">new_module</span><span class="o">=</span><span class="s2">"mypkg.newmod"</span><span class="p">,</span> <span class="n">new_name</span><span class="o">=</span><span class="s2">"Gadget"</span><span class="p">,</span> <span class="n">since</span><span class="o">=</span><span class="s2">"v1.3.0"</span>
-</span><span id="__span-3-20"><a id="__codelineno-3-20" name="__codelineno-3-20" href="#__codelineno-3-20"></a>        <span class="p">),</span>
-</span><span id="__span-3-21"><a id="__codelineno-3-21" name="__codelineno-3-21" href="#__codelineno-3-21"></a>        <span class="n">DeprecatedAlias</span><span class="p">(</span><span class="s2">"Thingamajig"</span><span class="p">,</span> <span class="n">new_name</span><span class="o">=</span><span class="s2">"Widget"</span><span class="p">,</span> <span class="n">since</span><span class="o">=</span><span class="s2">"v1.4.0"</span><span class="p">),</span>
-</span><span id="__span-3-22"><a id="__codelineno-3-22" name="__codelineno-3-22" href="#__codelineno-3-22"></a>    <span class="p">)</span>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-5-1"><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">TYPE_CHECKING</span><span class="p">,</span> <span class="n">TypeAlias</span>
+</span><span id="__span-5-2"><a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a>
+</span><span id="__span-5-3"><a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a><span class="kn">from</span><span class="w"> </span><span class="nn">frequenz.core.warnings</span><span class="w"> </span><span class="kn">import</span> <span class="n">DeprecatedAlias</span><span class="p">,</span> <span class="n">deprecated_aliases</span>
+</span><span id="__span-5-4"><a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a>
+</span><span id="__span-5-5"><a id="__codelineno-5-5" name="__codelineno-5-5" href="#__codelineno-5-5"></a><span class="k">if</span> <span class="n">TYPE_CHECKING</span><span class="p">:</span>
+</span><span id="__span-5-6"><a id="__codelineno-5-6" name="__codelineno-5-6" href="#__codelineno-5-6"></a>    <span class="kn">from</span><span class="w"> </span><span class="nn">mypkg.newmod</span><span class="w"> </span><span class="kn">import</span> <span class="n">Gadget</span> <span class="k">as</span> <span class="n">_Gadget</span>
+</span><span id="__span-5-7"><a id="__codelineno-5-7" name="__codelineno-5-7" href="#__codelineno-5-7"></a>    <span class="kn">from</span><span class="w"> </span><span class="nn">mypkg.newmod</span><span class="w"> </span><span class="kn">import</span> <span class="n">Widget</span> <span class="k">as</span> <span class="n">_Widget</span>
+</span><span id="__span-5-8"><a id="__codelineno-5-8" name="__codelineno-5-8" href="#__codelineno-5-8"></a>
+</span><span id="__span-5-9"><a id="__codelineno-5-9" name="__codelineno-5-9" href="#__codelineno-5-9"></a>    <span class="n">Widget</span><span class="p">:</span> <span class="n">TypeAlias</span> <span class="o">=</span> <span class="n">_Widget</span>
+</span><span id="__span-5-10"><a id="__codelineno-5-10" name="__codelineno-5-10" href="#__codelineno-5-10"></a><span class="w">    </span><span class="sd">"""A widget that does widget things."""</span>
+</span><span id="__span-5-11"><a id="__codelineno-5-11" name="__codelineno-5-11" href="#__codelineno-5-11"></a>
+</span><span id="__span-5-12"><a id="__codelineno-5-12" name="__codelineno-5-12" href="#__codelineno-5-12"></a>    <span class="n">Doohickey</span><span class="p">:</span> <span class="n">TypeAlias</span> <span class="o">=</span> <span class="n">_Gadget</span>
+</span><span id="__span-5-13"><a id="__codelineno-5-13" name="__codelineno-5-13" href="#__codelineno-5-13"></a><span class="w">    </span><span class="sd">"""A gadget, formerly known as `Doohickey`."""</span>
+</span><span id="__span-5-14"><a id="__codelineno-5-14" name="__codelineno-5-14" href="#__codelineno-5-14"></a><span class="k">else</span><span class="p">:</span>
+</span><span id="__span-5-15"><a id="__codelineno-5-15" name="__codelineno-5-15" href="#__codelineno-5-15"></a>    <span class="fm">__getattr__</span> <span class="o">=</span> <span class="n">deprecated_aliases</span><span class="p">(</span>
+</span><span id="__span-5-16"><a id="__codelineno-5-16" name="__codelineno-5-16" href="#__codelineno-5-16"></a>        <span class="vm">__name__</span><span class="p">,</span>
+</span><span id="__span-5-17"><a id="__codelineno-5-17" name="__codelineno-5-17" href="#__codelineno-5-17"></a>        <span class="n">DeprecatedAlias</span><span class="p">(</span><span class="s2">"Widget"</span><span class="p">,</span> <span class="n">new_module</span><span class="o">=</span><span class="s2">"mypkg.newmod"</span><span class="p">,</span> <span class="n">since</span><span class="o">=</span><span class="s2">"v1.2.0"</span><span class="p">),</span>
+</span><span id="__span-5-18"><a id="__codelineno-5-18" name="__codelineno-5-18" href="#__codelineno-5-18"></a>        <span class="n">DeprecatedAlias</span><span class="p">(</span>
+</span><span id="__span-5-19"><a id="__codelineno-5-19" name="__codelineno-5-19" href="#__codelineno-5-19"></a>            <span class="s2">"Doohickey"</span><span class="p">,</span> <span class="n">new_module</span><span class="o">=</span><span class="s2">"mypkg.newmod"</span><span class="p">,</span> <span class="n">new_name</span><span class="o">=</span><span class="s2">"Gadget"</span><span class="p">,</span> <span class="n">since</span><span class="o">=</span><span class="s2">"v1.3.0"</span>
+</span><span id="__span-5-20"><a id="__codelineno-5-20" name="__codelineno-5-20" href="#__codelineno-5-20"></a>        <span class="p">),</span>
+</span><span id="__span-5-21"><a id="__codelineno-5-21" name="__codelineno-5-21" href="#__codelineno-5-21"></a>        <span class="n">DeprecatedAlias</span><span class="p">(</span><span class="s2">"Thingamajig"</span><span class="p">,</span> <span class="n">new_name</span><span class="o">=</span><span class="s2">"Widget"</span><span class="p">,</span> <span class="n">since</span><span class="o">=</span><span class="s2">"v1.4.0"</span><span class="p">),</span>
+</span><span id="__span-5-22"><a id="__codelineno-5-22" name="__codelineno-5-22" href="#__codelineno-5-22"></a>    <span class="p">)</span>
 </span></code></pre></div>
 <p>Suppose this code is in <code>mypkg.oldmod</code>. Here's what happens in the generated
 documentation:</p>
@@ -1113,24 +1257,24 @@ pass <code>new_name</code> to say which member to use instead, and <code>since</
 member became deprecated. If there is no replacement, pass a runtime <code>message</code>
 and write the notice by hand.</p>
 <p>For example:</p>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">frequenz.core.enum</span><span class="w"> </span><span class="kn">import</span> <span class="n">DeprecatedMember</span><span class="p">,</span> <span class="n">Enum</span><span class="p">,</span> <span class="n">deprecated_member</span>
-</span><span id="__span-4-2"><a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a>
-</span><span id="__span-4-3"><a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a>
-</span><span id="__span-4-4"><a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a><span class="k">class</span><span class="w"> </span><span class="nc">TaskStatus</span><span class="p">(</span><span class="n">Enum</span><span class="p">):</span>
-</span><span id="__span-4-5"><a id="__codelineno-4-5" name="__codelineno-4-5" href="#__codelineno-4-5"></a>    <span class="n">OPEN</span> <span class="o">=</span> <span class="mi">1</span>
-</span><span id="__span-4-6"><a id="__codelineno-4-6" name="__codelineno-4-6" href="#__codelineno-4-6"></a>    <span class="n">PENDING</span> <span class="o">=</span> <span class="n">deprecated_member</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="n">new_name</span><span class="o">=</span><span class="s2">"OPEN"</span><span class="p">,</span> <span class="n">since</span><span class="o">=</span><span class="s2">"v1.2.0"</span><span class="p">)</span>
-</span><span id="__span-4-7"><a id="__codelineno-4-7" name="__codelineno-4-7" href="#__codelineno-4-7"></a>    <span class="n">WAITING</span> <span class="o">=</span> <span class="n">DeprecatedMember</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="n">new_name</span><span class="o">=</span><span class="s2">"OPEN"</span><span class="p">)</span>
-</span><span id="__span-4-8"><a id="__codelineno-4-8" name="__codelineno-4-8" href="#__codelineno-4-8"></a>
-</span><span id="__span-4-9"><a id="__codelineno-4-9" name="__codelineno-4-9" href="#__codelineno-4-9"></a>    <span class="n">CANCELLED</span> <span class="o">=</span> <span class="n">deprecated_member</span><span class="p">(</span>
-</span><span id="__span-4-10"><a id="__codelineno-4-10" name="__codelineno-4-10" href="#__codelineno-4-10"></a>        <span class="mi">4</span><span class="p">,</span>
-</span><span id="__span-4-11"><a id="__codelineno-4-11" name="__codelineno-4-11" href="#__codelineno-4-11"></a>        <span class="s2">"mypkg.TaskStatus.CANCELLED is deprecated. Cancelled tasks are deleted now."</span><span class="p">,</span>
-</span><span id="__span-4-12"><a id="__codelineno-4-12" name="__codelineno-4-12" href="#__codelineno-4-12"></a>        <span class="n">since</span><span class="o">=</span><span class="s2">"v1.3.0"</span><span class="p">,</span>
-</span><span id="__span-4-13"><a id="__codelineno-4-13" name="__codelineno-4-13" href="#__codelineno-4-13"></a>    <span class="p">)</span>
-</span><span id="__span-4-14"><a id="__codelineno-4-14" name="__codelineno-4-14" href="#__codelineno-4-14"></a><span class="w">    </span><span class="sd">"""The task was cancelled.</span>
-</span><span id="__span-4-15"><a id="__codelineno-4-15" name="__codelineno-4-15" href="#__codelineno-4-15"></a>
-</span><span id="__span-4-16"><a id="__codelineno-4-16" name="__codelineno-4-16" href="#__codelineno-4-16"></a><span class="sd">    Deprecated:</span>
-</span><span id="__span-4-17"><a id="__codelineno-4-17" name="__codelineno-4-17" href="#__codelineno-4-17"></a><span class="sd">        Deprecated since v1.3.0. Cancelled tasks are deleted now.</span>
-</span><span id="__span-4-18"><a id="__codelineno-4-18" name="__codelineno-4-18" href="#__codelineno-4-18"></a><span class="sd">    """</span>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-6-1"><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">frequenz.core.enum</span><span class="w"> </span><span class="kn">import</span> <span class="n">DeprecatedMember</span><span class="p">,</span> <span class="n">Enum</span><span class="p">,</span> <span class="n">deprecated_member</span>
+</span><span id="__span-6-2"><a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a>
+</span><span id="__span-6-3"><a id="__codelineno-6-3" name="__codelineno-6-3" href="#__codelineno-6-3"></a>
+</span><span id="__span-6-4"><a id="__codelineno-6-4" name="__codelineno-6-4" href="#__codelineno-6-4"></a><span class="k">class</span><span class="w"> </span><span class="nc">TaskStatus</span><span class="p">(</span><span class="n">Enum</span><span class="p">):</span>
+</span><span id="__span-6-5"><a id="__codelineno-6-5" name="__codelineno-6-5" href="#__codelineno-6-5"></a>    <span class="n">OPEN</span> <span class="o">=</span> <span class="mi">1</span>
+</span><span id="__span-6-6"><a id="__codelineno-6-6" name="__codelineno-6-6" href="#__codelineno-6-6"></a>    <span class="n">PENDING</span> <span class="o">=</span> <span class="n">deprecated_member</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="n">new_name</span><span class="o">=</span><span class="s2">"OPEN"</span><span class="p">,</span> <span class="n">since</span><span class="o">=</span><span class="s2">"v1.2.0"</span><span class="p">)</span>
+</span><span id="__span-6-7"><a id="__codelineno-6-7" name="__codelineno-6-7" href="#__codelineno-6-7"></a>    <span class="n">WAITING</span> <span class="o">=</span> <span class="n">DeprecatedMember</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="n">new_name</span><span class="o">=</span><span class="s2">"OPEN"</span><span class="p">)</span>
+</span><span id="__span-6-8"><a id="__codelineno-6-8" name="__codelineno-6-8" href="#__codelineno-6-8"></a>
+</span><span id="__span-6-9"><a id="__codelineno-6-9" name="__codelineno-6-9" href="#__codelineno-6-9"></a>    <span class="n">CANCELLED</span> <span class="o">=</span> <span class="n">deprecated_member</span><span class="p">(</span>
+</span><span id="__span-6-10"><a id="__codelineno-6-10" name="__codelineno-6-10" href="#__codelineno-6-10"></a>        <span class="mi">4</span><span class="p">,</span>
+</span><span id="__span-6-11"><a id="__codelineno-6-11" name="__codelineno-6-11" href="#__codelineno-6-11"></a>        <span class="s2">"mypkg.TaskStatus.CANCELLED is deprecated. Cancelled tasks are deleted now."</span><span class="p">,</span>
+</span><span id="__span-6-12"><a id="__codelineno-6-12" name="__codelineno-6-12" href="#__codelineno-6-12"></a>        <span class="n">since</span><span class="o">=</span><span class="s2">"v1.3.0"</span><span class="p">,</span>
+</span><span id="__span-6-13"><a id="__codelineno-6-13" name="__codelineno-6-13" href="#__codelineno-6-13"></a>    <span class="p">)</span>
+</span><span id="__span-6-14"><a id="__codelineno-6-14" name="__codelineno-6-14" href="#__codelineno-6-14"></a><span class="w">    </span><span class="sd">"""The task was cancelled.</span>
+</span><span id="__span-6-15"><a id="__codelineno-6-15" name="__codelineno-6-15" href="#__codelineno-6-15"></a>
+</span><span id="__span-6-16"><a id="__codelineno-6-16" name="__codelineno-6-16" href="#__codelineno-6-16"></a><span class="sd">    Deprecated:</span>
+</span><span id="__span-6-17"><a id="__codelineno-6-17" name="__codelineno-6-17" href="#__codelineno-6-17"></a><span class="sd">        Deprecated since v1.3.0. Cancelled tasks are deleted now.</span>
+</span><span id="__span-6-18"><a id="__codelineno-6-18" name="__codelineno-6-18" href="#__codelineno-6-18"></a><span class="sd">    """</span>
 </span></code></pre></div>
 <p>The extension marks all three members and shows their actual value instead of the
 wrapper. For example, the documentation shows <code>PENDING = 1</code>, not the call to
@@ -1167,21 +1311,25 @@ the <code>deprecated</code> label and fills in the <code>deprecated</code> field
 <p>The extension also moves your notice to the top of the docstring, before the
 summary, so it appears in the same place as a generated notice. You can't write
 it there yourself, because a docstring must start with its summary.</p>
-<p>It recognizes two kinds of hand-written admonitions:</p>
-<ul>
-<li>A <code>Deprecated:</code> section in the docstring.</li>
-<li>An admonition whose title matches the extension's <code>title</code> option
-  (case-insensitive).</li>
-</ul>
+<p>The extension recognizes your notice by its admonition kind, which must be the
+one in the <code>kind</code> option. In a Google-style docstring, the kind is the word
+before the colon, in lowercase, with dashes instead of spaces. With the default
+<code>kind</code>, that's a <code>Deprecated:</code> section. It can also have its own title, like
+<code>Deprecated: Old API</code>. In a numpy-style docstring, a <code>Deprecated</code> section also
+counts.</p>
+<p>If you use a general kind, like <code>danger</code>, also set <code>match_title: true</code>. Then an
+admonition only counts if its title is also the one in the <code>title</code> option
+(case-insensitive), like <code>Danger: Deprecated</code>. Other <code>Danger:</code> admonitions are
+left alone.</p>
 <p>For example:</p>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-5-1"><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="k">if</span> <span class="n">TYPE_CHECKING</span><span class="p">:</span>
-</span><span id="__span-5-2"><a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a>    <span class="n">Widget</span><span class="p">:</span> <span class="n">TypeAlias</span> <span class="o">=</span> <span class="n">_Widget</span>
-</span><span id="__span-5-3"><a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a><span class="w">    </span><span class="sd">"""A widget that does widget things.</span>
-</span><span id="__span-5-4"><a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a>
-</span><span id="__span-5-5"><a id="__codelineno-5-5" name="__codelineno-5-5" href="#__codelineno-5-5"></a><span class="sd">    Deprecated:</span>
-</span><span id="__span-5-6"><a id="__codelineno-5-6" name="__codelineno-5-6" href="#__codelineno-5-6"></a><span class="sd">        Deprecated since v1.2.0. Use [`mypkg.newmod.Widget`][] instead, as</span>
-</span><span id="__span-5-7"><a id="__codelineno-5-7" name="__codelineno-5-7" href="#__codelineno-5-7"></a><span class="sd">        explained in the [migration guide](https://example.com/migration).</span>
-</span><span id="__span-5-8"><a id="__codelineno-5-8" name="__codelineno-5-8" href="#__codelineno-5-8"></a><span class="sd">    """</span>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-7-1"><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a><span class="k">if</span> <span class="n">TYPE_CHECKING</span><span class="p">:</span>
+</span><span id="__span-7-2"><a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a>    <span class="n">Widget</span><span class="p">:</span> <span class="n">TypeAlias</span> <span class="o">=</span> <span class="n">_Widget</span>
+</span><span id="__span-7-3"><a id="__codelineno-7-3" name="__codelineno-7-3" href="#__codelineno-7-3"></a><span class="w">    </span><span class="sd">"""A widget that does widget things.</span>
+</span><span id="__span-7-4"><a id="__codelineno-7-4" name="__codelineno-7-4" href="#__codelineno-7-4"></a>
+</span><span id="__span-7-5"><a id="__codelineno-7-5" name="__codelineno-7-5" href="#__codelineno-7-5"></a><span class="sd">    Deprecated:</span>
+</span><span id="__span-7-6"><a id="__codelineno-7-6" name="__codelineno-7-6" href="#__codelineno-7-6"></a><span class="sd">        Deprecated since v1.2.0. Use [`mypkg.newmod.Widget`][] instead, as</span>
+</span><span id="__span-7-7"><a id="__codelineno-7-7" name="__codelineno-7-7" href="#__codelineno-7-7"></a><span class="sd">        explained in the [migration guide](https://example.com/migration).</span>
+</span><span id="__span-7-8"><a id="__codelineno-7-8" name="__codelineno-7-8" href="#__codelineno-7-8"></a><span class="sd">    """</span>
 </span></code></pre></div>
 <p>Use a hand-written notice whenever the extension can't generate a complete one,
 or when you want to give readers more information.</p>
@@ -1217,8 +1365,8 @@ it can't read all the arguments of the call.</p>
   of these entries will be marked:</p>
 </li>
 </ul>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-6-1"><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="n">deprecated_aliases</span><span class="p">(</span><span class="vm">__name__</span><span class="p">,</span> <span class="n">WIDGET</span><span class="p">)</span>
-</span><span id="__span-6-2"><a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a><span class="n">deprecated_aliases</span><span class="p">(</span><span class="vm">__name__</span><span class="p">,</span> <span class="o">*</span><span class="n">ALIASES</span><span class="p">)</span>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-8-1"><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a><span class="n">deprecated_aliases</span><span class="p">(</span><span class="vm">__name__</span><span class="p">,</span> <span class="n">WIDGET</span><span class="p">)</span>
+</span><span id="__span-8-2"><a id="__codelineno-8-2" name="__codelineno-8-2" href="#__codelineno-8-2"></a><span class="n">deprecated_aliases</span><span class="p">(</span><span class="vm">__name__</span><span class="p">,</span> <span class="o">*</span><span class="n">ALIASES</span><span class="p">)</span>
 </span></code></pre></div>
 <ul>
 <li>
@@ -1231,9 +1379,24 @@ it can't read all the arguments of the call.</p>
   arguments are unpacked, the alias isn't marked at all.</p>
 </li>
 <li>
+<p><strong>Overloads need a function to show their notice.</strong> Griffe attaches
+  overloads to the function defined after them. If they're declared only in a
+  stub file, they still get a label and field, but no visible notice.</p>
+</li>
+<li>
+<p><strong>Decorator messages need non-empty literal strings.</strong> If the message isn't a
+  non-empty string literal, or the arguments use <code>*args</code>, the object gets a
+  generic notice.
+  A decorator used without a call, like <code>@deprecated</code>, fails at runtime.
+  So does a call whose arguments don't match the signature, for example
+  <code>@deprecated(message="Gone")</code>. These still mark the object with a generic
+  notice and log a warning, even with a hand-written notice.</p>
+</li>
+<li>
 <p><strong>The extension doesn't validate your code.</strong> It matches arguments the same
   way Python would when calling the function. If the arguments don't match the
-  function's signature, the call is skipped. But the extension doesn't check
+  function's signature, the call is skipped, except for decorators, which still
+  mark the object with a generic notice. The extension doesn't check
   whether the argument values are valid. That's a job for your tests, which
   should catch invalid calls when the module is imported.</p>
 </li>
@@ -1250,6 +1413,20 @@ silently generating incomplete documentation.</p>
 </ul>
 <p>Writing your own deprecation admonition fixes warnings about missing or
 incomplete notices, but not other problems.</p>
+<p>Warnings about incomplete notices are only logged when the object's docstring
+is parsed for rendering. Griffe may visit code that never appears in your
+documentation. For example, loading a namespace package like <code>frequenz</code> also
+visits other installed packages using that namespace. Their missing notices
+shouldn't make your build fail.</p>
+<p>The extension only logs warnings for code in the packages listed in
+<code>checked_packages</code>, which is <code>frequenz</code> by default. Your documentation can still
+show code from other packages, for example members inherited from a class in a
+dependency. The extension documents their deprecations the same way, using the
+decorator's message when there is no hand-written notice. It only logs their
+problems at debug level, since only their own project can fix them.</p>
+<p>Members are checked where they are defined, so a member inherited from another
+Frequenz package is checked too. Its warning points to the class that defines
+it, and has to be fixed in that package.</p>
 <p>If you want to know why the extension couldn't read something, run
 <code>mkdocs build --verbose</code>. The extension logs those details at debug level.</p>
 <p>Broken links to replacements are reported separately by <code>mkdocs-autorefs</code>.</p>
@@ -1265,8 +1442,8 @@ incomplete notices, but not other problems.</p>
 <tbody>
 <tr>
 <td><code>kind</code></td>
-<td><code>danger</code></td>
-<td>The kind of the admonition, which is also its CSS class.</td>
+<td><code>deprecated</code></td>
+<td>The kind of the admonition, which is also its CSS class. Hand-written notices need the same kind. Use lowercase, with dashes instead of spaces.</td>
 </tr>
 <tr>
 <td><code>title</code></td>
@@ -1274,9 +1451,24 @@ incomplete notices, but not other problems.</p>
 <td>The title of the admonition. An empty title or <code>null</code> means no title.</td>
 </tr>
 <tr>
+<td><code>match_title</code></td>
+<td><code>false</code></td>
+<td>Hand-written notices also need the configured <code>title</code>. Needs a <code>title</code>.</td>
+</tr>
+<tr>
 <td><code>label</code></td>
 <td><code>deprecated</code></td>
 <td>The label added to deprecated objects. <code>null</code> means no label.</td>
+</tr>
+<tr>
+<td><code>checked_packages</code></td>
+<td><code>frequenz</code></td>
+<td>The packages, with their subpackages, whose problems are logged as warnings.</td>
+</tr>
+<tr>
+<td><code>decorator_functions</code></td>
+<td><code>warnings.deprecated</code>, <code>typing_extensions.deprecated</code></td>
+<td>The paths of the decorators that deprecate a class or function.</td>
 </tr>
 <tr>
 <td><code>alias_table_functions</code></td>
@@ -1313,17 +1505,23 @@ incomplete notices, but not other problems.</p>
   in the same module or enum, the link only shows its name.</li>
 <li><code>{since}</code>: The version string, as written in the call.</li>
 </ul>
-<p>The three path options are lists. If you set one, it replaces the default. To
+<p>The four path options are lists. If you set one, it replaces the default. To
 use your own helper as well as the <code>frequenz-core</code> one, list both:</p>
-<div class="language-yaml highlight"><pre><span></span><code><span id="__span-7-1"><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a><span class="nt">extensions</span><span class="p">:</span>
-</span><span id="__span-7-2"><a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a><span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">griffe_frequenz_core.deprecations</span><span class="p">:</span>
-</span><span id="__span-7-3"><a id="__codelineno-7-3" name="__codelineno-7-3" href="#__codelineno-7-3"></a><span class="w">      </span><span class="nt">alias_table_functions</span><span class="p">:</span>
-</span><span id="__span-7-4"><a id="__codelineno-7-4" name="__codelineno-7-4" href="#__codelineno-7-4"></a><span class="w">        </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">frequenz.core.warnings.deprecated_aliases</span>
-</span><span id="__span-7-5"><a id="__codelineno-7-5" name="__codelineno-7-5" href="#__codelineno-7-5"></a><span class="w">        </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">mypkg.compat.moved_to</span>
+<div class="language-yaml highlight"><pre><span></span><code><span id="__span-9-1"><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a><span class="nt">extensions</span><span class="p">:</span>
+</span><span id="__span-9-2"><a id="__codelineno-9-2" name="__codelineno-9-2" href="#__codelineno-9-2"></a><span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">griffe_frequenz_core.deprecations</span><span class="p">:</span>
+</span><span id="__span-9-3"><a id="__codelineno-9-3" name="__codelineno-9-3" href="#__codelineno-9-3"></a><span class="w">      </span><span class="nt">alias_table_functions</span><span class="p">:</span>
+</span><span id="__span-9-4"><a id="__codelineno-9-4" name="__codelineno-9-4" href="#__codelineno-9-4"></a><span class="w">        </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">frequenz.core.warnings.deprecated_aliases</span>
+</span><span id="__span-9-5"><a id="__codelineno-9-5" name="__codelineno-9-5" href="#__codelineno-9-5"></a><span class="w">        </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">mypkg.compat.moved_to</span>
 </span></code></pre></div>
-<p>Your own helpers need to take the same arguments as the <code>frequenz-core</code> helper
+<p><code>checked_packages</code> is a list too. Write a list even for a single name, like
+<code>checked_packages: [frequenz]</code>. If you set any of these five options to a
+string, the extension raises an error, instead of reading each letter as a name.</p>
+<p>Your own decorators and helpers need to take the same arguments as the ones
 they replace, because the extension reads their calls the same way:</p>
 <ul>
+<li><strong>Decorators</strong> work like <code>deprecated(message, /, *, category=DeprecationWarning,
+  stacklevel=1)</code>. The message must be positional. The other arguments must be
+  passed by keyword.</li>
 <li><strong>Alias tables</strong> work like <code>deprecated_aliases(module, /, *aliases)</code>. Every
   positional argument after the module is an alias entry. Keyword arguments are
   ignored.</li>
@@ -1342,16 +1540,12 @@ they replace, because the extension reads their calls the same way:</p>
 the new path. You don't need to wait for a new release of this package.</p>
 <p>There is one difference from <code>griffe-warnings-deprecated</code>, on purpose. If
 <code>title</code> is empty, <code>griffe-warnings-deprecated</code> puts the message in the
-admonition title, but this extension doesn't, for two reasons:</p>
-<ul>
-<li>The notice contains a link to the replacement, which doesn't belong in a
-  title.</li>
-<li>The extension uses the title to recognize hand-written admonitions.</li>
-</ul>
+admonition title, but this extension doesn't. The notice contains a link to the
+replacement, which doesn't belong in a title.</p>
 <h2 id="supported-platforms">Supported Platforms<a class="headerlink" href="#supported-platforms" title="Permanent link">¤</a></h2>
 <p>The following platforms are officially supported (tested):</p>
 <ul>
-<li><strong>Python:</strong> 3.11</li>
+<li><strong>Python:</strong> 3.11 through 3.15</li>
 <li><strong>Operating System:</strong> Ubuntu Linux 20.04</li>
 <li><strong>Architectures:</strong> amd64, arm64</li>
 </ul>
