@@ -51,6 +51,8 @@ The extension generates the notice when the code has enough information. A hand-
 
   Warnings about incomplete notices are only logged when the object's docstring is parsed for rendering. Griffe may also visit dependency code that never appears in your documentation, for example other packages in the `frequenz` namespace. Missing notices in that code no longer make your build fail.
 
+  Warnings are only logged for code in the new `checked_packages` option, which defaults to `frequenz`. Problems in other packages, for example in members inherited from a class in a third-party dependency, are only logged at debug level, because only their own project can fix them. Members are checked where they are defined, so members inherited from another Frequenz package are still checked. That package needs its notices before yours can build in strict mode.
+
 - `mkdocs-autorefs` now reports alias targets it can't resolve. To fix this, add the inventory of the target's project.
 
 ## New Features
@@ -75,6 +77,8 @@ The extension generates the notice when the code has enough information. A hand-
   ```
 
   The replacement links to the member in the same enum. Without `since`, the notice only says what to use instead, and the extension logs a warning. If you also pass a `message`, it only changes the runtime warning, not the notice. The only exception is when `new_name` isn't a string literal: then the notice shows the message, because it's the only thing that can say what to use instead.
+
+- The new `checked_packages` option lists the packages whose deprecation problems are logged as warnings. Each one also covers its subpackages. It defaults to `frequenz`.
 
 - The new `alias_classes` option lists the callables that create alias entries. It defaults to `frequenz.core.warnings.DeprecatedAlias`. You can use it if your project has its own helper.
 

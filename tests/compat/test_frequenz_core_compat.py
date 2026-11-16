@@ -38,6 +38,7 @@ from griffe_frequenz_core.deprecations import DeprecationsExtension
 from . import fixture_aliases, fixture_enum
 
 _FIXTURES = Path(__file__).parent
+_CHECKED = ("module", fixture_aliases.__name__, fixture_enum.__name__)
 
 
 @pytest.fixture(name="task_status", scope="module")
@@ -56,7 +57,9 @@ def task_status_fixture() -> griffe.Class:
     module = griffe.load(
         name,
         search_paths=[search_path],
-        extensions=griffe.load_extensions(DeprecationsExtension()),
+        extensions=griffe.load_extensions(
+            DeprecationsExtension(checked_packages=_CHECKED)
+        ),
         docstring_parser=griffe.Parser.google,
     )
     task_status = module["TaskStatus"]
@@ -249,7 +252,9 @@ def aliases_module_fixture() -> griffe.Module:
     module = griffe.load(
         name,
         search_paths=[search_path],
-        extensions=griffe.load_extensions(DeprecationsExtension()),
+        extensions=griffe.load_extensions(
+            DeprecationsExtension(checked_packages=_CHECKED)
+        ),
         docstring_parser=griffe.Parser.google,
     )
     assert isinstance(module, griffe.Module)
@@ -441,7 +446,10 @@ def test_alias_entries_bind_as_at_runtime(entry: str) -> None:
         f"__getattr__ = deprecated_aliases(__name__, {entry})\n"
     )
     with griffe.temporary_visited_module(
-        code, extensions=griffe.load_extensions(DeprecationsExtension())
+        code,
+        extensions=griffe.load_extensions(
+            DeprecationsExtension(checked_packages=_CHECKED)
+        ),
     ) as module:
         assert ("Thing" in module.members) == accepted
 
@@ -484,6 +492,9 @@ def test_member_wrappers_bind_as_at_runtime(wrapper: str) -> None:
     )
     accepted = _accepted(code)
     with griffe.temporary_visited_module(
-        code, extensions=griffe.load_extensions(DeprecationsExtension())
+        code,
+        extensions=griffe.load_extensions(
+            DeprecationsExtension(checked_packages=_CHECKED)
+        ),
     ) as module:
         assert bool(module["Status.A"].deprecated) == accepted

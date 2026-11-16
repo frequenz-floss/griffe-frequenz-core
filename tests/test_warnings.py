@@ -10,6 +10,7 @@ fail. The extension logs the reason at debug level.
 """
 
 import logging
+from pathlib import Path
 from typing import Any
 
 import griffe
@@ -19,6 +20,7 @@ from griffe import Parser
 from griffe_frequenz_core.deprecations import DeprecationsExtension
 
 _LOGGER = "griffe_frequenz_core.deprecations"
+_CHECKED = ("module",)
 
 
 def _warnings(caplog: pytest.LogCaptureFixture) -> list[str]:
@@ -187,7 +189,10 @@ def test_a_notice_short_of_the_guide_is_warned_about(
     with (
         caplog.at_level(logging.DEBUG, logger=_LOGGER),
         griffe.temporary_visited_module(
-            code, extensions=griffe.load_extensions(DeprecationsExtension())
+            code,
+            extensions=griffe.load_extensions(
+                DeprecationsExtension(checked_packages=_CHECKED)
+            ),
         ) as module,
     ):
         _render(module)
@@ -212,7 +217,9 @@ def test_a_handwritten_notice_silences_the_generated_one(
         griffe.temporary_visited_module(
             code,
             docstring_parser=Parser.google,
-            extensions=griffe.load_extensions(DeprecationsExtension()),
+            extensions=griffe.load_extensions(
+                DeprecationsExtension(checked_packages=_CHECKED)
+            ),
         ) as module,
     ):
         _render(module)
@@ -246,7 +253,10 @@ def test_a_message_from_another_extension_silences_the_generic_one(
     with (
         caplog.at_level(logging.DEBUG, logger=_LOGGER),
         griffe.temporary_visited_module(
-            code, extensions=griffe.load_extensions(Earlier(), DeprecationsExtension())
+            code,
+            extensions=griffe.load_extensions(
+                Earlier(), DeprecationsExtension(checked_packages=_CHECKED)
+            ),
         ) as module,
     ):
         _render(module)
@@ -299,7 +309,10 @@ def test_an_alias_that_cannot_be_fully_documented_is_warned_about(
     with (
         caplog.at_level(logging.DEBUG, logger=_LOGGER),
         griffe.temporary_visited_module(
-            code, extensions=griffe.load_extensions(DeprecationsExtension())
+            code,
+            extensions=griffe.load_extensions(
+                DeprecationsExtension(checked_packages=_CHECKED)
+            ),
         ) as module,
     ):
         _render(module)
@@ -342,7 +355,9 @@ def test_an_enum_member_that_cannot_be_fully_documented_is_warned_about(
         griffe.temporary_visited_module(
             code,
             docstring_parser=Parser.google,
-            extensions=griffe.load_extensions(DeprecationsExtension()),
+            extensions=griffe.load_extensions(
+                DeprecationsExtension(checked_packages=_CHECKED)
+            ),
         ) as module,
     ):
         _render(module)
@@ -374,7 +389,10 @@ def test_a_generated_enum_notice_is_not_warned_about(
     with (
         caplog.at_level(logging.DEBUG, logger=_LOGGER),
         griffe.temporary_visited_module(
-            code, extensions=griffe.load_extensions(DeprecationsExtension())
+            code,
+            extensions=griffe.load_extensions(
+                DeprecationsExtension(checked_packages=_CHECKED)
+            ),
         ) as module,
     ):
         _render(module)
@@ -397,7 +415,10 @@ def test_only_rendered_objects_are_warned_about(
     with (
         caplog.at_level(logging.DEBUG, logger=_LOGGER),
         griffe.temporary_visited_module(
-            code, extensions=griffe.load_extensions(DeprecationsExtension())
+            code,
+            extensions=griffe.load_extensions(
+                DeprecationsExtension(checked_packages=_CHECKED)
+            ),
         ) as module,
     ):
         assert not _warnings(caplog)
@@ -434,7 +455,10 @@ def test_a_docstring_parsed_already_gets_its_notice_right_away(
     with (
         caplog.at_level(logging.DEBUG, logger=_LOGGER),
         griffe.temporary_visited_module(
-            code, extensions=griffe.load_extensions(Earlier(), DeprecationsExtension())
+            code,
+            extensions=griffe.load_extensions(
+                Earlier(), DeprecationsExtension(checked_packages=_CHECKED)
+            ),
         ) as module,
     ):
         [warning] = _warnings(caplog)
@@ -517,7 +541,7 @@ def test_parts_of_a_docstring_parsed_already_share_one_notice(
         griffe.temporary_visited_module(
             code,
             extensions=griffe.load_extensions(
-                _ParsingEarlier(), DeprecationsExtension()
+                _ParsingEarlier(), DeprecationsExtension(checked_packages=_CHECKED)
             ),
         ) as module,
     ):
@@ -561,7 +585,7 @@ def test_a_handwritten_notice_covers_parts_of_a_docstring_parsed_already(
             code,
             docstring_parser=Parser.google,
             extensions=griffe.load_extensions(
-                _ParsingEarlier(), DeprecationsExtension()
+                _ParsingEarlier(), DeprecationsExtension(checked_packages=_CHECKED)
             ),
         ) as module,
     ):
@@ -576,3 +600,128 @@ def test_a_handwritten_notice_covers_parts_of_a_docstring_parsed_already(
     assert notice.value.contents == (
         "Setting or deleting it is deprecated since v1.2.0."
     )
+
+
+_PROBLEMS = (
+    "from typing import overload\n"
+    "from typing_extensions import deprecated\n"
+    "from frequenz.core.enum import Enum, deprecated_member\n"
+    "from frequenz.core.warnings import DeprecatedAlias, deprecated_aliases\n"
+    "__getattr__ = deprecated_aliases(\n"
+    "    __name__, ENTRY, DeprecatedAlias('B', new_module=TARGET)\n"
+    ")\n"
+    "@deprecated\n"
+    "def invalid(): ...\n"
+    "@deprecated(MESSAGE)\n"
+    "def unreadable(): ...\n"
+    "@deprecated('Gone.')\n"
+    "def runtime_only(): ...\n"
+    "@overload\n"
+    "@deprecated('Gone.')\n"
+    "def f(x: int) -> int: ...\n"
+    "@overload\n"
+    "def f(x: str) -> str: ...\n"
+    "def f(x): ...\n"
+    "class Status(Enum):\n"
+    "    A = deprecated_member(*ARGS)\n"
+)
+"""Code with every kind of problem the extension warns about."""
+
+
+def _logged(
+    caplog: pytest.LogCaptureFixture, package: str, **options: Any
+) -> list[logging.LogRecord]:
+    """Render `_PROBLEMS` in a package and return what the extension logged.
+
+    Args:
+        caplog: The captured log records.
+        package: The name of the package with the `_PROBLEMS` module.
+        **options: Options for the extension.
+
+    Returns:
+        The records logged by the extension.
+    """
+    caplog.clear()
+    with (
+        caplog.at_level(logging.DEBUG, logger=_LOGGER),
+        griffe.temporary_visited_package(
+            package,
+            {"mod/__init__.py": _PROBLEMS},
+            extensions=griffe.load_extensions(DeprecationsExtension(**options)),
+        ) as module,
+    ):
+        _render(module)
+    return [record for record in caplog.records if record.name == _LOGGER]
+
+
+@pytest.mark.parametrize(
+    ("package", "checked"),
+    [("frequenz", True), ("frequenzfoo", False), ("other", False)],
+)
+def test_only_problems_in_checked_packages_are_warned_about(
+    caplog: pytest.LogCaptureFixture, package: str, checked: bool
+) -> None:
+    """Log problems in other packages at debug level, which is `frequenz` by default.
+
+    A checked package also covers its subpackages, but not other packages whose
+    names start the same way.
+    """
+    problems = [
+        record.message
+        for record in _logged(caplog, package, checked_packages=[package])
+        if record.levelno == logging.WARNING
+    ]
+    assert len(problems) == 9
+    logged = _logged(caplog, package)
+    warned = [record.message for record in logged if record.levelno == logging.WARNING]
+    if checked:
+        assert warned == problems
+    else:
+        assert not warned
+        assert set(problems) <= {record.message for record in logged}
+
+
+@pytest.mark.parametrize(
+    ("base", "checked"), [("extlib.base", False), ("frequenz.base", True)]
+)
+def test_inherited_members_are_checked_where_they_are_defined(
+    caplog: pytest.LogCaptureFixture, tmp_path: Path, base: str, checked: bool
+) -> None:
+    """Check an inherited member using the package of the class that defines it.
+
+    A dependency outside the checked packages can't be fixed by this project,
+    so its missing notices don't fail the build, even when they are rendered as
+    inherited members.
+    """
+    base_file = tmp_path / f"{base.replace('.', '/')}.py"
+    base_file.parent.mkdir(parents=True, exist_ok=True)
+    base_file.write_text(
+        "from typing_extensions import deprecated\n"
+        "class Base:\n"
+        "    @deprecated('Base.old is deprecated.')\n"
+        "    def old(self) -> None:\n"
+        '        """Do the old thing."""\n',
+        encoding="utf-8",
+    )
+    (tmp_path / "frequenz").mkdir(exist_ok=True)
+    (tmp_path / "frequenz" / "app.py").write_text(
+        f"from {base} import Base\nclass Child(Base):\n    '''A child.'''\n",
+        encoding="utf-8",
+    )
+    loader = griffe.GriffeLoader(
+        search_paths=[tmp_path],
+        extensions=griffe.load_extensions(DeprecationsExtension()),
+    )
+    with caplog.at_level(logging.DEBUG, logger=_LOGGER):
+        app = loader.load("frequenz.app")
+        loader.load(base)
+        member = app["Child"].inherited_members["old"]
+        assert member.docstring is not None
+        [notice, _] = member.docstring.parsed
+    assert notice.value.contents == "Base.old is deprecated."
+    warned = _warnings(caplog)
+    if checked:
+        [warning] = warned
+        assert warning.startswith(f"{base}.Base.old: there is no notice written")
+    else:
+        assert not warned

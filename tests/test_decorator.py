@@ -21,6 +21,7 @@ from griffe import DocstringSectionAdmonition, Module, Object, Parser
 from griffe_frequenz_core.deprecations import DeprecationsExtension
 
 _LOGGER = "griffe_frequenz_core.deprecations"
+_CHECKED = ("module",)
 _GENERIC = "Deprecated. It will be removed in a future release."
 _RUNTIME_ONLY = (
     "there is no notice written for the documentation, so the runtime warning is "
@@ -43,7 +44,9 @@ def visit(code: str, **options: Any) -> Module:
     with griffe.temporary_visited_module(
         code,
         docstring_parser=Parser.google,
-        extensions=griffe.load_extensions(DeprecationsExtension(**options)),
+        extensions=griffe.load_extensions(
+            DeprecationsExtension(checked_packages=_CHECKED, **options)
+        ),
     ) as module:
         render(module)
         return module

@@ -120,6 +120,10 @@ To switch:
    `danger`. Set `kind: danger` and `match_title: true` to keep the old style.
 4. Add a hand-written `Deprecated:` notice to each decorated object's docstring.
 
+If you document members inherited from another Frequenz package, that package
+needs its notices first. They are checked too, see [Known
+limitations](#known-limitations).
+
 Don't enable both extensions for the decorator. The other extension inserts
 the runtime warning as an admonition. This extension can't tell that apart
 from a hand-written notice, so you could get the runtime warning as your
@@ -486,6 +490,17 @@ documentation. For example, loading a namespace package like `frequenz` also
 visits other installed packages using that namespace. Their missing notices
 shouldn't make your build fail.
 
+The extension only logs warnings for code in the packages listed in
+`checked_packages`, which is `frequenz` by default. Your documentation can still
+show code from other packages, for example members inherited from a class in a
+dependency. The extension documents their deprecations the same way, using the
+decorator's message when there is no hand-written notice. It only logs their
+problems at debug level, since only their own project can fix them.
+
+Members are checked where they are defined, so a member inherited from another
+Frequenz package is checked too. Its warning points to the class that defines
+it, and has to be fixed in that package.
+
 If you want to know why the extension couldn't read something, run
 `mkdocs build --verbose`. The extension logs those details at debug level.
 
@@ -499,6 +514,7 @@ Broken links to replacements are reported separately by `mkdocs-autorefs`.
 | `title`                    | `Deprecated`                                | The title of the admonition. An empty title or `null` means no title.   |
 | `match_title`              | `false`                                     | Hand-written notices also need the configured `title`. Needs a `title`. |
 | `label`                    | `deprecated`                                | The label added to deprecated objects. `null` means no label.           |
+| `checked_packages`         | `frequenz`                                  | The packages, with their subpackages, whose problems are logged as warnings. |
 | `decorator_functions`      | `warnings.deprecated`, `typing_extensions.deprecated` | The paths of the decorators that deprecate a class or function. |
 | `alias_table_functions`    | `frequenz.core.warnings.deprecated_aliases` | The paths of the functions that create a module `__getattr__`.          |
 | `alias_classes`            | `frequenz.core.warnings.DeprecatedAlias`    | The paths of the callables that create one alias entry.                 |
