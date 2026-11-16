@@ -4,11 +4,28 @@
 
 This release supports the `frequenz.core.warnings.deprecated_aliases()` API from `frequenz-core` v1.5.0 and v1.6.0. Each alias is a `DeprecatedAlias` entry. The entry says where the object is now, using `new_module`, `new_name` or both. You can pass `since` to say when the old name became deprecated, and `message` to change its runtime warning. In v1.6.0, these two arguments are optional and independent.
 
+It also documents the `@deprecated` decorator, so you no longer need `griffe-warnings-deprecated`.
+
 The extension now also follows the [deprecations guide](https://github.com/frequenz-floss/docs/blob/v0.x.x/python/deprecations.md). The guide separates the runtime warning, which is shown in a terminal, from the notice in the documentation. The notice says since which version the object is deprecated, and links to what to use instead.
 
 The extension generates the notice when the code has enough information. A hand-written `Deprecated:` notice always takes priority. If a notice is missing something the guide asks for, the extension logs a warning.
 
 ## Upgrading
+
+- This extension now replaces `griffe-warnings-deprecated`. To switch:
+
+  1. Remove `griffe_warnings_deprecated` from the mkdocstrings `extensions` list and remove `griffe-warnings-deprecated` from your documentation dependencies.
+  2. Add `griffe_frequenz_core.deprecations` to the `extensions` list.
+  3. If you set `kind`, `title` or `label`, move those options to this extension. If you didn't set `kind`, set `kind: danger` and `match_title: true` to keep the style of `griffe-warnings-deprecated` (see below).
+  4. Write a `Deprecated:` notice in each decorated object's docstring. Without one, the extension logs a warning, so a strict build fails.
+
+  Don't enable both extensions for the decorator. You could get the runtime warning as your notice, or two notices. The extension logs a warning if both are enabled, so a strict build fails. To keep using `griffe-warnings-deprecated` for the decorator, set this extension's new `decorator_functions` option to an empty list.
+
+- The default `kind` is now `deprecated` instead of `danger`. This is the kind a hand-written `Deprecated:` section gets, so generated and hand-written notices look the same. Your theme needs CSS for it, which the Frequenz repository template includes. To keep the old style, set `kind: danger` and `match_title: true`.
+
+- Hand-written notices are now recognized by their admonition kind, which must be the one in the `kind` option. Before, they were recognized by their title, which had to be the one in the `title` option. With the default `kind`, a `Deprecated:` section is recognized, also with its own title, like `Deprecated: Old API`. If you use a general kind, like `danger`, set the new `match_title` option to `true`, so only admonitions with the configured `title` count, like `Danger: Deprecated`.
+
+  The `kind` option must now be lowercase, with dashes instead of spaces, like the kinds of hand-written admonitions. `match_title` needs a `title`. Other values raise an error.
 
 - The `default_message` option is now used for the notice of every alias and enum member with `new_name`. Its default is now `Deprecated since {since}. Use {new_link} instead.`:
 
@@ -32,9 +49,26 @@ The extension generates the notice when the code has enough information. A hand-
 
   To fix these warnings, write the arguments as string literals, or write the `Deprecated:` notice by hand.
 
+  Warnings about incomplete notices are only logged when the object's docstring is parsed for rendering. Griffe may also visit dependency code that never appears in your documentation, for example other packages in the `frequenz` namespace. Missing notices in that code no longer make your build fail.
+
+  Warnings are only logged for code in the new `checked_packages` option, which defaults to `frequenz`. Problems in other packages, for example in members inherited from a class in a third-party dependency, are only logged at debug level, because only their own project can fix them. Members are checked where they are defined, so members inherited from another Frequenz package are still checked. That package needs its notices before yours can build in strict mode.
+
 - `mkdocs-autorefs` now reports alias targets it can't resolve. To fix this, add the inventory of the target's project.
 
 ## New Features
+
+- CI now tests Python 3.11 through 3.15.
+
+- The extension now documents classes, functions, methods and properties deprecated with `@warnings.deprecated` or `@typing_extensions.deprecated`:
+
+  - A hand-written `Deprecated:` notice takes priority and moves to the top of the docstring.
+  - Without a hand-written notice, the extension shows the decorator's message as the notice and logs a warning.
+  - If the message can't be read or is empty, the object still gets a generic notice and a warning.
+  - If the decorator call would fail at runtime, the object still gets a generic notice, and the extension logs a warning. A hand-written notice takes priority, but doesn't silence the invalid-call warning.
+
+  You can change which decorators the extension recognizes with the new `decorator_functions` option.
+
+- Notices for deprecated overloads, property setters and deleters now appear in the function or property's docstring. mkdocstrings doesn't show the parts' own docstrings. The whole function or property isn't marked as deprecated unless it has its own `@deprecated` decorator.
 
 - The extension now reads the `new_name` and `since` arguments added to `deprecated_member()` and `DeprecatedMember` in `frequenz-core` v1.6.0. If you pass both, it generates a notice using `default_message`:
 
@@ -44,11 +78,15 @@ The extension generates the notice when the code has enough information. A hand-
 
   The replacement links to the member in the same enum. Without `since`, the notice only says what to use instead, and the extension logs a warning. If you also pass a `message`, it only changes the runtime warning, not the notice. The only exception is when `new_name` isn't a string literal: then the notice shows the message, because it's the only thing that can say what to use instead.
 
+- The new `checked_packages` option lists the packages whose deprecation problems are logged as warnings. Each one also covers its subpackages. It defaults to `frequenz`.
+
 - The new `alias_classes` option lists the callables that create alias entries. It defaults to `frequenz.core.warnings.DeprecatedAlias`. You can use it if your project has its own helper.
 
 - The extension moves hand-written `Deprecated:` notices on aliases and enum members to the top of the docstring, where generated notices go. This way, all notices are in the same place.
 
 ## Bug Fixes
+
+- Setting a list option to a string in `mkdocs.yml`, like `decorator_functions: warnings.deprecated`, now raises an error. Before, each letter was read as a separate name, so the option silently matched nothing. Write a list instead, like `decorator_functions: [warnings.deprecated]`.
 
 - `griffe_frequenz_core.deprecations` now reads the calls the way `frequenz-core` actually released them:
 

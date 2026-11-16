@@ -17,9 +17,9 @@ the generated API documentation.
 
 The extensions fill in these gaps. The first one handles deprecations:
 `frequenz-core` can deprecate APIs using function calls instead of decorators.
-Neither Griffe's built-in support for `@deprecated` nor
-[`griffe-warnings-deprecated`](https://mkdocstrings.github.io/griffe-warnings-deprecated/)
-can detect these calls.
+This package documents both these calls and the `@deprecated` decorator. It
+replaces
+[`griffe-warnings-deprecated`](https://mkdocstrings.github.io/griffe-warnings-deprecated/).
 
 The extensions recognize helpers by their fully qualified names, without
 importing `frequenz-core`. So you don't need `frequenz-core` as a dependency,
@@ -36,10 +36,7 @@ mkdocstrings Python handler, as shown below.
 ## Documenting deprecations
 
 The `griffe_frequenz_core.deprecations` extension finds deprecations made using
-`frequenz-core` helper functions.
-
-It works alongside `griffe-warnings-deprecated`, which handles deprecations
-made using decorators. You can enable both:
+`@deprecated` and `frequenz-core` helper functions. Enable it like this:
 
 ```yaml
 plugins:
@@ -48,12 +45,12 @@ plugins:
         python:
           options:
             extensions:
-              - griffe_warnings_deprecated
               - griffe_frequenz_core.deprecations
 ```
 
-By default, both extensions use the same format, so all deprecations look the
-same in your documentation.
+Don't enable it alongside `griffe-warnings-deprecated`. See [Switching from
+griffe-warnings-deprecated](#switching-from-griffe-warnings-deprecated) for how
+to update your configuration.
 
 For each deprecated object, the extension:
 
@@ -83,8 +80,14 @@ whatever information is available, but also logs a warning. This makes
 `mkdocs build --strict` fail, so you can fix the documentation by writing the
 missing notice yourself.
 
-If you use a different admonition style for deprecations, you can change the
-`kind` option. For example:
+Notices use the `deprecated` admonition kind by default, the same kind a
+hand-written `Deprecated:` section gets. Your theme needs CSS for it, which the
+Frequenz repository template includes. If you use a different admonition style
+for deprecations, you can change the `kind` option. Hand-written notices then
+need the same kind, see [Hand-written admonitions](#hand-written-admonitions).
+
+For example, to use the `danger` style of `griffe-warnings-deprecated`, with
+hand-written notices written as `Danger: Deprecated`:
 
 ```yaml
 plugins:
@@ -93,18 +96,52 @@ plugins:
         python:
           options:
             extensions:
-              - griffe_warnings_deprecated:
-                  kind: deprecated
               - griffe_frequenz_core.deprecations:
-                  kind: deprecated
+                  kind: danger
+                  match_title: true
 ```
 
-### Recognized frequenz-core helpers
+### Switching from griffe-warnings-deprecated
 
-The extension currently understands these helpers:
+You can use this extension instead of `griffe-warnings-deprecated`. This
+extension follows the deprecations guide:
 
-| `frequenz-core` helper                        | How it's used                        | What gets documented     |
+- A hand-written notice takes priority over the decorator's message.
+- An object is still marked as deprecated if the message can't be read.
+- A missing notice produces a warning, even if the decorator has a message.
+
+To switch:
+
+1. Remove `griffe_warnings_deprecated` from the mkdocstrings `extensions` list
+   and remove `griffe-warnings-deprecated` from your documentation dependencies.
+2. Add `griffe_frequenz_core.deprecations` to the `extensions` list.
+3. If you set `kind`, `title` or `label`, move those options to this extension.
+   If you didn't set `kind`, notices now use the `deprecated` kind instead of
+   `danger`. Set `kind: danger` and `match_title: true` to keep the old style.
+4. Add a hand-written `Deprecated:` notice to each decorated object's docstring.
+
+If you document members inherited from another Frequenz package, that package
+needs its notices first. They are checked too, see [Known
+limitations](#known-limitations).
+
+Don't enable both extensions for the decorator. The other extension inserts
+the runtime warning as an admonition. This extension can't tell that apart
+from a hand-written notice, so you could get the runtime warning as your
+notice, or two notices.
+
+The extension logs a warning if both are enabled, so a strict build fails.
+
+If you want to keep `griffe-warnings-deprecated` for the decorator, set this
+extension's `decorator_functions` option to an empty list.
+
+### Recognized decorators and helpers
+
+The extension understands these decorators and helpers:
+
+| Decorator or helper                           | How it's used                        | What gets documented     |
 |-----------------------------------------------|--------------------------------------|--------------------------|
+| `warnings.deprecated`                         | Used as a decorator                  | The decorated object     |
+| `typing_extensions.deprecated`                | Used as a decorator                  | The decorated object     |
 | `frequenz.core.warnings.deprecated_aliases()` | Assigned to a module's `__getattr__` | All aliases in the table |
 | `frequenz.core.warnings.DeprecatedAlias`      | An entry in that table               | The alias                |
 | `frequenz.core.enum.deprecated_member()`      | Used as an enum member's value       | The enum member          |
@@ -116,6 +153,77 @@ example, this is recognized:
 ```python
 from frequenz.core.enum import deprecated_member as dm
 ```
+
+### Deprecated classes and functions
+
+You can deprecate a class, function, method or property with
+`@warnings.deprecated` on Python 3.13 or later, or
+`@typing_extensions.deprecated` on older versions.
+
+The decorator only takes a runtime warning. Write the documentation notice
+yourself, using a `Deprecated:` section in the docstring:
+
+```python
+from typing_extensions import deprecated
+
+
+@deprecated("mypkg.OldThing is deprecated. Use mypkg.NewThing instead.")
+class OldThing:
+    """A thing, now called `NewThing`.
+
+    Deprecated:
+        Deprecated since v1.2.0. Use [`NewThing`][mypkg.NewThing] instead.
+    """
+```
+
+The extension marks the object as deprecated and moves your notice to the top
+of its docstring. If you don't write a notice, it shows the decorator's
+message as Markdown and logs a warning. If it can't read the message either,
+it uses a generic notice and logs a warning:
+
+> Deprecated. It will be removed in a future release.
+
+To deprecate a property, put `@deprecated(...)` on its getter, below `@property`.
+
+You can also deprecate an overload, or a property's setter or deleter.
+mkdocstrings doesn't show their docstrings, so write the notice in the
+function or property's docstring instead. Say which part is deprecated:
+
+```python
+from typing import overload
+
+from typing_extensions import deprecated
+
+
+@overload
+@deprecated(
+    "Passing an int as factor to mypkg.scale is deprecated. Use a float instead."
+)
+def scale(factor: int) -> None: ...
+@overload
+def scale(factor: float) -> None: ...
+def scale(factor: int | float) -> None:
+    """Scale the thing.
+
+    Deprecated:
+        Passing an `int` is deprecated since v1.2.0. Use a `float` instead.
+    """
+```
+
+Here, only the `int` overload gets a `deprecated` label and field. The function
+as a whole isn't deprecated, so the extension doesn't mark it or move its
+notice to the top.
+
+Without a hand-written notice, the extension combines the messages of all
+deprecated parts into one notice and logs a warning for each part. If it
+can't read a message, it uses one of these generic notices:
+
+- "One of its overloads is deprecated."
+- "Setting it is deprecated."
+- "Deleting it is deprecated."
+
+If the whole function or property is deprecated too, its own notice covers
+its parts.
 
 ### Deprecated module aliases
 
@@ -272,11 +380,17 @@ The extension also moves your notice to the top of the docstring, before the
 summary, so it appears in the same place as a generated notice. You can't write
 it there yourself, because a docstring must start with its summary.
 
-It recognizes two kinds of hand-written admonitions:
+The extension recognizes your notice by its admonition kind, which must be the
+one in the `kind` option. In a Google-style docstring, the kind is the word
+before the colon, in lowercase, with dashes instead of spaces. With the default
+`kind`, that's a `Deprecated:` section. It can also have its own title, like
+`Deprecated: Old API`. In a numpy-style docstring, a `Deprecated` section also
+counts.
 
-- A `Deprecated:` section in the docstring.
-- An admonition whose title matches the extension's `title` option
-  (case-insensitive).
+If you use a general kind, like `danger`, also set `match_title: true`. Then an
+admonition only counts if its title is also the one in the `title` option
+(case-insensitive), like `Danger: Deprecated`. Other `Danger:` admonitions are
+left alone.
 
 For example:
 
@@ -337,9 +451,22 @@ Here are the main limitations:
   keyword arguments mean only the alias name can be read. If positional
   arguments are unpacked, the alias isn't marked at all.
 
+- **Overloads need a function to show their notice.** Griffe attaches
+  overloads to the function defined after them. If they're declared only in a
+  stub file, they still get a label and field, but no visible notice.
+
+- **Decorator messages need non-empty literal strings.** If the message isn't a
+  non-empty string literal, or the arguments use `*args`, the object gets a
+  generic notice.
+  A decorator used without a call, like `@deprecated`, fails at runtime.
+  So does a call whose arguments don't match the signature, for example
+  `@deprecated(message="Gone")`. These still mark the object with a generic
+  notice and log a warning, even with a hand-written notice.
+
 - **The extension doesn't validate your code.** It matches arguments the same
   way Python would when calling the function. If the arguments don't match the
-  function's signature, the call is skipped. But the extension doesn't check
+  function's signature, the call is skipped, except for decorators, which still
+  mark the object with a generic notice. The extension doesn't check
   whether the argument values are valid. That's a job for your tests, which
   should catch invalid calls when the module is imported.
 
@@ -357,6 +484,23 @@ For example, you'll get a warning if:
 Writing your own deprecation admonition fixes warnings about missing or
 incomplete notices, but not other problems.
 
+Warnings about incomplete notices are only logged when the object's docstring
+is parsed for rendering. Griffe may visit code that never appears in your
+documentation. For example, loading a namespace package like `frequenz` also
+visits other installed packages using that namespace. Their missing notices
+shouldn't make your build fail.
+
+The extension only logs warnings for code in the packages listed in
+`checked_packages`, which is `frequenz` by default. Your documentation can still
+show code from other packages, for example members inherited from a class in a
+dependency. The extension documents their deprecations the same way, using the
+decorator's message when there is no hand-written notice. It only logs their
+problems at debug level, since only their own project can fix them.
+
+Members are checked where they are defined, so a member inherited from another
+Frequenz package is checked too. Its warning points to the class that defines
+it, and has to be fixed in that package.
+
 If you want to know why the extension couldn't read something, run
 `mkdocs build --verbose`. The extension logs those details at debug level.
 
@@ -366,9 +510,12 @@ Broken links to replacements are reported separately by `mkdocs-autorefs`.
 
 | Option                     | Default                                     | Effect                                                                  |
 |----------------------------|---------------------------------------------|-------------------------------------------------------------------------|
-| `kind`                     | `danger`                                    | The kind of the admonition, which is also its CSS class.                |
+| `kind`                     | `deprecated`                                | The kind of the admonition, which is also its CSS class. Hand-written notices need the same kind. Use lowercase, with dashes instead of spaces. |
 | `title`                    | `Deprecated`                                | The title of the admonition. An empty title or `null` means no title.   |
+| `match_title`              | `false`                                     | Hand-written notices also need the configured `title`. Needs a `title`. |
 | `label`                    | `deprecated`                                | The label added to deprecated objects. `null` means no label.           |
+| `checked_packages`         | `frequenz`                                  | The packages, with their subpackages, whose problems are logged as warnings. |
+| `decorator_functions`      | `warnings.deprecated`, `typing_extensions.deprecated` | The paths of the decorators that deprecate a class or function. |
 | `alias_table_functions`    | `frequenz.core.warnings.deprecated_aliases` | The paths of the functions that create a module `__getattr__`.          |
 | `alias_classes`            | `frequenz.core.warnings.DeprecatedAlias`    | The paths of the callables that create one alias entry.                 |
 | `member_wrapper_functions` | `frequenz.core.enum.deprecated_member`, `frequenz.core.enum.DeprecatedMember` | The paths of the callables that wrap a deprecated enum member's value. |
@@ -383,7 +530,7 @@ You can use these placeholders in `default_message`:
   in the same module or enum, the link only shows its name.
 - `{since}`: The version string, as written in the call.
 
-The three path options are lists. If you set one, it replaces the default. To
+The four path options are lists. If you set one, it replaces the default. To
 use your own helper as well as the `frequenz-core` one, list both:
 
 ```yaml
@@ -394,9 +541,16 @@ extensions:
         - mypkg.compat.moved_to
 ```
 
-Your own helpers need to take the same arguments as the `frequenz-core` helper
+`checked_packages` is a list too. Write a list even for a single name, like
+`checked_packages: [frequenz]`. If you set any of these five options to a
+string, the extension raises an error, instead of reading each letter as a name.
+
+Your own decorators and helpers need to take the same arguments as the ones
 they replace, because the extension reads their calls the same way:
 
+- **Decorators** work like `deprecated(message, /, *, category=DeprecationWarning,
+  stacklevel=1)`. The message must be positional. The other arguments must be
+  passed by keyword.
 - **Alias tables** work like `deprecated_aliases(module, /, *aliases)`. Every
   positional argument after the module is an alias entry. Keyword arguments are
   ignored.
@@ -416,17 +570,14 @@ the new path. You don't need to wait for a new release of this package.
 
 There is one difference from `griffe-warnings-deprecated`, on purpose. If
 `title` is empty, `griffe-warnings-deprecated` puts the message in the
-admonition title, but this extension doesn't, for two reasons:
-
-- The notice contains a link to the replacement, which doesn't belong in a
-  title.
-- The extension uses the title to recognize hand-written admonitions.
+admonition title, but this extension doesn't. The notice contains a link to the
+replacement, which doesn't belong in a title.
 
 ## Supported Platforms
 
 The following platforms are officially supported (tested):
 
-- **Python:** 3.11
+- **Python:** 3.11 through 3.15
 - **Operating System:** Ubuntu Linux 20.04
 - **Architectures:** amd64, arm64
 

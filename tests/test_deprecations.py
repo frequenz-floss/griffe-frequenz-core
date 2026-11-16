@@ -33,6 +33,7 @@ _ALIASES = "frequenz.core.warnings.deprecated_aliases"
 _ALIAS_CLASS = "frequenz.core.warnings.DeprecatedAlias"
 _MEMBERS = "frequenz.core.enum.deprecated_member"
 _LOGGER = "griffe_frequenz_core.deprecations"
+_CHECKED = ("module", "numpymod", "samplepkg")
 _GENERIC = "Deprecated. It will be removed in a future release."
 _TO_NEW = "Deprecated. Use [`pkg.new.Thing`][] instead."
 _NO_SINCE = "can't say since which version it is deprecated"
@@ -42,7 +43,7 @@ _NO_TARGET = "what to use instead, because the target can't be read"
 def load(
     name: str = "samplepkg", *, parser: Parser = Parser.google, **options: Any
 ) -> Module:
-    """Load a fixture with the extension applied.
+    """Load a fixture with the extension enabled and parse its docstrings.
 
     Args:
         name: The fixture package or module to load.
@@ -56,10 +57,29 @@ def load(
         name,
         search_paths=[_FIXTURES],
         docstring_parser=parser,
-        extensions=griffe.load_extensions(DeprecationsExtension(**options)),
+        extensions=griffe.load_extensions(
+            DeprecationsExtension(checked_packages=_CHECKED, **options)
+        ),
     )
     assert isinstance(loaded, Module)
+    render(loaded)
     return loaded
+
+
+def render(obj: griffe.Object) -> None:
+    """Parse the docstrings of an object and its members, as rendering does.
+
+    The extension adds notices and warns about missing information during
+    parsing, just before mkdocstrings renders the docstring.
+
+    Args:
+        obj: The object to render.
+    """
+    if obj.docstring is not None:
+        _ = obj.docstring.parsed
+    for member in obj.members.values():
+        if not isinstance(member, griffe.Alias):
+            render(member)
 
 
 def attribute(module: Module, path: str) -> Attribute:
@@ -186,9 +206,10 @@ def test_the_admonition_goes_first(samplepkg: Module) -> None:
     assert kinds[0] is DocstringSectionKind.admonition
 
 
-def test_a_handwritten_admonition_is_left_alone(samplepkg: Module) -> None:
+@pytest.mark.parametrize("title", ["Deprecated", "Gone", "", None])
+def test_a_handwritten_admonition_is_left_alone(title: str | None) -> None:
     """Ensure a hand-written admonition is kept, and moved to the top."""
-    member = attribute(samplepkg, "oldmod.Widget")
+    member = attribute(load(title=title), "oldmod.Widget")
     sections = admonitions(member)
     assert len(sections) == 1
     assert "see the migration guide" in sections[0].value.contents
@@ -241,7 +262,10 @@ def test_an_alias_declared_by_an_import_is_documented_as_an_attribute() -> None:
         "    )\n"
     )
     with griffe.temporary_visited_module(
-        code, extensions=griffe.load_extensions(DeprecationsExtension())
+        code,
+        extensions=griffe.load_extensions(
+            DeprecationsExtension(checked_packages=_CHECKED)
+        ),
     ) as module:
         member = attribute(module, "Old")
         assert "deprecated" in member.labels
@@ -358,7 +382,9 @@ def test_an_enum_wrapper_unwraps_its_value_whatever_the_message(
     with griffe.temporary_visited_module(
         code,
         docstring_parser=Parser.google,
-        extensions=griffe.load_extensions(DeprecationsExtension()),
+        extensions=griffe.load_extensions(
+            DeprecationsExtension(checked_packages=_CHECKED)
+        ),
     ) as module:
         member = attribute(module, "Status.A")
         assert str(member.value) == value
@@ -383,7 +409,10 @@ def test_a_non_literal_enum_message_uses_the_configured_label(
         "    A = deprecated_member(7, _member_message('A'))\n"
     )
     with griffe.temporary_visited_module(
-        code, extensions=griffe.load_extensions(DeprecationsExtension(label=label))
+        code,
+        extensions=griffe.load_extensions(
+            DeprecationsExtension(label=label, checked_packages=_CHECKED)
+        ),
     ) as module:
         member = attribute(module, "Status.A")
         assert member.deprecated == _GENERIC
@@ -416,7 +445,9 @@ def test_a_non_literal_enum_message_keeps_an_existing_message() -> None:
     )
     with griffe.temporary_visited_module(
         code,
-        extensions=griffe.load_extensions(Earlier(), DeprecationsExtension()),
+        extensions=griffe.load_extensions(
+            Earlier(), DeprecationsExtension(checked_packages=_CHECKED)
+        ),
     ) as module:
         member = attribute(module, "Status.A")
         assert member.deprecated == "Use B."
@@ -435,7 +466,10 @@ def test_enum_wrapper_keyword_arguments_are_understood(arguments: str) -> None:
         f"    A = deprecated_member({arguments})\n"
     )
     with griffe.temporary_visited_module(
-        code, extensions=griffe.load_extensions(DeprecationsExtension())
+        code,
+        extensions=griffe.load_extensions(
+            DeprecationsExtension(checked_packages=_CHECKED)
+        ),
     ) as module:
         member = attribute(module, "Status.A")
         assert member.deprecated == "Gone"
@@ -461,7 +495,10 @@ def test_an_unpacked_enum_wrapper_call_is_marked_as_written(
     with (
         caplog.at_level(logging.DEBUG, logger=_LOGGER),
         griffe.temporary_visited_module(
-            code, extensions=griffe.load_extensions(DeprecationsExtension())
+            code,
+            extensions=griffe.load_extensions(
+                DeprecationsExtension(checked_packages=_CHECKED)
+            ),
         ) as module,
     ):
         member = attribute(module, "Status.A")
@@ -508,7 +545,10 @@ def test_an_unreadable_enum_wrapper_call_is_skipped_loudly(
     with (
         caplog.at_level(logging.DEBUG, logger=_LOGGER),
         griffe.temporary_visited_module(
-            code, extensions=griffe.load_extensions(DeprecationsExtension())
+            code,
+            extensions=griffe.load_extensions(
+                DeprecationsExtension(checked_packages=_CHECKED)
+            ),
         ) as module,
     ):
         member = attribute(module, "Status.A")
@@ -565,7 +605,10 @@ def test_an_enum_message_next_to_new_name_does_not_change_the_notice(
         f"    A = {wrapper}\n"
     )
     with griffe.temporary_visited_module(
-        code, extensions=griffe.load_extensions(DeprecationsExtension())
+        code,
+        extensions=griffe.load_extensions(
+            DeprecationsExtension(checked_packages=_CHECKED)
+        ),
     ) as module:
         member = attribute(module, "Status.A")
         assert member.deprecated == (
@@ -649,7 +692,10 @@ def test_a_partly_readable_enum_member_says_what_can_be_read(
     with (
         caplog.at_level(logging.DEBUG, logger=_LOGGER),
         griffe.temporary_visited_module(
-            code, extensions=griffe.load_extensions(DeprecationsExtension())
+            code,
+            extensions=griffe.load_extensions(
+                DeprecationsExtension(checked_packages=_CHECKED)
+            ),
         ) as module,
     ):
         member = attribute(module, "Status.A")
@@ -672,7 +718,9 @@ def test_a_handwritten_notice_replaces_the_generated_enum_one() -> None:
     with griffe.temporary_visited_module(
         code,
         docstring_parser=Parser.google,
-        extensions=griffe.load_extensions(DeprecationsExtension()),
+        extensions=griffe.load_extensions(
+            DeprecationsExtension(checked_packages=_CHECKED)
+        ),
     ) as module:
         member = attribute(module, "Status.A")
         assert "deprecated" in member.labels
@@ -806,7 +854,10 @@ def test_an_unreadable_alias_entry_is_skipped_loudly(
     with (
         caplog.at_level(logging.DEBUG, logger=_LOGGER),
         griffe.temporary_visited_module(
-            code, extensions=griffe.load_extensions(DeprecationsExtension())
+            code,
+            extensions=griffe.load_extensions(
+                DeprecationsExtension(checked_packages=_CHECKED)
+            ),
         ) as module,
     ):
         assert "Thing" not in module.members
@@ -889,7 +940,10 @@ def test_a_partly_readable_alias_entry_says_what_can_be_read(
     with (
         caplog.at_level(logging.DEBUG, logger=_LOGGER),
         griffe.temporary_visited_module(
-            code, extensions=griffe.load_extensions(DeprecationsExtension())
+            code,
+            extensions=griffe.load_extensions(
+                DeprecationsExtension(checked_packages=_CHECKED)
+            ),
         ) as module,
     ):
         member = attribute(module, "Thing")
@@ -918,7 +972,10 @@ def test_entries_written_out_are_read_whatever_surrounds_them(arguments: str) ->
         f"__getattr__ = deprecated_aliases({arguments})\n"
     )
     with griffe.temporary_visited_module(
-        code, extensions=griffe.load_extensions(DeprecationsExtension())
+        code,
+        extensions=griffe.load_extensions(
+            DeprecationsExtension(checked_packages=_CHECKED)
+        ),
     ) as module:
         member = attribute(module, "Thing")
         assert "deprecated" in member.labels
@@ -958,7 +1015,10 @@ def test_a_missing_new_module_or_name_defaults_as_at_runtime(
         f"__getattr__ = deprecated_aliases(__name__, {entry})\n"
     )
     with griffe.temporary_visited_module(
-        code, extensions=griffe.load_extensions(DeprecationsExtension())
+        code,
+        extensions=griffe.load_extensions(
+            DeprecationsExtension(checked_packages=_CHECKED)
+        ),
     ) as module:
         path = f"{module.path}.{new}" if new else "pkg.new.Thing"
         link = f"[`{new}`][{path}]" if new else f"[`{path}`][]"
@@ -976,7 +1036,10 @@ def test_since_is_inserted_as_written() -> None:
         ")\n"
     )
     with griffe.temporary_visited_module(
-        code, extensions=griffe.load_extensions(DeprecationsExtension())
+        code,
+        extensions=griffe.load_extensions(
+            DeprecationsExtension(checked_packages=_CHECKED)
+        ),
     ) as module:
         member = attribute(module, "Thing")
         assert str(member.deprecated).startswith("Deprecated since {v1}. Use ")
@@ -1012,28 +1075,52 @@ def test_the_module_argument_is_not_an_entry() -> None:
         f"{_ENTRY})\n"
     )
     with griffe.temporary_visited_module(
-        code, extensions=griffe.load_extensions(DeprecationsExtension())
+        code,
+        extensions=griffe.load_extensions(
+            DeprecationsExtension(checked_packages=_CHECKED)
+        ),
     ) as module:
         assert "Thing" in module.members
         assert "Wrong" not in module.members
 
 
-def test_the_defaults_match_griffe_warnings_deprecated() -> None:
-    """Ensure the defaults are the same as in `griffe-warnings-deprecated`."""
-    extension = DeprecationsExtension()
-    assert extension.kind == "danger"
+def test_the_defaults() -> None:
+    """Ensure notices use the kind of a hand-written `Deprecated:` section."""
+    extension = DeprecationsExtension(checked_packages=_CHECKED)
+    assert extension.kind == "deprecated"
     assert extension.title == "Deprecated"
     assert extension.label == "deprecated"
+    assert extension.match_title is False
+
+
+@pytest.mark.parametrize("kind", ["", "Deprecated", "my kind", "-deprecated", None])
+def test_a_kind_the_parser_cant_produce_is_rejected(kind: str | None) -> None:
+    """Hand-written admonitions could never match these kinds."""
+    with pytest.raises(ValueError, match="The `kind` option must be lowercase"):
+        DeprecationsExtension(kind=kind)  # type: ignore[arg-type]
+
+
+@pytest.mark.parametrize("title", ["", None])
+def test_match_title_needs_a_title(title: str | None) -> None:
+    """No hand-written admonition has an empty title."""
+    with pytest.raises(ValueError, match="The `match_title` option needs a `title`"):
+        DeprecationsExtension(title=title, match_title=True)
+
+
+@pytest.mark.parametrize("title", ["", None])
+def test_an_empty_title_is_allowed_without_match_title(title: str | None) -> None:
+    """The title only changes how generated notices look."""
+    assert DeprecationsExtension(title=title).title == ""
 
 
 def test_the_admonition_is_configurable() -> None:
     """Ensure the admonition style can be changed."""
-    package = load(kind="deprecated", title="No longer supported", label="old")
+    package = load(kind="danger", title="No longer supported", label="old")
     member = attribute(package, "oldmod.MAX_WIDGETS")
     assert member.labels == {"old", "module-attribute"}
     sections = admonitions(member)
     assert len(sections) == 1
-    assert sections[0].value.kind == "deprecated"
+    assert sections[0].value.kind == "danger"
     assert sections[0].title == "No longer supported"
 
 
@@ -1108,9 +1195,33 @@ def test_only_the_configured_alias_classes_match() -> None:
         "    DeprecatedAlias('Core', new_module='pkg.new', since='v1'),\n"
         ")\n"
     )
-    extension = DeprecationsExtension(alias_classes=["mypkg.compat.Moved"])
+    extension = DeprecationsExtension(
+        alias_classes=["mypkg.compat.Moved"], checked_packages=_CHECKED
+    )
     with griffe.temporary_visited_module(
         code, extensions=griffe.load_extensions(extension)
     ) as module:
         assert "deprecated" in attribute(module, "Mine").labels
         assert "Core" not in module.members
+
+
+@pytest.mark.parametrize(
+    "option",
+    [
+        "checked_packages",
+        "decorator_functions",
+        "alias_table_functions",
+        "alias_classes",
+        "member_wrapper_functions",
+    ],
+)
+def test_a_list_option_given_as_a_string_is_rejected(option: str) -> None:
+    """Reject a single string, which would be read as one-letter names.
+
+    In `mkdocs.yml`, `checked_packages: frequenz` is a string, not a list.
+    Silently reading it as `f`, `r`, `e`, and so on would turn off checks.
+    """
+    with pytest.raises(TypeError, match=rf"`{option}: \[frequenz\]`"):
+        griffe.load_extensions(
+            {"griffe_frequenz_core.deprecations": {option: "frequenz"}}
+        )
