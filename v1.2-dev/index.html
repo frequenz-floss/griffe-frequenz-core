@@ -1,0 +1,1673 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="A collection of Griffe extensions to teach mkdocstrings about frequenz-core helpers">
+      
+      
+        <meta name="author" content="Frequenz Energy-as-a-Service GmbH">
+      
+      
+      
+      
+        <link rel="next" href="reference/griffe_frequenz_core/">
+      
+      
+        
+      
+      
+      <link rel="icon" href="_img/logo.png">
+      <meta name="generator" content="mkdocs-ProperDocs 1.6.7, mkdocs-material-9.8.0">
+    
+    
+      
+        <title>Griffe Extensions for frequenz-core</title>
+      
+    
+    
+      <link rel="stylesheet" href="assets/stylesheets/main.57a0d79d.min.css">
+      
+        
+        <link rel="stylesheet" href="assets/stylesheets/palette.fb2fffe2.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+      <link rel="stylesheet" href="assets/_mkdocstrings.css">
+    
+      <link rel="stylesheet" href="_css/style.css">
+    
+      <link rel="stylesheet" href="_css/mkdocstrings.css">
+    
+    <script>__md_scope=new URL(".",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="deep-purple">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#griffe-extensions-for-frequenz-core" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+      <div data-md-color-scheme="default" data-md-component="outdated" hidden>
+        
+          <aside class="md-banner md-banner--warning">
+            <div class="md-banner__inner md-grid md-typeset">
+              
+  You're not viewing the latest (stable) version.
+  <a href="../.">
+    <strong>Click here to go to latest (stable) version</strong>
+  </a>
+
+            </div>
+            <script>var el=document.querySelector("[data-md-component=outdated]"),base=new URL("."),outdated=__md_get("__outdated",sessionStorage,base);!0===outdated&&el&&(el.hidden=!1)</script>
+          </aside>
+        
+      </div>
+    
+    
+      
+
+<header class="md-header" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href="." title="Griffe Extensions for frequenz-core" class="md-header__button md-logo" aria-label="Griffe Extensions for frequenz-core" data-md-component="logo">
+      
+  <img src="_img/logo.png" alt="logo">
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            Griffe Extensions for frequenz-core
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              Home
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+        <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: light)" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="deep-purple"  aria-label="Switch to dark mode"  type="radio" name="__palette" id="__palette_0">
+    
+      <label class="md-header__button md-icon" title="Switch to dark mode" for="__palette_1" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 7a5 5 0 0 1 5 5 5 5 0 0 1-5 5 5 5 0 0 1-5-5 5 5 0 0 1 5-5m0 2a3 3 0 0 0-3 3 3 3 0 0 0 3 3 3 3 0 0 0 3-3 3 3 0 0 0-3-3m0-7 2.39 3.42C13.65 5.15 12.84 5 12 5s-1.65.15-2.39.42zM3.34 7l4.16-.35A7.2 7.2 0 0 0 5.94 8.5c-.44.74-.69 1.5-.83 2.29zm.02 10 1.76-3.77a7.131 7.131 0 0 0 2.38 4.14zM20.65 7l-1.77 3.79a7.02 7.02 0 0 0-2.38-4.15zm-.01 10-4.14.36c.59-.51 1.12-1.14 1.54-1.86.42-.73.69-1.5.83-2.29zM12 22l-2.41-3.44c.74.27 1.55.44 2.41.44.82 0 1.63-.17 2.37-.44z"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: dark)" data-md-color-scheme="slate" data-md-color-primary="black" data-md-color-accent="teal"  aria-label="Switch to light mode"  type="radio" name="__palette" id="__palette_1">
+    
+      <label class="md-header__button md-icon" title="Switch to light mode" for="__palette_0" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="m17.75 4.09-2.53 1.94.91 3.06-2.63-1.81-2.63 1.81.91-3.06-2.53-1.94L12.44 4l1.06-3 1.06 3zm3.5 6.91-1.64 1.25.59 1.98-1.7-1.17-1.7 1.17.59-1.98L15.75 11l2.06-.05L18.5 9l.69 1.95zm-2.28 4.95c.83-.08 1.72 1.1 1.19 1.85-.32.45-.66.87-1.08 1.27C15.17 23 8.84 23 4.94 19.07c-3.91-3.9-3.91-10.24 0-14.14.4-.4.82-.76 1.27-1.08.75-.53 1.93.36 1.85 1.19-.27 2.86.69 5.83 2.89 8.02a9.96 9.96 0 0 0 8.02 2.89m-1.64 2.02a12.08 12.08 0 0 1-7.8-3.47c-2.17-2.19-3.33-5-3.49-7.82-2.81 3.14-2.7 7.96.31 10.98 3.02 3.01 7.84 3.12 10.98.31"/></svg>
+      </label>
+    
+  
+</form>
+      
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+      <div class="md-header__source">
+        <a href="https://github.com/frequenz-floss/griffe-frequenz-core" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M173.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6m-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3m44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9M252.8 8C114.1 8 8 113.3 8 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C436.2 457.8 504 362.9 504 252 504 113.3 391.5 8 252.8 8M105.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1m-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7m32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1m-11.4-14.7c-1.6 1-1.6 3.6 0 5.9s4.3 3.3 5.6 2.3c1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2"/></svg>
+  </div>
+  <div class="md-source__repository">
+    griffe-frequenz-core
+  </div>
+</a>
+      </div>
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+            
+<nav class="md-tabs" aria-label="Tabs" data-md-component="tabs">
+  <div class="md-grid">
+    <ul class="md-tabs__list">
+      
+        
+  
+  
+  
+    
+  
+  
+    <li class="md-tabs__item md-tabs__item--active">
+      <a href="." class="md-tabs__link">
+        
+  
+  
+    
+  
+  Home
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="reference/griffe_frequenz_core/" class="md-tabs__link">
+          
+  
+  
+    
+  
+  API Reference
+
+        </a>
+      </li>
+    
+  
+
+    
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="CONTRIBUTING/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  Contributing
+
+      </a>
+    </li>
+  
+
+      
+    </ul>
+  </div>
+</nav>
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+  
+
+
+<nav class="md-nav md-nav--primary md-nav--lifted" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="." title="Griffe Extensions for frequenz-core" class="md-nav__button md-logo" aria-label="Griffe Extensions for frequenz-core" data-md-component="logo">
+      
+  <img src="_img/logo.png" alt="logo">
+
+    </a>
+    Griffe Extensions for frequenz-core
+  </label>
+  
+    <div class="md-nav__source">
+      <a href="https://github.com/frequenz-floss/griffe-frequenz-core" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M173.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6m-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3m44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9M252.8 8C114.1 8 8 113.3 8 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C436.2 457.8 504 362.9 504 252 504 113.3 391.5 8 252.8 8M105.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1m-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7m32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1m-11.4-14.7c-1.6 1-1.6 3.6 0 5.9s4.3 3.3 5.6 2.3c1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2"/></svg>
+  </div>
+  <div class="md-source__repository">
+    griffe-frequenz-core
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Home
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="." class="md-nav__link md-nav__link--active">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Home
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#introduction" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Introduction
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#installation" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Installation
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#documenting-deprecations" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Documenting deprecations
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Documenting deprecations">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#switching-from-griffe-warnings-deprecated" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Switching from griffe-warnings-deprecated
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#recognized-decorators-and-helpers" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Recognized decorators and helpers
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#deprecated-classes-and-functions" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Deprecated classes and functions
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#deprecated-module-aliases" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Deprecated module aliases
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#deprecated-enum-members" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Deprecated enum members
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#hand-written-admonitions" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Hand-written admonitions
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#known-limitations" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Known limitations
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#options" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Options
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#supported-platforms" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Supported Platforms
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#contributing" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Contributing
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+      
+    
+    
+    
+      
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2" >
+        
+          
+          <label class="md-nav__link" for="__nav_2" id="__nav_2_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    API Reference
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_2_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_2">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    API Reference
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+    
+    
+    
+      
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2_1" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="reference/griffe_frequenz_core/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    griffe_frequenz_core
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_2_1" id="__nav_2_1_label" tabindex="0">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_2_1_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_2_1">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    griffe_frequenz_core
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="reference/griffe_frequenz_core/deprecations/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    deprecations
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="CONTRIBUTING/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Contributing
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#introduction" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Introduction
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#installation" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Installation
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#documenting-deprecations" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Documenting deprecations
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Documenting deprecations">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#switching-from-griffe-warnings-deprecated" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Switching from griffe-warnings-deprecated
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#recognized-decorators-and-helpers" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Recognized decorators and helpers
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#deprecated-classes-and-functions" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Deprecated classes and functions
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#deprecated-module-aliases" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Deprecated module aliases
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#deprecated-enum-members" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Deprecated enum members
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#hand-written-admonitions" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Hand-written admonitions
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#known-limitations" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Known limitations
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#options" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Options
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#supported-platforms" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Supported Platforms
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#contributing" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Contributing
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+  
+  
+
+
+<h1 id="griffe-extensions-for-frequenz-core">Griffe Extensions for frequenz-core<a class="headerlink" href="#griffe-extensions-for-frequenz-core" title="Permanent link">¤</a></h1>
+<p><a href="https://github.com/frequenz-floss/griffe-frequenz-core/actions/workflows/ci.yaml"><img alt="Build Status" src="https://github.com/frequenz-floss/griffe-frequenz-core/actions/workflows/ci.yaml/badge.svg" /></a>
+<a href="https://pypi.org/project/griffe-frequenz-core/"><img alt="PyPI Package" src="https://img.shields.io/pypi/v/griffe-frequenz-core" /></a>
+<a href="https://frequenz-floss.github.io/griffe-frequenz-core/"><img alt="Docs" src="https://img.shields.io/badge/docs-latest-informational" /></a></p>
+<h2 id="introduction">Introduction<a class="headerlink" href="#introduction" title="Permanent link">¤</a></h2>
+<p>This package provides <a href="https://mkdocstrings.github.io/griffe/">Griffe</a>
+extensions that help <a href="https://mkdocstrings.github.io/">mkdocstrings</a> understand
+some helpers from
+<a href="https://github.com/frequenz-floss/frequenz-core-python"><code>frequenz-core</code></a>.</p>
+<p>Some of these helpers use patterns that Griffe can't fully understand by just
+reading the source code. This means that some information might be missing from
+the generated API documentation.</p>
+<p>The extensions fill in these gaps. The first one handles deprecations:
+<code>frequenz-core</code> can deprecate APIs using function calls instead of decorators.
+This package documents both these calls and the <code>@deprecated</code> decorator. It
+replaces
+<a href="https://mkdocstrings.github.io/griffe-warnings-deprecated/"><code>griffe-warnings-deprecated</code></a>.</p>
+<p>The extensions recognize helpers by their fully qualified names, without
+importing <code>frequenz-core</code>. So you don't need <code>frequenz-core</code> as a dependency,
+and you can use the extensions to document any project that uses these helpers.</p>
+<h2 id="installation">Installation<a class="headerlink" href="#installation" title="Permanent link">¤</a></h2>
+<p>Add <code>griffe-frequenz-core</code> to your documentation dependencies, alongside
+<code>mkdocstrings</code>.</p>
+<p>Then enable the extensions you want in the <code>extensions</code> option of the
+mkdocstrings Python handler, as shown below.</p>
+<h2 id="documenting-deprecations">Documenting deprecations<a class="headerlink" href="#documenting-deprecations" title="Permanent link">¤</a></h2>
+<p>The <code>griffe_frequenz_core.deprecations</code> extension finds deprecations made using
+<code>@deprecated</code> and <code>frequenz-core</code> helper functions. Enable it like this:</p>
+<div class="language-yaml highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nt">plugins</span><span class="p">:</span>
+</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">mkdocstrings</span><span class="p">:</span>
+</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="w">      </span><span class="nt">handlers</span><span class="p">:</span>
+</span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="w">        </span><span class="nt">python</span><span class="p">:</span>
+</span><span id="__span-0-5"><a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="w">          </span><span class="nt">options</span><span class="p">:</span>
+</span><span id="__span-0-6"><a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a><span class="w">            </span><span class="nt">extensions</span><span class="p">:</span>
+</span><span id="__span-0-7"><a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a><span class="w">              </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">griffe_frequenz_core.deprecations</span>
+</span></code></pre></div>
+<p>Don't enable it alongside <code>griffe-warnings-deprecated</code>. See <a href="#switching-from-griffe-warnings-deprecated">Switching from
+griffe-warnings-deprecated</a> for how
+to update your configuration.</p>
+<p>For each deprecated object, the extension:</p>
+<ul>
+<li>Adds a <code>deprecated</code> label.</li>
+<li>Stores the deprecation notice in the object's <code>deprecated</code> field.</li>
+<li>Adds an admonition with the notice at the top of its docstring.</li>
+</ul>
+<p>The notices follow the <a href="https://github.com/frequenz-floss/docs/blob/v0.x.x/python/deprecations.md">deprecations
+guide</a>.</p>
+<p>A warning shown at runtime is different from a notice in the documentation. The
+runtime warning needs to identify the deprecated object. In the documentation,
+readers already know which object they're looking at.</p>
+<p>So a documentation notice should simply say <strong>since which version</strong> the object
+is deprecated and <strong>what to use instead</strong>, with a link to the replacement.</p>
+<p>The extension tries to build this notice from the arguments passed to the
+helper. If you need a different notice, you can write one yourself using a
+<code>Deprecated:</code> section in the docstring. A hand-written notice always takes
+priority.</p>
+<p>Sometimes the extension can't get all the information it needs. For example, it
+might not be able to read an argument from the source code, or the helper might
+only have the runtime warning. In that case, it still adds a notice with
+whatever information is available, but also logs a warning. This makes
+<code>mkdocs build --strict</code> fail, so you can fix the documentation by writing the
+missing notice yourself.</p>
+<p>Notices use the <code>deprecated</code> admonition kind by default, the same kind a
+hand-written <code>Deprecated:</code> section gets. Your theme needs CSS for it, which the
+Frequenz repository template includes. If you use a different admonition style
+for deprecations, you can change the <code>kind</code> option. Hand-written notices then
+need the same kind, see <a href="#hand-written-admonitions">Hand-written admonitions</a>.</p>
+<p>For example, to use the <code>danger</code> style of <code>griffe-warnings-deprecated</code>, with
+hand-written notices written as <code>Danger: Deprecated</code>:</p>
+<div class="language-yaml highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="nt">plugins</span><span class="p">:</span>
+</span><span id="__span-1-2"><a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">mkdocstrings</span><span class="p">:</span>
+</span><span id="__span-1-3"><a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a><span class="w">      </span><span class="nt">handlers</span><span class="p">:</span>
+</span><span id="__span-1-4"><a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a><span class="w">        </span><span class="nt">python</span><span class="p">:</span>
+</span><span id="__span-1-5"><a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a><span class="w">          </span><span class="nt">options</span><span class="p">:</span>
+</span><span id="__span-1-6"><a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a><span class="w">            </span><span class="nt">extensions</span><span class="p">:</span>
+</span><span id="__span-1-7"><a id="__codelineno-1-7" name="__codelineno-1-7" href="#__codelineno-1-7"></a><span class="w">              </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">griffe_frequenz_core.deprecations</span><span class="p">:</span>
+</span><span id="__span-1-8"><a id="__codelineno-1-8" name="__codelineno-1-8" href="#__codelineno-1-8"></a><span class="w">                  </span><span class="nt">kind</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">danger</span>
+</span><span id="__span-1-9"><a id="__codelineno-1-9" name="__codelineno-1-9" href="#__codelineno-1-9"></a><span class="w">                  </span><span class="nt">match_title</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span>
+</span></code></pre></div>
+<h3 id="switching-from-griffe-warnings-deprecated">Switching from griffe-warnings-deprecated<a class="headerlink" href="#switching-from-griffe-warnings-deprecated" title="Permanent link">¤</a></h3>
+<p>You can use this extension instead of <code>griffe-warnings-deprecated</code>. This
+extension follows the deprecations guide:</p>
+<ul>
+<li>A hand-written notice takes priority over the decorator's message.</li>
+<li>An object is still marked as deprecated if the message can't be read.</li>
+<li>A missing notice produces a warning, even if the decorator has a message.</li>
+</ul>
+<p>To switch:</p>
+<ol>
+<li>Remove <code>griffe_warnings_deprecated</code> from the mkdocstrings <code>extensions</code> list
+   and remove <code>griffe-warnings-deprecated</code> from your documentation dependencies.</li>
+<li>Add <code>griffe_frequenz_core.deprecations</code> to the <code>extensions</code> list.</li>
+<li>If you set <code>kind</code>, <code>title</code> or <code>label</code>, move those options to this extension.
+   If you didn't set <code>kind</code>, notices now use the <code>deprecated</code> kind instead of
+   <code>danger</code>. Set <code>kind: danger</code> and <code>match_title: true</code> to keep the old style.</li>
+<li>Add a hand-written <code>Deprecated:</code> notice to each decorated object's docstring.</li>
+</ol>
+<p>If you document members inherited from another Frequenz package, that package
+needs its notices first. They are checked too, see <a href="#known-limitations">Known
+limitations</a>.</p>
+<p>Don't enable both extensions for the decorator. The other extension inserts
+the runtime warning as an admonition. This extension can't tell that apart
+from a hand-written notice, so you could get the runtime warning as your
+notice, or two notices.</p>
+<p>The extension logs a warning if both are enabled, so a strict build fails.</p>
+<p>If you want to keep <code>griffe-warnings-deprecated</code> for the decorator, set this
+extension's <code>decorator_functions</code> option to an empty list.</p>
+<h3 id="recognized-decorators-and-helpers">Recognized decorators and helpers<a class="headerlink" href="#recognized-decorators-and-helpers" title="Permanent link">¤</a></h3>
+<p>The extension understands these decorators and helpers:</p>
+<table>
+<thead>
+<tr>
+<th>Decorator or helper</th>
+<th>How it's used</th>
+<th>What gets documented</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>warnings.deprecated</code></td>
+<td>Used as a decorator</td>
+<td>The decorated object</td>
+</tr>
+<tr>
+<td><code>typing_extensions.deprecated</code></td>
+<td>Used as a decorator</td>
+<td>The decorated object</td>
+</tr>
+<tr>
+<td><code>frequenz.core.warnings.deprecated_aliases()</code></td>
+<td>Assigned to a module's <code>__getattr__</code></td>
+<td>All aliases in the table</td>
+</tr>
+<tr>
+<td><code>frequenz.core.warnings.DeprecatedAlias</code></td>
+<td>An entry in that table</td>
+<td>The alias</td>
+</tr>
+<tr>
+<td><code>frequenz.core.enum.deprecated_member()</code></td>
+<td>Used as an enum member's value</td>
+<td>The enum member</td>
+</tr>
+<tr>
+<td><code>frequenz.core.enum.DeprecatedMember</code></td>
+<td>Used as an enum member's value</td>
+<td>The enum member</td>
+</tr>
+</tbody>
+</table>
+<p>Griffe resolves imports before matching these names, so aliases work too. For
+example, this is recognized:</p>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">frequenz.core.enum</span><span class="w"> </span><span class="kn">import</span> <span class="n">deprecated_member</span> <span class="k">as</span> <span class="n">dm</span>
+</span></code></pre></div>
+<h3 id="deprecated-classes-and-functions">Deprecated classes and functions<a class="headerlink" href="#deprecated-classes-and-functions" title="Permanent link">¤</a></h3>
+<p>You can deprecate a class, function, method or property with
+<code>@warnings.deprecated</code> on Python 3.13 or later, or
+<code>@typing_extensions.deprecated</code> on older versions.</p>
+<p>The decorator only takes a runtime warning. Write the documentation notice
+yourself, using a <code>Deprecated:</code> section in the docstring:</p>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">typing_extensions</span><span class="w"> </span><span class="kn">import</span> <span class="n">deprecated</span>
+</span><span id="__span-3-2"><a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a>
+</span><span id="__span-3-3"><a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a>
+</span><span id="__span-3-4"><a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a><span class="nd">@deprecated</span><span class="p">(</span><span class="s2">"mypkg.OldThing is deprecated. Use mypkg.NewThing instead."</span><span class="p">)</span>
+</span><span id="__span-3-5"><a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a><span class="k">class</span><span class="w"> </span><span class="nc">OldThing</span><span class="p">:</span>
+</span><span id="__span-3-6"><a id="__codelineno-3-6" name="__codelineno-3-6" href="#__codelineno-3-6"></a><span class="w">    </span><span class="sd">"""A thing, now called `NewThing`.</span>
+</span><span id="__span-3-7"><a id="__codelineno-3-7" name="__codelineno-3-7" href="#__codelineno-3-7"></a>
+</span><span id="__span-3-8"><a id="__codelineno-3-8" name="__codelineno-3-8" href="#__codelineno-3-8"></a><span class="sd">    Deprecated:</span>
+</span><span id="__span-3-9"><a id="__codelineno-3-9" name="__codelineno-3-9" href="#__codelineno-3-9"></a><span class="sd">        Deprecated since v1.2.0. Use [`NewThing`][mypkg.NewThing] instead.</span>
+</span><span id="__span-3-10"><a id="__codelineno-3-10" name="__codelineno-3-10" href="#__codelineno-3-10"></a><span class="sd">    """</span>
+</span></code></pre></div>
+<p>The extension marks the object as deprecated and moves your notice to the top
+of its docstring. If you don't write a notice, it shows the decorator's
+message as Markdown and logs a warning. If it can't read the message either,
+it uses a generic notice and logs a warning:</p>
+<blockquote>
+<p>Deprecated. It will be removed in a future release.</p>
+</blockquote>
+<p>To deprecate a property, put <code>@deprecated(...)</code> on its getter, below <code>@property</code>.</p>
+<p>You can also deprecate an overload, or a property's setter or deleter.
+mkdocstrings doesn't show their docstrings, so write the notice in the
+function or property's docstring instead. Say which part is deprecated:</p>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">overload</span>
+</span><span id="__span-4-2"><a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a>
+</span><span id="__span-4-3"><a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a><span class="kn">from</span><span class="w"> </span><span class="nn">typing_extensions</span><span class="w"> </span><span class="kn">import</span> <span class="n">deprecated</span>
+</span><span id="__span-4-4"><a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a>
+</span><span id="__span-4-5"><a id="__codelineno-4-5" name="__codelineno-4-5" href="#__codelineno-4-5"></a>
+</span><span id="__span-4-6"><a id="__codelineno-4-6" name="__codelineno-4-6" href="#__codelineno-4-6"></a><span class="nd">@overload</span>
+</span><span id="__span-4-7"><a id="__codelineno-4-7" name="__codelineno-4-7" href="#__codelineno-4-7"></a><span class="nd">@deprecated</span><span class="p">(</span>
+</span><span id="__span-4-8"><a id="__codelineno-4-8" name="__codelineno-4-8" href="#__codelineno-4-8"></a>    <span class="s2">"Passing an int as factor to mypkg.scale is deprecated. Use a float instead."</span>
+</span><span id="__span-4-9"><a id="__codelineno-4-9" name="__codelineno-4-9" href="#__codelineno-4-9"></a><span class="p">)</span>
+</span><span id="__span-4-10"><a id="__codelineno-4-10" name="__codelineno-4-10" href="#__codelineno-4-10"></a><span class="k">def</span><span class="w"> </span><span class="nf">scale</span><span class="p">(</span><span class="n">factor</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span> <span class="o">...</span>
+</span><span id="__span-4-11"><a id="__codelineno-4-11" name="__codelineno-4-11" href="#__codelineno-4-11"></a><span class="nd">@overload</span>
+</span><span id="__span-4-12"><a id="__codelineno-4-12" name="__codelineno-4-12" href="#__codelineno-4-12"></a><span class="k">def</span><span class="w"> </span><span class="nf">scale</span><span class="p">(</span><span class="n">factor</span><span class="p">:</span> <span class="nb">float</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span> <span class="o">...</span>
+</span><span id="__span-4-13"><a id="__codelineno-4-13" name="__codelineno-4-13" href="#__codelineno-4-13"></a><span class="k">def</span><span class="w"> </span><span class="nf">scale</span><span class="p">(</span><span class="n">factor</span><span class="p">:</span> <span class="nb">int</span> <span class="o">|</span> <span class="nb">float</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+</span><span id="__span-4-14"><a id="__codelineno-4-14" name="__codelineno-4-14" href="#__codelineno-4-14"></a><span class="w">    </span><span class="sd">"""Scale the thing.</span>
+</span><span id="__span-4-15"><a id="__codelineno-4-15" name="__codelineno-4-15" href="#__codelineno-4-15"></a>
+</span><span id="__span-4-16"><a id="__codelineno-4-16" name="__codelineno-4-16" href="#__codelineno-4-16"></a><span class="sd">    Deprecated:</span>
+</span><span id="__span-4-17"><a id="__codelineno-4-17" name="__codelineno-4-17" href="#__codelineno-4-17"></a><span class="sd">        Passing an `int` is deprecated since v1.2.0. Use a `float` instead.</span>
+</span><span id="__span-4-18"><a id="__codelineno-4-18" name="__codelineno-4-18" href="#__codelineno-4-18"></a><span class="sd">    """</span>
+</span></code></pre></div>
+<p>Here, only the <code>int</code> overload gets a <code>deprecated</code> label and field. The function
+as a whole isn't deprecated, so the extension doesn't mark it or move its
+notice to the top.</p>
+<p>Without a hand-written notice, the extension combines the messages of all
+deprecated parts into one notice and logs a warning for each part. If it
+can't read a message, it uses one of these generic notices:</p>
+<ul>
+<li>"One of its overloads is deprecated."</li>
+<li>"Setting it is deprecated."</li>
+<li>"Deleting it is deprecated."</li>
+</ul>
+<p>If the whole function or property is deprecated too, its own notice covers
+its parts.</p>
+<h3 id="deprecated-module-aliases">Deprecated module aliases<a class="headerlink" href="#deprecated-module-aliases" title="Permanent link">¤</a></h3>
+<p>When you move or rename something, you might want to keep the old name working
+for a while.</p>
+<p>The <code>deprecated_aliases()</code> helper lets you do this by setting a module's
+<code>__getattr__</code>. You can also declare the old names under <code>TYPE_CHECKING</code>, so
+type checkers can still find them.</p>
+<p>Each old name is described by a <code>DeprecatedAlias</code> entry. You can provide:</p>
+<ul>
+<li><code>new_module</code>: The module where the object lives now.</li>
+<li><code>new_name</code>: Its new name, if it was renamed.</li>
+<li><code>since</code>: The version where the old name became deprecated.</li>
+<li><code>message</code>: A custom runtime warning.</li>
+</ul>
+<p>You need to provide <code>new_module</code>, <code>new_name</code> or both. In <code>frequenz-core</code> 1.6.0,
+<code>since</code> and <code>message</code> are optional. You can pass either, both or neither.</p>
+<p>For example:</p>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-5-1"><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">TYPE_CHECKING</span><span class="p">,</span> <span class="n">TypeAlias</span>
+</span><span id="__span-5-2"><a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a>
+</span><span id="__span-5-3"><a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a><span class="kn">from</span><span class="w"> </span><span class="nn">frequenz.core.warnings</span><span class="w"> </span><span class="kn">import</span> <span class="n">DeprecatedAlias</span><span class="p">,</span> <span class="n">deprecated_aliases</span>
+</span><span id="__span-5-4"><a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a>
+</span><span id="__span-5-5"><a id="__codelineno-5-5" name="__codelineno-5-5" href="#__codelineno-5-5"></a><span class="k">if</span> <span class="n">TYPE_CHECKING</span><span class="p">:</span>
+</span><span id="__span-5-6"><a id="__codelineno-5-6" name="__codelineno-5-6" href="#__codelineno-5-6"></a>    <span class="kn">from</span><span class="w"> </span><span class="nn">mypkg.newmod</span><span class="w"> </span><span class="kn">import</span> <span class="n">Gadget</span> <span class="k">as</span> <span class="n">_Gadget</span>
+</span><span id="__span-5-7"><a id="__codelineno-5-7" name="__codelineno-5-7" href="#__codelineno-5-7"></a>    <span class="kn">from</span><span class="w"> </span><span class="nn">mypkg.newmod</span><span class="w"> </span><span class="kn">import</span> <span class="n">Widget</span> <span class="k">as</span> <span class="n">_Widget</span>
+</span><span id="__span-5-8"><a id="__codelineno-5-8" name="__codelineno-5-8" href="#__codelineno-5-8"></a>
+</span><span id="__span-5-9"><a id="__codelineno-5-9" name="__codelineno-5-9" href="#__codelineno-5-9"></a>    <span class="n">Widget</span><span class="p">:</span> <span class="n">TypeAlias</span> <span class="o">=</span> <span class="n">_Widget</span>
+</span><span id="__span-5-10"><a id="__codelineno-5-10" name="__codelineno-5-10" href="#__codelineno-5-10"></a><span class="w">    </span><span class="sd">"""A widget that does widget things."""</span>
+</span><span id="__span-5-11"><a id="__codelineno-5-11" name="__codelineno-5-11" href="#__codelineno-5-11"></a>
+</span><span id="__span-5-12"><a id="__codelineno-5-12" name="__codelineno-5-12" href="#__codelineno-5-12"></a>    <span class="n">Doohickey</span><span class="p">:</span> <span class="n">TypeAlias</span> <span class="o">=</span> <span class="n">_Gadget</span>
+</span><span id="__span-5-13"><a id="__codelineno-5-13" name="__codelineno-5-13" href="#__codelineno-5-13"></a><span class="w">    </span><span class="sd">"""A gadget, formerly known as `Doohickey`."""</span>
+</span><span id="__span-5-14"><a id="__codelineno-5-14" name="__codelineno-5-14" href="#__codelineno-5-14"></a><span class="k">else</span><span class="p">:</span>
+</span><span id="__span-5-15"><a id="__codelineno-5-15" name="__codelineno-5-15" href="#__codelineno-5-15"></a>    <span class="fm">__getattr__</span> <span class="o">=</span> <span class="n">deprecated_aliases</span><span class="p">(</span>
+</span><span id="__span-5-16"><a id="__codelineno-5-16" name="__codelineno-5-16" href="#__codelineno-5-16"></a>        <span class="vm">__name__</span><span class="p">,</span>
+</span><span id="__span-5-17"><a id="__codelineno-5-17" name="__codelineno-5-17" href="#__codelineno-5-17"></a>        <span class="n">DeprecatedAlias</span><span class="p">(</span><span class="s2">"Widget"</span><span class="p">,</span> <span class="n">new_module</span><span class="o">=</span><span class="s2">"mypkg.newmod"</span><span class="p">,</span> <span class="n">since</span><span class="o">=</span><span class="s2">"v1.2.0"</span><span class="p">),</span>
+</span><span id="__span-5-18"><a id="__codelineno-5-18" name="__codelineno-5-18" href="#__codelineno-5-18"></a>        <span class="n">DeprecatedAlias</span><span class="p">(</span>
+</span><span id="__span-5-19"><a id="__codelineno-5-19" name="__codelineno-5-19" href="#__codelineno-5-19"></a>            <span class="s2">"Doohickey"</span><span class="p">,</span> <span class="n">new_module</span><span class="o">=</span><span class="s2">"mypkg.newmod"</span><span class="p">,</span> <span class="n">new_name</span><span class="o">=</span><span class="s2">"Gadget"</span><span class="p">,</span> <span class="n">since</span><span class="o">=</span><span class="s2">"v1.3.0"</span>
+</span><span id="__span-5-20"><a id="__codelineno-5-20" name="__codelineno-5-20" href="#__codelineno-5-20"></a>        <span class="p">),</span>
+</span><span id="__span-5-21"><a id="__codelineno-5-21" name="__codelineno-5-21" href="#__codelineno-5-21"></a>        <span class="n">DeprecatedAlias</span><span class="p">(</span><span class="s2">"Thingamajig"</span><span class="p">,</span> <span class="n">new_name</span><span class="o">=</span><span class="s2">"Widget"</span><span class="p">,</span> <span class="n">since</span><span class="o">=</span><span class="s2">"v1.4.0"</span><span class="p">),</span>
+</span><span id="__span-5-22"><a id="__codelineno-5-22" name="__codelineno-5-22" href="#__codelineno-5-22"></a>    <span class="p">)</span>
+</span></code></pre></div>
+<p>Suppose this code is in <code>mypkg.oldmod</code>. Here's what happens in the generated
+documentation:</p>
+<ul>
+<li><strong><code>Widget</code></strong> gets the notice "Deprecated since v1.2.0. Use
+  <code>mypkg.newmod.Widget</code> instead." The replacement is linked, and its value is
+  shown as <code>mypkg.newmod.Widget</code> instead of the private <code>_Widget</code>.</li>
+<li><strong><code>Doohickey</code></strong> points to <code>mypkg.newmod.Gadget</code>, because both the module and
+  the name changed.</li>
+<li><strong><code>Thingamajig</code></strong> points to <code>mypkg.oldmod.Widget</code>, because only the name
+  changed. Its notice says "Use <code>Widget</code> instead.", with a link to that name.</li>
+</ul>
+<p>A few other things worth knowing:</p>
+<ul>
+<li><strong>You don't need a <code>TYPE_CHECKING</code> declaration for every alias.</strong> The
+  extension marks all aliases as deprecated. If a name isn't declared under
+  <code>TYPE_CHECKING</code>, it creates a module attribute for it, so the alias still
+  appears in the documentation.</li>
+<li><strong>You can customize the notice using <code>default_message</code>.</strong> The extension
+  replaces <code>{since}</code> with the version string exactly as provided. The notice
+  appears next to the alias in the documentation, so it doesn't repeat the
+  deprecated name. It links the replacement using code formatting.</li>
+<li><strong>The <code>message</code> argument only affects runtime warnings.</strong> It doesn't change
+  the documentation notice. If an entry has no <code>since</code>, the
+  notice only says what to use instead, and the extension logs a warning. To
+  fix this, pass <code>since</code> or write a <code>Deprecated:</code> section in the docstring under
+  <code>TYPE_CHECKING</code>.</li>
+<li><strong>Replacement links use normal cross-references.</strong> If a link can't be
+  resolved, <code>mkdocs-autorefs</code> reports it. For replacements in another project,
+  add that project's <code>objects.inv</code> URL to the Python handler's <code>inventories</code>.</li>
+<li><strong>Each alias is processed separately.</strong> If the extension can't read one
+  entry, it skips that entry and continues with the others. Arguments such as
+  <code>category</code> and <code>stacklevel</code> don't affect the documentation.</li>
+<li><strong>The helper must be assigned directly to <code>__getattr__</code>.</strong> A custom <code>def
+  __getattr__()</code> that calls <code>deprecated_aliases()</code> internally won't be
+  recognized. Neither will a <code>__getattr__</code> created in some other way.</li>
+</ul>
+<h3 id="deprecated-enum-members">Deprecated enum members<a class="headerlink" href="#deprecated-enum-members" title="Permanent link">¤</a></h3>
+<p>You can deprecate an enum member by wrapping its value with
+<code>deprecated_member()</code> or <code>DeprecatedMember</code>. In <code>frequenz-core</code> 1.6.0, you can
+pass <code>new_name</code> to say which member to use instead, and <code>since</code> to say when the
+member became deprecated. If there is no replacement, pass a runtime <code>message</code>
+and write the notice by hand.</p>
+<p>For example:</p>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-6-1"><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">frequenz.core.enum</span><span class="w"> </span><span class="kn">import</span> <span class="n">DeprecatedMember</span><span class="p">,</span> <span class="n">Enum</span><span class="p">,</span> <span class="n">deprecated_member</span>
+</span><span id="__span-6-2"><a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a>
+</span><span id="__span-6-3"><a id="__codelineno-6-3" name="__codelineno-6-3" href="#__codelineno-6-3"></a>
+</span><span id="__span-6-4"><a id="__codelineno-6-4" name="__codelineno-6-4" href="#__codelineno-6-4"></a><span class="k">class</span><span class="w"> </span><span class="nc">TaskStatus</span><span class="p">(</span><span class="n">Enum</span><span class="p">):</span>
+</span><span id="__span-6-5"><a id="__codelineno-6-5" name="__codelineno-6-5" href="#__codelineno-6-5"></a>    <span class="n">OPEN</span> <span class="o">=</span> <span class="mi">1</span>
+</span><span id="__span-6-6"><a id="__codelineno-6-6" name="__codelineno-6-6" href="#__codelineno-6-6"></a>    <span class="n">PENDING</span> <span class="o">=</span> <span class="n">deprecated_member</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="n">new_name</span><span class="o">=</span><span class="s2">"OPEN"</span><span class="p">,</span> <span class="n">since</span><span class="o">=</span><span class="s2">"v1.2.0"</span><span class="p">)</span>
+</span><span id="__span-6-7"><a id="__codelineno-6-7" name="__codelineno-6-7" href="#__codelineno-6-7"></a>    <span class="n">WAITING</span> <span class="o">=</span> <span class="n">DeprecatedMember</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="n">new_name</span><span class="o">=</span><span class="s2">"OPEN"</span><span class="p">)</span>
+</span><span id="__span-6-8"><a id="__codelineno-6-8" name="__codelineno-6-8" href="#__codelineno-6-8"></a>
+</span><span id="__span-6-9"><a id="__codelineno-6-9" name="__codelineno-6-9" href="#__codelineno-6-9"></a>    <span class="n">CANCELLED</span> <span class="o">=</span> <span class="n">deprecated_member</span><span class="p">(</span>
+</span><span id="__span-6-10"><a id="__codelineno-6-10" name="__codelineno-6-10" href="#__codelineno-6-10"></a>        <span class="mi">4</span><span class="p">,</span>
+</span><span id="__span-6-11"><a id="__codelineno-6-11" name="__codelineno-6-11" href="#__codelineno-6-11"></a>        <span class="s2">"mypkg.TaskStatus.CANCELLED is deprecated. Cancelled tasks are deleted now."</span><span class="p">,</span>
+</span><span id="__span-6-12"><a id="__codelineno-6-12" name="__codelineno-6-12" href="#__codelineno-6-12"></a>        <span class="n">since</span><span class="o">=</span><span class="s2">"v1.3.0"</span><span class="p">,</span>
+</span><span id="__span-6-13"><a id="__codelineno-6-13" name="__codelineno-6-13" href="#__codelineno-6-13"></a>    <span class="p">)</span>
+</span><span id="__span-6-14"><a id="__codelineno-6-14" name="__codelineno-6-14" href="#__codelineno-6-14"></a><span class="w">    </span><span class="sd">"""The task was cancelled.</span>
+</span><span id="__span-6-15"><a id="__codelineno-6-15" name="__codelineno-6-15" href="#__codelineno-6-15"></a>
+</span><span id="__span-6-16"><a id="__codelineno-6-16" name="__codelineno-6-16" href="#__codelineno-6-16"></a><span class="sd">    Deprecated:</span>
+</span><span id="__span-6-17"><a id="__codelineno-6-17" name="__codelineno-6-17" href="#__codelineno-6-17"></a><span class="sd">        Deprecated since v1.3.0. Cancelled tasks are deleted now.</span>
+</span><span id="__span-6-18"><a id="__codelineno-6-18" name="__codelineno-6-18" href="#__codelineno-6-18"></a><span class="sd">    """</span>
+</span></code></pre></div>
+<p>The extension marks all three members and shows their actual value instead of the
+wrapper. For example, the documentation shows <code>PENDING = 1</code>, not the call to
+<code>deprecated_member()</code>.</p>
+<p>Here's how the notices differ:</p>
+<ul>
+<li><code>PENDING</code> has <code>new_name</code> and <code>since</code>, so the extension generates its notice
+  using <code>default_message</code>: "Deprecated since v1.2.0. Use <code>OPEN</code> instead."
+  <code>OPEN</code> links to <code>mypkg.TaskStatus.OPEN</code>. The link only shows the member's
+  name, because it's in the same enum.</li>
+<li><code>WAITING</code> has <code>new_name</code> but no <code>since</code>. Its notice only says what to use
+  instead, and the extension logs a warning about the missing version.</li>
+<li><code>CANCELLED</code> has no <code>new_name</code>, so it needs a hand-written notice. Without
+  one, the extension shows the runtime message as Markdown and logs a warning.
+  Because <code>CANCELLED</code> passes <code>since</code>, that notice would start with "Deprecated
+  since v1.3.0.", followed by the message.</li>
+</ul>
+<p>If you pass both <code>new_name</code> and <code>message</code>, the message only changes the runtime
+warning. The extension still builds the notice from <code>new_name</code> and <code>since</code>.</p>
+<p>If an argument comes from a variable or a function call, the extension can't
+read it. It still marks the member as deprecated and shows its value without
+the wrapper. Unless you write a notice by hand, it uses the information it can
+read and logs a warning about anything missing. If it can't read any
+information for the notice, it uses:</p>
+<blockquote>
+<p>Deprecated. It will be removed in a future release.</p>
+</blockquote>
+<h3 id="hand-written-admonitions">Hand-written admonitions<a class="headerlink" href="#hand-written-admonitions" title="Permanent link">¤</a></h3>
+<p>Sometimes the generated notice isn't enough. For example, you might want to
+explain how to migrate to a new API or link to a migration guide.</p>
+<p>You can do this by adding a deprecation admonition to the object's docstring.</p>
+<p>If the extension finds one, it doesn't add another admonition. It still adds
+the <code>deprecated</code> label and fills in the <code>deprecated</code> field.</p>
+<p>The extension also moves your notice to the top of the docstring, before the
+summary, so it appears in the same place as a generated notice. You can't write
+it there yourself, because a docstring must start with its summary.</p>
+<p>The extension recognizes your notice by its admonition kind, which must be the
+one in the <code>kind</code> option. In a Google-style docstring, the kind is the word
+before the colon, in lowercase, with dashes instead of spaces. With the default
+<code>kind</code>, that's a <code>Deprecated:</code> section. It can also have its own title, like
+<code>Deprecated: Old API</code>. In a numpy-style docstring, a <code>Deprecated</code> section also
+counts.</p>
+<p>If you use a general kind, like <code>danger</code>, also set <code>match_title: true</code>. Then an
+admonition only counts if its title is also the one in the <code>title</code> option
+(case-insensitive), like <code>Danger: Deprecated</code>. Other <code>Danger:</code> admonitions are
+left alone.</p>
+<p>For example:</p>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-7-1"><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a><span class="k">if</span> <span class="n">TYPE_CHECKING</span><span class="p">:</span>
+</span><span id="__span-7-2"><a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a>    <span class="n">Widget</span><span class="p">:</span> <span class="n">TypeAlias</span> <span class="o">=</span> <span class="n">_Widget</span>
+</span><span id="__span-7-3"><a id="__codelineno-7-3" name="__codelineno-7-3" href="#__codelineno-7-3"></a><span class="w">    </span><span class="sd">"""A widget that does widget things.</span>
+</span><span id="__span-7-4"><a id="__codelineno-7-4" name="__codelineno-7-4" href="#__codelineno-7-4"></a>
+</span><span id="__span-7-5"><a id="__codelineno-7-5" name="__codelineno-7-5" href="#__codelineno-7-5"></a><span class="sd">    Deprecated:</span>
+</span><span id="__span-7-6"><a id="__codelineno-7-6" name="__codelineno-7-6" href="#__codelineno-7-6"></a><span class="sd">        Deprecated since v1.2.0. Use [`mypkg.newmod.Widget`][] instead, as</span>
+</span><span id="__span-7-7"><a id="__codelineno-7-7" name="__codelineno-7-7" href="#__codelineno-7-7"></a><span class="sd">        explained in the [migration guide](https://example.com/migration).</span>
+</span><span id="__span-7-8"><a id="__codelineno-7-8" name="__codelineno-7-8" href="#__codelineno-7-8"></a><span class="sd">    """</span>
+</span></code></pre></div>
+<p>Use a hand-written notice whenever the extension can't generate a complete one,
+or when you want to give readers more information.</p>
+<h3 id="known-limitations">Known limitations<a class="headerlink" href="#known-limitations" title="Permanent link">¤</a></h3>
+<p>Griffe reads Python source code without running it. This means the extension
+can't evaluate variables, call functions, or work out values that are only
+known at runtime. Sometimes it can still mark an object as deprecated, even if
+it can't read all the arguments of the call.</p>
+<p>Here are the main limitations:</p>
+<ul>
+<li>
+<p><strong>Module aliases need literal strings.</strong> The alias name, <code>new_module</code>,
+  <code>new_name</code>, and <code>since</code> must be written as string literals in the call. If
+  the alias name isn't a literal, the extension can't mark it as deprecated. If
+  another value isn't a literal, the notice leaves out the information it can't
+  read, and the alias value is only shown as the target if the extension can
+  read the target. The <code>message</code> argument is never read for module aliases.</p>
+</li>
+<li>
+<p><strong>Enum notices need literal strings.</strong> The extension can only read
+  <code>new_name</code>, <code>since</code> and <code>message</code> if they're string literals. It reads
+  <code>message</code> only when <code>new_name</code> isn't passed or can't be read. Constants,
+  function calls, f-strings, and strings joined with <code>+</code> aren't evaluated.
+  Adjacent string literals are fine, because Python joins them automatically.
+  If an argument isn't a literal, the member is still marked as deprecated and
+  its value is shown without the wrapper. The notice uses whatever information
+  the extension can read.</p>
+</li>
+<li>
+<p><strong>Alias entries must appear directly in the call.</strong> Each entry must be a
+  <code>DeprecatedAlias(...)</code> call inside <code>deprecated_aliases()</code>. Entries stored in
+  variables or unpacked from a collection can't be read. For example, neither
+  of these entries will be marked:</p>
+</li>
+</ul>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-8-1"><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a><span class="n">deprecated_aliases</span><span class="p">(</span><span class="vm">__name__</span><span class="p">,</span> <span class="n">WIDGET</span><span class="p">)</span>
+</span><span id="__span-8-2"><a id="__codelineno-8-2" name="__codelineno-8-2" href="#__codelineno-8-2"></a><span class="n">deprecated_aliases</span><span class="p">(</span><span class="vm">__name__</span><span class="p">,</span> <span class="o">*</span><span class="n">ALIASES</span><span class="p">)</span>
+</span></code></pre></div>
+<ul>
+<li>
+<p><strong>Arguments can't be unpacked.</strong> Calls to <code>deprecated_member()</code>,
+  <code>DeprecatedMember</code>, and <code>DeprecatedAlias</code> must use explicit arguments, not
+  <code>*args</code> or <code>**kwargs</code>. For example, a member defined as
+  <code>deprecated_member(*ARGS)</code> is still marked as deprecated, with a generic
+  message, but its value is shown as the whole call. For aliases, unpacked
+  keyword arguments mean only the alias name can be read. If positional
+  arguments are unpacked, the alias isn't marked at all.</p>
+</li>
+<li>
+<p><strong>Overloads need a function to show their notice.</strong> Griffe attaches
+  overloads to the function defined after them. If they're declared only in a
+  stub file, they still get a label and field, but no visible notice.</p>
+</li>
+<li>
+<p><strong>Decorator messages need non-empty literal strings.</strong> If the message isn't a
+  non-empty string literal, or the arguments use <code>*args</code>, the object gets a
+  generic notice.
+  A decorator used without a call, like <code>@deprecated</code>, fails at runtime.
+  So does a call whose arguments don't match the signature, for example
+  <code>@deprecated(message="Gone")</code>. These still mark the object with a generic
+  notice and log a warning, even with a hand-written notice.</p>
+</li>
+<li>
+<p><strong>The extension doesn't validate your code.</strong> It matches arguments the same
+  way Python would when calling the function. If the arguments don't match the
+  function's signature, the call is skipped, except for decorators, which still
+  mark the object with a generic notice. The extension doesn't check
+  whether the argument values are valid. That's a job for your tests, which
+  should catch invalid calls when the module is imported.</p>
+</li>
+</ul>
+<p>All these limitations produce warnings when they affect the generated
+documentation. This lets <code>mkdocs build --strict</code> catch problems instead of
+silently generating incomplete documentation.</p>
+<p>For example, you'll get a warning if:</p>
+<ul>
+<li>A notice is missing the deprecation version or replacement.</li>
+<li>A runtime warning is used as the documentation notice.</li>
+<li>A deprecated value can't be shown correctly.</li>
+<li>A deprecation can't be marked at all.</li>
+</ul>
+<p>Writing your own deprecation admonition fixes warnings about missing or
+incomplete notices, but not other problems.</p>
+<p>All these warnings are only logged when the object's docstring is parsed for
+rendering. Griffe may visit code that never appears in your documentation. For
+example, loading a namespace package like <code>frequenz</code> also visits other installed
+packages using that namespace. Their problems shouldn't make your build fail.
+An alias entry that can't be read isn't documented as an object, so its warning
+is logged when the docstring of the module with the alias table is parsed.</p>
+<p>The extension only logs warnings for code in the packages listed in
+<code>checked_packages</code>, which is <code>frequenz</code> by default. Your documentation can still
+show code from other packages, for example members inherited from a class in a
+dependency. The extension documents their deprecations the same way, using the
+decorator's message when there is no hand-written notice. It only logs their
+problems at debug level, since only their own project can fix them.</p>
+<p>Members are checked where they are defined, so a member inherited from another
+Frequenz package is checked too. Its warning points to the class that defines
+it, and has to be fixed in that package.</p>
+<p>If you want to know why the extension couldn't read something, run
+<code>mkdocs build --verbose</code>. The extension logs those details at debug level.</p>
+<p>Broken links to replacements are reported separately by <code>mkdocs-autorefs</code>.</p>
+<h3 id="options">Options<a class="headerlink" href="#options" title="Permanent link">¤</a></h3>
+<table>
+<thead>
+<tr>
+<th>Option</th>
+<th>Default</th>
+<th>Effect</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>kind</code></td>
+<td><code>deprecated</code></td>
+<td>The kind of the admonition, which is also its CSS class. Hand-written notices need the same kind. Use lowercase, with dashes instead of spaces.</td>
+</tr>
+<tr>
+<td><code>title</code></td>
+<td><code>Deprecated</code></td>
+<td>The title of the admonition. An empty title or <code>null</code> means no title.</td>
+</tr>
+<tr>
+<td><code>match_title</code></td>
+<td><code>false</code></td>
+<td>Hand-written notices also need the configured <code>title</code>. Needs a <code>title</code>.</td>
+</tr>
+<tr>
+<td><code>label</code></td>
+<td><code>deprecated</code></td>
+<td>The label added to deprecated objects. <code>null</code> means no label.</td>
+</tr>
+<tr>
+<td><code>checked_packages</code></td>
+<td><code>frequenz</code></td>
+<td>The packages, with their subpackages, whose problems are logged as warnings.</td>
+</tr>
+<tr>
+<td><code>decorator_functions</code></td>
+<td><code>warnings.deprecated</code>, <code>typing_extensions.deprecated</code></td>
+<td>The paths of the decorators that deprecate a class or function.</td>
+</tr>
+<tr>
+<td><code>alias_table_functions</code></td>
+<td><code>frequenz.core.warnings.deprecated_aliases</code></td>
+<td>The paths of the functions that create a module <code>__getattr__</code>.</td>
+</tr>
+<tr>
+<td><code>alias_classes</code></td>
+<td><code>frequenz.core.warnings.DeprecatedAlias</code></td>
+<td>The paths of the callables that create one alias entry.</td>
+</tr>
+<tr>
+<td><code>member_wrapper_functions</code></td>
+<td><code>frequenz.core.enum.deprecated_member</code>, <code>frequenz.core.enum.DeprecatedMember</code></td>
+<td>The paths of the callables that wrap a deprecated enum member's value.</td>
+</tr>
+<tr>
+<td><code>default_message</code></td>
+<td><code>Deprecated since {since}. Use {new_link} instead.</code></td>
+<td>The notice template for aliases and enum members with <code>new_name</code>. See the placeholders below.</td>
+</tr>
+<tr>
+<td><code>show_target</code></td>
+<td><code>true</code></td>
+<td>Show an alias' value as its target, instead of the private name.</td>
+</tr>
+</tbody>
+</table>
+<p>You can use these placeholders in <code>default_message</code>:</p>
+<ul>
+<li><code>{old}</code>: The fully qualified path of the deprecated object.</li>
+<li><code>{new}</code>: The fully qualified path of its replacement.</li>
+<li><code>{new_link}</code>: A link to the replacement in code font. If the replacement is
+  in the same module or enum, the link only shows its name.</li>
+<li><code>{since}</code>: The version string, as written in the call.</li>
+</ul>
+<p>The four path options are lists. If you set one, it replaces the default. To
+use your own helper as well as the <code>frequenz-core</code> one, list both:</p>
+<div class="language-yaml highlight"><pre><span></span><code><span id="__span-9-1"><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a><span class="nt">extensions</span><span class="p">:</span>
+</span><span id="__span-9-2"><a id="__codelineno-9-2" name="__codelineno-9-2" href="#__codelineno-9-2"></a><span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">griffe_frequenz_core.deprecations</span><span class="p">:</span>
+</span><span id="__span-9-3"><a id="__codelineno-9-3" name="__codelineno-9-3" href="#__codelineno-9-3"></a><span class="w">      </span><span class="nt">alias_table_functions</span><span class="p">:</span>
+</span><span id="__span-9-4"><a id="__codelineno-9-4" name="__codelineno-9-4" href="#__codelineno-9-4"></a><span class="w">        </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">frequenz.core.warnings.deprecated_aliases</span>
+</span><span id="__span-9-5"><a id="__codelineno-9-5" name="__codelineno-9-5" href="#__codelineno-9-5"></a><span class="w">        </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">mypkg.compat.moved_to</span>
+</span></code></pre></div>
+<p><code>checked_packages</code> is a list too. Write a list even for a single name, like
+<code>checked_packages: [frequenz]</code>. If you set any of these five options to a
+string, the extension raises an error, instead of reading each letter as a name.</p>
+<p>Your own decorators and helpers need to take the same arguments as the ones
+they replace, because the extension reads their calls the same way:</p>
+<ul>
+<li><strong>Decorators</strong> work like <code>deprecated(message, /, *, category=DeprecationWarning,
+  stacklevel=1)</code>. The message must be positional. The other arguments must be
+  passed by keyword.</li>
+<li><strong>Alias tables</strong> work like <code>deprecated_aliases(module, /, *aliases)</code>. Every
+  positional argument after the module is an alias entry. Keyword arguments are
+  ignored.</li>
+<li><strong>Alias entries</strong> work like <code>DeprecatedAlias(name, /, *, new_module=None,
+  new_name=None, since=None, message=None)</code>. The name is positional, and
+  everything else is passed by keyword. You need to pass <code>new_module</code>,
+  <code>new_name</code> or both. <code>since</code> and <code>message</code> are optional and independent.
+  Passing <code>None</code> is the same as not passing the argument.</li>
+<li><strong>Enum member wrappers</strong> work like <code>deprecated_member(value, message=None,
+  *, new_name=None, since=None)</code>. You can pass the value and message
+  positionally or by keyword. <code>new_name</code> and <code>since</code> must be keyword
+  arguments. You need to pass <code>message</code>, <code>new_name</code> or both. Passing <code>None</code>
+  for an optional argument is the same as not passing it.</li>
+</ul>
+<p>If <code>frequenz-core</code> renames or moves a helper, you can update these options with
+the new path. You don't need to wait for a new release of this package.</p>
+<p>There is one difference from <code>griffe-warnings-deprecated</code>, on purpose. If
+<code>title</code> is empty, <code>griffe-warnings-deprecated</code> puts the message in the
+admonition title, but this extension doesn't. The notice contains a link to the
+replacement, which doesn't belong in a title.</p>
+<h2 id="supported-platforms">Supported Platforms<a class="headerlink" href="#supported-platforms" title="Permanent link">¤</a></h2>
+<p>The following platforms are officially supported (tested):</p>
+<ul>
+<li><strong>Python:</strong> 3.11 through 3.15</li>
+<li><strong>Operating System:</strong> Ubuntu Linux 20.04</li>
+<li><strong>Architectures:</strong> amd64, arm64</li>
+</ul>
+<h2 id="contributing">Contributing<a class="headerlink" href="#contributing" title="Permanent link">¤</a></h2>
+<p>If you want to know how to build this project and contribute to it, please
+check out the <a href="CONTRIBUTING/">Contributing Guide</a>.</p>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+          <button type="button" class="md-top md-icon" data-md-component="top" hidden>
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8z"/></svg>
+  Back to top
+</button>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+    
+      
+      <nav class="md-footer__inner md-grid" aria-label="Footer" >
+        
+        
+          
+          <a href="reference/griffe_frequenz_core/" class="md-footer__link md-footer__link--next" aria-label="Next: Index">
+            <div class="md-footer__title">
+              <span class="md-footer__direction">
+                Next
+              </span>
+              <div class="md-ellipsis">
+                Index
+              </div>
+            </div>
+            <div class="md-footer__button md-icon">
+              
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M4 11v2h12l-5.5 5.5 1.42 1.42L19.84 12l-7.92-7.92L10.5 5.5 16 11z"/></svg>
+            </div>
+          </a>
+        
+      </nav>
+    
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+    <div class="md-copyright__highlight">
+      Copyright © 2026 Frequenz Energy-as-a-Service GmbH
+    </div>
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+        
+<div class="md-social">
+  
+    
+    
+    
+    
+      
+      
+    
+    <a href="https://github.com/frequenz-floss" target="_blank" rel="noopener" title="github.com" class="md-social__link">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M173.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6m-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3m44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9M252.8 8C114.1 8 8 113.3 8 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C436.2 457.8 504 362.9 504 252 504 113.3 391.5 8 252.8 8M105.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1m-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7m32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1m-11.4-14.7c-1.6 1-1.6 3.6 0 5.9s4.3 3.3 5.6 2.3c1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2"/></svg>
+    </a>
+  
+    
+    
+    
+    
+      
+      
+    
+    <a href="https://www.linkedin.com/company/frequenz-com" target="_blank" rel="noopener" title="www.linkedin.com" class="md-social__link">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M416 32H31.9C14.3 32 0 46.5 0 64.3v383.4C0 465.5 14.3 480 31.9 480H416c17.6 0 32-14.5 32-32.3V64.3c0-17.8-14.4-32.3-32-32.3M135.4 416H69V202.2h66.5V416zM102.2 96a38.5 38.5 0 1 1 0 77 38.5 38.5 0 1 1 0-77m282.1 320h-66.4V312c0-24.8-.5-56.7-34.5-56.7-34.6 0-39.9 27-39.9 54.9V416h-66.4V202.2h63.7v29.2h.9c8.9-16.8 30.6-34.5 62.9-34.5 67.2 0 79.7 44.3 79.7 101.9z"/></svg>
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": ".", "features": ["content.code.annotate", "content.code.copy", "navigation.indexes", "navigation.instant", "navigation.footer", "navigation.tabs", "navigation.top", "navigation.tracking", "toc.follow"], "search": "assets/javascripts/workers/search.a7633da7.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": {"default": "latest", "provider": "mike"}}</script>
+    
+    
+      <script src="assets/javascripts/bundle.c21346df.min.js"></script>
+      
+    
+  </body>
+</html>
