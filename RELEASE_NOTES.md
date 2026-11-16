@@ -86,6 +86,8 @@ The extension generates the notice when the code has enough information. A hand-
 
 ## Bug Fixes
 
+- Setting a list option to a string in `mkdocs.yml`, like `decorator_functions: warnings.deprecated`, now raises an error. Before, each letter was read as a separate name, so the option silently matched nothing. Write a list instead, like `decorator_functions: [warnings.deprecated]`.
+
 - `griffe_frequenz_core.deprecations` now reads the calls the way `frequenz-core` actually released them:
 
   ```python

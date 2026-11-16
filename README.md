@@ -541,6 +541,10 @@ extensions:
         - mypkg.compat.moved_to
 ```
 
+`checked_packages` is a list too. Write a list even for a single name, like
+`checked_packages: [frequenz]`. If you set any of these five options to a
+string, the extension raises an error, instead of reading each letter as a name.
+
 Your own decorators and helpers need to take the same arguments as the ones
 they replace, because the extension reads their calls the same way:
 

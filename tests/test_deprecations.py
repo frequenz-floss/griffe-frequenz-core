@@ -1203,3 +1203,25 @@ def test_only_the_configured_alias_classes_match() -> None:
     ) as module:
         assert "deprecated" in attribute(module, "Mine").labels
         assert "Core" not in module.members
+
+
+@pytest.mark.parametrize(
+    "option",
+    [
+        "checked_packages",
+        "decorator_functions",
+        "alias_table_functions",
+        "alias_classes",
+        "member_wrapper_functions",
+    ],
+)
+def test_a_list_option_given_as_a_string_is_rejected(option: str) -> None:
+    """Reject a single string, which would be read as one-letter names.
+
+    In `mkdocs.yml`, `checked_packages: frequenz` is a string, not a list.
+    Silently reading it as `f`, `r`, `e`, and so on would turn off checks.
+    """
+    with pytest.raises(TypeError, match=rf"`{option}: \[frequenz\]`"):
+        griffe.load_extensions(
+            {"griffe_frequenz_core.deprecations": {option: "frequenz"}}
+        )

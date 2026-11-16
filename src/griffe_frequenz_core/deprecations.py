@@ -715,9 +715,25 @@ class DeprecationsExtension(Extension):  # pylint: disable=too-many-instance-att
                 of the private name imported for type checkers.
 
         Raises:
+            TypeError: If one of the list options is a single string.
             ValueError: If `kind` isn't a kind the docstring parser can produce,
                 or if `match_title` is set and `title` is empty.
         """
+        lists = {
+            "checked_packages": checked_packages,
+            "decorator_functions": decorator_functions,
+            "alias_table_functions": alias_table_functions,
+            "alias_classes": alias_classes,
+            "member_wrapper_functions": member_wrapper_functions,
+        }
+        for option, value in lists.items():
+            # A string is a sequence of characters, so it would silently be
+            # read as a list of one-letter names.
+            if isinstance(value, str):
+                raise TypeError(
+                    f"The `{option}` option must be a list, not a string. In "
+                    f"`mkdocs.yml`, write it as `{option}: [{value}]`."
+                )
         if (
             not isinstance(kind, str)
             or not _KIND.fullmatch(kind)
