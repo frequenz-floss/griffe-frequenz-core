@@ -1228,3 +1228,20 @@ def test_a_list_option_given_as_a_string_is_rejected(option: str) -> None:
         griffe.load_extensions(
             {"griffe_frequenz_core.deprecations": {option: "frequenz"}}
         )
+
+
+@pytest.mark.parametrize("option", ["title", "label", "default_message"])
+@pytest.mark.parametrize("value", [123, True])
+def test_a_text_option_that_isnt_a_string_is_rejected(option: str, value: Any) -> None:
+    """Reject numbers and booleans, which YAML reads from unquoted values.
+
+    They could otherwise cause an unclear error while rendering.
+    """
+    with pytest.raises(TypeError, match=rf'`{option}: "{value}"`'):
+        griffe.load_extensions({"griffe_frequenz_core.deprecations": {option: value}})
+
+
+@pytest.mark.parametrize("option", ["title", "label"])
+def test_a_text_option_can_be_none_if_it_is_optional(option: str) -> None:
+    """`None` turns off the title or the label, so it isn't rejected."""
+    griffe.load_extensions({"griffe_frequenz_core.deprecations": {option: None}})

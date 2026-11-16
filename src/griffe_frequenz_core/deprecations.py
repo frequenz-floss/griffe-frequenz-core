@@ -185,6 +185,28 @@ class _NoticedDocstring(Docstring):
         return sections
 
 
+def _check_text(option: str, value: Any, *, optional: bool = False) -> None:
+    """Check that a text option is a string.
+
+    YAML reads unquoted values like `123` or `yes` as numbers or booleans.
+    Without this check, they could cause an unclear error while rendering.
+
+    Args:
+        option: The name of the option, used in the error.
+        value: The value of the option.
+        optional: Whether `None` is allowed.
+
+    Raises:
+        TypeError: If the value isn't a string, or `None` when that's allowed.
+    """
+    if isinstance(value, str) or (optional and value is None):
+        return
+    raise TypeError(
+        f"The `{option}` option must be a string, not `{value}`. In "
+        f'`mkdocs.yml`, put it in quotes, like `{option}: "{value}"`.'
+    )
+
+
 def _add_notice(obj: Object, notice: _Notice) -> None:
     """Add a deprecation notice when the object's docstring is parsed.
 
@@ -739,7 +761,8 @@ class DeprecationsExtension(Extension):  # pylint: disable=too-many-instance-att
                 of the private name imported for type checkers.
 
         Raises:
-            TypeError: If one of the list options is a single string.
+            TypeError: If one of the list options is a single string, or if
+                `title`, `label` or `default_message` isn't a string.
             ValueError: If `kind` isn't a kind the docstring parser can produce,
                 or if `match_title` is set and `title` is empty.
         """
@@ -758,6 +781,9 @@ class DeprecationsExtension(Extension):  # pylint: disable=too-many-instance-att
                     f"The `{option}` option must be a list, not a string. In "
                     f"`mkdocs.yml`, write it as `{option}: [{value}]`."
                 )
+        _check_text("title", title, optional=True)
+        _check_text("label", label, optional=True)
+        _check_text("default_message", default_message)
         if (
             not isinstance(kind, str)
             or not _KIND.fullmatch(kind)

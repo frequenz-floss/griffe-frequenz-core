@@ -88,6 +88,8 @@ The extension generates the notice when the code has enough information. A hand-
 
 - Setting a list option to a string in `mkdocs.yml`, like `decorator_functions: warnings.deprecated`, now raises an error. Before, each letter was read as a separate name, so the option silently matched nothing. Write a list instead, like `decorator_functions: [warnings.deprecated]`.
 
+- Setting `title`, `label` or `default_message` to something that isn't a string now raises an error when the extension is loaded. YAML reads unquoted values like `123` or `yes` as numbers or booleans. Before, they could cause an unclear error while rendering, or a generic notice with a misleading warning. Put them in quotes instead, like `title: "123"`.
+
 - `griffe_frequenz_core.deprecations` now reads the calls the way `frequenz-core` actually released them:
 
   ```python
