@@ -801,8 +801,8 @@ def test_an_alias_entry_in_a_constant_is_skipped_loudly(
     assert "deprecated" not in member.labels
     assert any(
         record.message
-        == "samplepkg.constant: the alias entry `_THING` isn't a call to a known "
-        "alias class, so it's skipped"
+        == "samplepkg.constant: the entry `_THING` isn't a call to a known "
+        "alias or symbol class, so it's skipped"
         for record in caplog.records
     )
 
@@ -813,14 +813,14 @@ _ENTRY = "DeprecatedAlias('Thing', new_module='pkg.new', since='v1')"
 @pytest.mark.parametrize(
     ("arguments", "logged"),
     [
-        ("__name__, *ENTRIES", "the alias entries in `*ENTRIES` are unpacked"),
+        ("__name__, *ENTRIES", "the entries in `*ENTRIES` are unpacked"),
         (
             "__name__, {'Thing': 'pkg.new'}",
-            "isn't a call to a known alias class",
+            "isn't a call to a known alias or symbol class",
         ),
         (
             "__name__, Moved('Thing', new_module='pkg.new', message='{old} gone.')",
-            "isn't a call to a known alias class",
+            "isn't a call to a known alias or symbol class",
         ),
         (
             "__name__, DeprecatedAlias(*ARGS, new_module='pkg.new', message='Gone')",
@@ -1237,6 +1237,7 @@ def test_only_the_configured_alias_classes_match() -> None:
         "decorator_functions",
         "alias_table_functions",
         "alias_classes",
+        "symbol_classes",
         "member_wrapper_functions",
     ],
 )

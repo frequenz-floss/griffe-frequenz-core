@@ -12,10 +12,10 @@ These tests are the only ones that import it. They check the parts of
 comparing what they do at runtime with what we put in the documentation.
 
 Generated notices are written for the documentation and link to the replacement.
-They cover aliases and enum members with `new_name`. The tests check that each
-notice points to the replacement used at runtime. Only the notice says since
-which version the object is deprecated. To compare the replacements, the tests
-remove the link markup.
+They cover aliases, symbols with `replacement` and enum members with `new_name`.
+The tests check that each notice points to the replacement used at runtime. Only
+the notice says since which version the object is deprecated. To compare the
+replacements, the tests remove the link markup.
 
 The argument tests check that the extension documents a call if and only if
 the real helper accepts it. A call that fails at runtime doesn't deprecate
@@ -35,10 +35,15 @@ import pytest
 
 from griffe_frequenz_core.deprecations import DeprecationsExtension
 
-from . import fixture_aliases, fixture_enum
+from . import fixture_aliases, fixture_enum, fixture_symbols
 
 _FIXTURES = Path(__file__).parent
-_CHECKED = ("module", fixture_aliases.__name__, fixture_enum.__name__)
+_CHECKED = (
+    "module",
+    fixture_aliases.__name__,
+    fixture_enum.__name__,
+    fixture_symbols.__name__,
+)
 
 
 @pytest.fixture(name="task_status", scope="module")
@@ -522,3 +527,213 @@ def test_member_wrappers_bind_as_at_runtime(wrapper: str) -> None:
         ),
     ) as module:
         assert bool(module["Status.A"].deprecated) == accepted
+
+
+@pytest.fixture(name="symbols_module", scope="module")
+def symbols_module_fixture() -> griffe.Module:
+    """Load the symbol fixture with the extension applied, using its runtime name.
+
+    The runtime warning replaces `{old}` using the module's `__name__`, so Griffe
+    must load the module using the same dotted path pytest used to import it.
+
+    Returns:
+        The fixture module as Griffe sees it.
+    """
+    name = fixture_symbols.__name__
+    search_path = Path(fixture_symbols.__file__).parents[name.count(".")]
+    module = griffe.load(
+        name,
+        search_paths=[search_path],
+        extensions=griffe.load_extensions(
+            DeprecationsExtension(checked_packages=_CHECKED)
+        ),
+        docstring_parser=griffe.Parser.google,
+    )
+    assert isinstance(module, griffe.Module)
+    return module
+
+
+def _symbol(name: str) -> tuple[Any, str]:
+    """Access a deprecated symbol and capture the warning it emits.
+
+    Args:
+        name: The symbol to access.
+
+    Returns:
+        The value and the warning the real `frequenz-core` gives.
+    """
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter("always")
+        value = getattr(fixture_symbols, name)
+
+    assert len(caught) == 1, f"expected exactly one warning, got {len(caught)}"
+    assert issubclass(caught[0].category, DeprecationWarning)
+    return value, str(caught[0].message)
+
+
+@pytest.mark.parametrize(
+    "name", ["Decimal", "TIMEOUT_SECONDS", "RETRIES", "ValueT", "KeyT", "LIMIT"]
+)
+def test_every_entry_of_a_mixed_table_is_recognized(
+    symbols_module: griffe.Module, name: str
+) -> None:
+    """Ensure aliases and symbols in one real table are all marked."""
+    member = symbols_module[name]
+
+    assert member.deprecated
+    assert "deprecated" in member.labels
+    _symbol(name)
+
+
+@pytest.mark.parametrize(
+    ("name", "since", "replacement"),
+    [
+        ("TIMEOUT_SECONDS", "v1.5.0", "datetime.timedelta"),
+        ("RETRIES", None, "decimal.MAX_PREC"),
+    ],
+)
+def test_symbol_documents_since_and_the_runtime_replacement(
+    symbols_module: griffe.Module, name: str, since: str | None, replacement: str
+) -> None:
+    """Ensure a symbol notice gives the version and the runtime replacement.
+
+    The notice and the runtime warning must point to the same replacement, even
+    with a custom message. Only the notice says since which version the symbol
+    is deprecated.
+    """
+    _, runtime = _symbol(name)
+    documented = _plain(str(symbols_module[name].deprecated))
+
+    assert f"Use {replacement} instead." in runtime
+    if since is None:
+        assert documented == f"Deprecated. Use {replacement} instead."
+    else:
+        assert documented == f"Deprecated since {since}. Use {replacement} instead."
+        assert since not in runtime
+
+
+def test_generated_symbol_warning_follows_the_guide() -> None:
+    """Ensure a generated symbol warning follows the deprecations guide.
+
+    It gives the fully qualified names of the symbol and its replacement.
+    """
+    assert _symbol("TIMEOUT_SECONDS")[1] == (
+        f"{fixture_symbols.__name__}.TIMEOUT_SECONDS is deprecated. "
+        "Use datetime.timedelta instead."
+    )
+
+
+@pytest.mark.parametrize(
+    ("name", "shown"),
+    [("TIMEOUT_SECONDS", "30.0"), ("RETRIES", "3"), ("LIMIT", "None")],
+)
+def test_documented_symbol_value_is_the_runtime_value(
+    symbols_module: griffe.Module, name: str, shown: str
+) -> None:
+    """Ensure the docs show the value callers get, not the private name."""
+    value, _ = _symbol(name)
+
+    assert str(symbols_module[name].value) == shown
+    assert repr(value) == shown
+
+
+def test_symbol_without_replacement_shows_its_runtime_warning(
+    symbols_module: griffe.Module,
+) -> None:
+    """Ensure a symbol without `replacement` shows its runtime warning as the notice.
+
+    The notice starts with the version, because `since` isn't part of the
+    warning. This compares the two messages with each other, so the test also
+    checks that `{old}` is replaced the same way.
+    """
+    _, runtime = _symbol("ValueT")
+
+    assert "v1.6.0" not in runtime
+    assert symbols_module["ValueT"].deprecated == f"Deprecated since v1.6.0. {runtime}"
+
+
+def test_symbol_with_nothing_else_gets_a_generic_notice(
+    symbols_module: griffe.Module,
+) -> None:
+    """Ensure a bare symbol's notice says as little as its runtime warning."""
+    _, runtime = _symbol("LIMIT")
+
+    assert runtime == f"{fixture_symbols.__name__}.LIMIT is deprecated."
+    assert symbols_module["LIMIT"].deprecated == (
+        "Deprecated. It will be removed in a future release."
+    )
+
+
+def test_symbol_handwritten_notice_is_kept(symbols_module: griffe.Module) -> None:
+    """Ensure a hand-written notice is the only one, at the top."""
+    docstring = symbols_module["KeyT"].docstring
+    assert docstring is not None
+    kinds = [section.kind for section in docstring.parsed]
+
+    assert kinds == [
+        griffe.DocstringSectionKind.admonition,
+        griffe.DocstringSectionKind.text,
+    ]
+    assert "Define your own type variable" in docstring.parsed[0].value.contents
+
+
+def test_symbol_entry_parameters_match_the_extension() -> None:
+    """Ensure `DeprecatedSymbol` takes the name positionally and the rest by keyword.
+
+    The extension reads the arguments as `DeprecatedSymbol(name, /, *, value,
+    replacement=None, since=None, message=None)`. If `frequenz-core` changed how
+    it takes any of them, entries wouldn't be marked anymore.
+    """
+    parameters = inspect.signature(frequenz.core.warnings.DeprecatedSymbol).parameters
+    assert {
+        name: (parameter.kind, parameter.default)
+        for name, parameter in parameters.items()
+    } == {
+        "name": (inspect.Parameter.POSITIONAL_ONLY, inspect.Parameter.empty),
+        "value": (inspect.Parameter.KEYWORD_ONLY, inspect.Parameter.empty),
+        "replacement": (inspect.Parameter.KEYWORD_ONLY, None),
+        "since": (inspect.Parameter.KEYWORD_ONLY, None),
+        "message": (inspect.Parameter.KEYWORD_ONLY, None),
+    }
+
+
+@pytest.mark.parametrize(
+    "entry",
+    [
+        "DeprecatedSymbol('Thing', value=1)",
+        "DeprecatedSymbol('Thing', value=None)",
+        "DeprecatedSymbol('Thing', value=1, replacement='decimal.Decimal')",
+        "DeprecatedSymbol('Thing', value=1, since='v1')",
+        "DeprecatedSymbol('Thing', value=1, message='{old} gone.')",
+        "DeprecatedSymbol('Thing', value=1, replacement='decimal.Decimal', "
+        "since='v1', message='{old} gone. Use {new}.')",
+        "DeprecatedSymbol('Thing', value=1, replacement=None, since=None, "
+        "message=None)",
+        "DeprecatedSymbol('Thing')",
+        "DeprecatedSymbol('Thing', replacement='decimal.Decimal', since='v1')",
+        "DeprecatedSymbol('Thing', 1)",
+        "DeprecatedSymbol(name='Thing', value=1)",
+        "DeprecatedSymbol('Thing', value=1, until='v2')",
+        "DeprecatedSymbol('Thing', value=1, new_module='decimal')",
+    ],
+)
+def test_symbol_entries_bind_as_at_runtime(entry: str) -> None:
+    """Ensure a symbol entry is documented if and only if core accepts it.
+
+    This checks the combinations of arguments, not their values, which the
+    extension doesn't validate.
+    """
+    accepted = _accepted(
+        entry, DeprecatedSymbol=frequenz.core.warnings.DeprecatedSymbol
+    )
+    code = (
+        "from frequenz.core.warnings import DeprecatedSymbol, deprecated_symbols\n"
+        f"__getattr__ = deprecated_symbols(__name__, {entry})\n"
+    )
+    with griffe.temporary_visited_module(
+        code,
+        extensions=griffe.load_extensions(
+            DeprecationsExtension(checked_packages=_CHECKED)
+        ),
+    ) as module:
+        assert ("Thing" in module.members) == accepted
