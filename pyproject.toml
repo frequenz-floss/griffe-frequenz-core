@@ -89,7 +89,9 @@ dev-pytest = [
   # helpers to check that the documentation matches the runtime warnings. We pin
   # the exact version we last tested with, so when Dependabot bumps it, we know
   # we need to check that the extension still works with the new release.
-  "frequenz-core == 1.6.0",
+  # WIP: this is the head of frequenz-core-python#223. Go back to an exact
+  # version once `deprecated_symbols()` is released.
+  "frequenz-core @ git+https://github.com/frequenz-floss/frequenz-core-python.git@12f08050a1a2728881eb66750ec28af3f31ad037",
   # tests/test_decorator.py runs the real decorator to check which calls it
   # accepts. `warnings.deprecated` is only available on Python 3.13 or later.
   "typing-extensions == 4.16.0",

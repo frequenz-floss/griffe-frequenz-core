@@ -267,7 +267,7 @@ def test_a_message_from_another_extension_silences_the_generic_one(
     ("arguments", "warned"),
     [
         ("__name__, *ENTRIES", "are unpacked, so they aren't marked"),
-        ("__name__, ENTRY", "isn't a call to a known alias class"),
+        ("__name__, ENTRY", "isn't a call to a known alias or symbol class"),
         (
             "__name__, DeprecatedAlias(NAME, new_module='pkg.new', since='v1')",
             "isn't a string literal, so it's skipped",

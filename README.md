@@ -142,8 +142,10 @@ The extension understands these decorators and helpers:
 |-----------------------------------------------|--------------------------------------|--------------------------|
 | `warnings.deprecated`                         | Used as a decorator                  | The decorated object     |
 | `typing_extensions.deprecated`                | Used as a decorator                  | The decorated object     |
-| `frequenz.core.warnings.deprecated_aliases()` | Assigned to a module's `__getattr__` | All aliases in the table |
+| `frequenz.core.warnings.deprecated_symbols()` | Assigned to a module's `__getattr__` | All entries in the table |
+| `frequenz.core.warnings.deprecated_aliases()` | Assigned to a module's `__getattr__` | All entries in the table |
 | `frequenz.core.warnings.DeprecatedAlias`      | An entry in that table               | The alias                |
+| `frequenz.core.warnings.DeprecatedSymbol`     | An entry in that table               | The symbol               |
 | `frequenz.core.enum.deprecated_member()`      | Used as an enum member's value       | The enum member          |
 | `frequenz.core.enum.DeprecatedMember`         | Used as an enum member's value       | The enum member          |
 
@@ -230,9 +232,12 @@ its parts.
 When you move or rename something, you might want to keep the old name working
 for a while.
 
-The `deprecated_aliases()` helper lets you do this by setting a module's
+The `deprecated_symbols()` helper lets you do this by setting a module's
 `__getattr__`. You can also declare the old names under `TYPE_CHECKING`, so
 type checkers can still find them.
+
+Before `frequenz-core` 1.7.0, the helper is called `deprecated_aliases()`. The
+extension reads both names the same way.
 
 Each old name is described by a `DeprecatedAlias` entry. You can provide:
 
@@ -249,7 +254,7 @@ For example:
 ```python
 from typing import TYPE_CHECKING, TypeAlias
 
-from frequenz.core.warnings import DeprecatedAlias, deprecated_aliases
+from frequenz.core.warnings import DeprecatedAlias, deprecated_symbols
 
 if TYPE_CHECKING:
     from mypkg.newmod import Gadget as _Gadget
@@ -261,7 +266,7 @@ if TYPE_CHECKING:
     Doohickey: TypeAlias = _Gadget
     """A gadget, formerly known as `Doohickey`."""
 else:
-    __getattr__ = deprecated_aliases(
+    __getattr__ = deprecated_symbols(
         __name__,
         DeprecatedAlias("Widget", new_module="mypkg.newmod", since="v1.2.0"),
         DeprecatedAlias(
@@ -304,8 +309,97 @@ A few other things worth knowing:
   entry, it skips that entry and continues with the others. Arguments such as
   `category` and `stacklevel` don't affect the documentation.
 - **The helper must be assigned directly to `__getattr__`.** A custom `def
-  __getattr__()` that calls `deprecated_aliases()` internally won't be
+  __getattr__()` that calls `deprecated_symbols()` internally won't be
   recognized. Neither will a `__getattr__` created in some other way.
+
+### Deprecated module symbols
+
+Sometimes a constant, type variable or type alias is going away, and nothing
+is moving. You can't put `@deprecated` on these. An alias doesn't fit either,
+because the replacement is a different object, or there is none.
+
+For these, add a `DeprecatedSymbol` entry to the `deprecated_symbols()` table.
+It needs `frequenz-core` 1.7.0 or later. You can provide:
+
+- `value`: The object the old name still gives. This one is required.
+- `replacement`: The fully qualified name of what to use instead.
+- `since`: The version where the symbol became deprecated.
+- `message`: A custom runtime warning.
+
+For example:
+
+```python
+from datetime import timedelta
+from typing import TYPE_CHECKING, Final, TypeVar
+
+from frequenz.core.warnings import DeprecatedSymbol, deprecated_symbols
+
+TIMEOUT: Final = timedelta(seconds=30)
+"""How long to wait for a reply."""
+
+_TIMEOUT_SECONDS: Final = 30.0
+
+if TYPE_CHECKING:
+    TIMEOUT_SECONDS: Final = _TIMEOUT_SECONDS
+    """How long to wait for a reply, in seconds."""
+
+    ValueT = TypeVar("ValueT")
+    """A type variable for values.
+
+    Deprecated:
+        Deprecated since v1.6.0. Define your own type variable instead.
+    """
+else:
+    __getattr__ = deprecated_symbols(
+        __name__,
+        DeprecatedSymbol(
+            "TIMEOUT_SECONDS",
+            value=_TIMEOUT_SECONDS,
+            replacement="mypkg.TIMEOUT",
+            since="v1.5.0",
+        ),
+        DeprecatedSymbol(
+            "ValueT",
+            value=TypeVar("ValueT"),
+            since="v1.6.0",
+            message="{old} is deprecated. Define your own type variable instead.",
+        ),
+    )
+```
+
+Suppose this code is in `mypkg`. Here's what happens in the generated
+documentation:
+
+- **`TIMEOUT_SECONDS`** gets the notice "Deprecated since v1.5.0. Use `TIMEOUT`
+  instead." `TIMEOUT` links to `mypkg.TIMEOUT`. The link only shows the name,
+  because it's in the same module. The value is shown as `30.0` instead of the
+  private `_TIMEOUT_SECONDS`.
+- **`ValueT`** has no `replacement`, so it needs a hand-written notice. Without
+  one, the extension shows the runtime message as Markdown and logs a warning.
+  Because `ValueT` passes `since`, that notice would start with "Deprecated
+  since v1.6.0.", followed by the message.
+
+A few other things worth knowing:
+
+- **Aliases and symbols can share a table.** Pass `DeprecatedAlias` and
+  `DeprecatedSymbol` entries to the same `deprecated_symbols()` call. What the
+  [aliases section](#deprecated-module-aliases) says about `TYPE_CHECKING`
+  declarations, `default_message` and `__getattr__` applies to symbols too.
+- **`replacement` is always a fully qualified name.** This is true even if the
+  replacement is in the same module. The extension links it as written, and
+  `mkdocs-autorefs` reports the link if it can't be resolved.
+- **The `message` argument only affects runtime warnings if there is a
+  `replacement`.** The extension then builds the notice from `replacement` and
+  `since`. If the entry has no `since`, the notice only says what to use
+  instead, and the extension logs a warning.
+- **An entry with only a `value` gets a generic notice.** The extension has
+  nothing to say about what to use instead, so it logs a warning. Write the
+  notice by hand.
+- **The value is shown, not evaluated.** If `value` is a private attribute of
+  the same module, the documentation shows what that attribute holds. Anything
+  else is shown as written in the entry, like `TypeVar("ValueT")`. With
+  `show_target: false`, the documentation shows what you declared under
+  `TYPE_CHECKING` instead.
 
 ### Deprecated enum members
 
@@ -424,6 +518,13 @@ Here are the main limitations:
   read, and the alias value is only shown as the target if the extension can
   read the target. The `message` argument is never read for module aliases.
 
+- **Module symbols need literal strings.** The symbol name, `replacement`,
+  `since` and `message` must be written as string literals in the call. If the
+  name isn't a literal, the extension can't mark the symbol as deprecated. If
+  another value isn't a literal, the notice uses whatever information the
+  extension can read. It reads `message` only when it can't read a
+  `replacement`.
+
 - **Enum notices need literal strings.** The extension can only read
   `new_name`, `since` and `message` if they're string literals. It reads
   `message` only when `new_name` isn't passed or can't be read. Constants,
@@ -433,23 +534,24 @@ Here are the main limitations:
   its value is shown without the wrapper. The notice uses whatever information
   the extension can read.
 
-- **Alias entries must appear directly in the call.** Each entry must be a
-  `DeprecatedAlias(...)` call inside `deprecated_aliases()`. Entries stored in
+- **Table entries must appear directly in the call.** Each entry must be a
+  `DeprecatedAlias(...)` or `DeprecatedSymbol(...)` call inside
+  `deprecated_symbols()`. Entries stored in
   variables or unpacked from a collection can't be read. For example, neither
   of these entries will be marked:
 
   ```python
-  deprecated_aliases(__name__, WIDGET)
-  deprecated_aliases(__name__, *ALIASES)
+  deprecated_symbols(__name__, WIDGET)
+  deprecated_symbols(__name__, *ALIASES)
   ```
 
 - **Arguments can't be unpacked.** Calls to `deprecated_member()`,
-  `DeprecatedMember`, and `DeprecatedAlias` must use explicit arguments, not
-  `*args` or `**kwargs`. For example, a member defined as
+  `DeprecatedMember`, `DeprecatedAlias` and `DeprecatedSymbol` must use explicit
+  arguments, not `*args` or `**kwargs`. For example, a member defined as
   `deprecated_member(*ARGS)` is still marked as deprecated, with a generic
-  message, but its value is shown as the whole call. For aliases, unpacked
-  keyword arguments mean only the alias name can be read. If positional
-  arguments are unpacked, the alias isn't marked at all.
+  message, but its value is shown as the whole call. For aliases and
+  symbols, unpacked keyword arguments mean only the name can be read. If
+  positional arguments are unpacked, the alias or symbol isn't marked at all.
 
 - **Overloads need a function to show their notice.** Griffe attaches
   overloads to the function defined after them. If they're declared only in a
@@ -488,8 +590,8 @@ All these warnings are only logged when the object's docstring is parsed for
 rendering. Griffe may visit code that never appears in your documentation. For
 example, loading a namespace package like `frequenz` also visits other installed
 packages using that namespace. Their problems shouldn't make your build fail.
-An alias entry that can't be read isn't documented as an object, so its warning
-is logged when the docstring of the module with the alias table is parsed.
+A table entry that can't be read isn't documented as an object, so its warning
+is logged when the docstring of the module with the table is parsed.
 
 The extension only logs warnings for code in the packages listed in
 `checked_packages`, which is `frequenz` by default. Your documentation can still
@@ -517,11 +619,12 @@ Broken links to replacements are reported separately by `mkdocs-autorefs`.
 | `label`                    | `deprecated`                                | The label added to deprecated objects. `null` means no label.           |
 | `checked_packages`         | `frequenz`                                  | The packages, with their subpackages, whose problems are logged as warnings. |
 | `decorator_functions`      | `warnings.deprecated`, `typing_extensions.deprecated` | The paths of the decorators that deprecate a class or function. |
-| `alias_table_functions`    | `frequenz.core.warnings.deprecated_aliases` | The paths of the functions that create a module `__getattr__`.          |
+| `alias_table_functions`    | `frequenz.core.warnings.deprecated_symbols`, `frequenz.core.warnings.deprecated_aliases` | The paths of the functions that create a module `__getattr__`.          |
 | `alias_classes`            | `frequenz.core.warnings.DeprecatedAlias`    | The paths of the callables that create one alias entry.                 |
+| `symbol_classes`           | `frequenz.core.warnings.DeprecatedSymbol`   | The paths of the callables that create one symbol entry.                |
 | `member_wrapper_functions` | `frequenz.core.enum.deprecated_member`, `frequenz.core.enum.DeprecatedMember` | The paths of the callables that wrap a deprecated enum member's value. |
-| `default_message`          | `Deprecated since {since}. Use {new_link} instead.` | The notice template for aliases and enum members with `new_name`. See the placeholders below. |
-| `show_target`              | `true`                                      | Show an alias' value as its target, instead of the private name.        |
+| `default_message`          | `Deprecated since {since}. Use {new_link} instead.` | The notice template for aliases, symbols with `replacement` and enum members with `new_name`. See the placeholders below. |
+| `show_target`              | `true`                                      | Show an alias' value as its target, and a symbol's value as the one in its entry, instead of the private name. |
 
 You can use these placeholders in `default_message`:
 
@@ -531,19 +634,20 @@ You can use these placeholders in `default_message`:
   in the same module or enum, the link only shows its name.
 - `{since}`: The version string, as written in the call.
 
-The four path options are lists. If you set one, it replaces the default. To
+The five path options are lists. If you set one, it replaces the default. To
 use your own helper as well as the `frequenz-core` one, list both:
 
 ```yaml
 extensions:
   - griffe_frequenz_core.deprecations:
       alias_table_functions:
+        - frequenz.core.warnings.deprecated_symbols
         - frequenz.core.warnings.deprecated_aliases
         - mypkg.compat.moved_to
 ```
 
 `checked_packages` is a list too. Write a list even for a single name, like
-`checked_packages: [frequenz]`. If you set any of these five options to a
+`checked_packages: [frequenz]`. If you set any of these six options to a
 string, the extension raises an error, instead of reading each letter as a name.
 
 Your own decorators and helpers need to take the same arguments as the ones
@@ -552,14 +656,18 @@ they replace, because the extension reads their calls the same way:
 - **Decorators** work like `deprecated(message, /, *, category=DeprecationWarning,
   stacklevel=1)`. The message must be positional. The other arguments must be
   passed by keyword.
-- **Alias tables** work like `deprecated_aliases(module, /, *aliases)`. Every
-  positional argument after the module is an alias entry. Keyword arguments are
-  ignored.
+- **Alias tables** work like `deprecated_symbols(module, /, *symbols)`. Every
+  positional argument after the module is an alias or symbol entry. Keyword
+  arguments are ignored.
 - **Alias entries** work like `DeprecatedAlias(name, /, *, new_module=None,
   new_name=None, since=None, message=None)`. The name is positional, and
   everything else is passed by keyword. You need to pass `new_module`,
   `new_name` or both. `since` and `message` are optional and independent.
   Passing `None` is the same as not passing the argument.
+- **Symbol entries** work like `DeprecatedSymbol(name, /, *, value,
+  replacement=None, since=None, message=None)`. The name is positional, and
+  everything else is passed by keyword. You need to pass `value`. Passing
+  `None` for an optional argument is the same as not passing it.
 - **Enum member wrappers** work like `deprecated_member(value, message=None,
   *, new_name=None, since=None)`. You can pass the value and message
   positionally or by keyword. `new_name` and `since` must be keyword

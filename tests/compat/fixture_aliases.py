@@ -6,7 +6,7 @@
 This module is loaded statically by Griffe and also imported at runtime, so the
 same code is used to check both the documentation and the runtime warning.
 
-The targets are in the standard library, because `deprecated_aliases()`
+The targets are in the standard library, because `deprecated_symbols()`
 resolves the target before warning, so it must be importable. The aliases are:
 
 - `Decimal`: declared for type checkers, as usual, with `since`.
@@ -19,7 +19,7 @@ resolves the target before warning, so it must be importable. The aliases are:
 
 from typing import TYPE_CHECKING, TypeAlias
 
-from frequenz.core.warnings import DeprecatedAlias, deprecated_aliases
+from frequenz.core.warnings import DeprecatedAlias, deprecated_symbols
 
 
 class Widget:
@@ -32,7 +32,7 @@ if TYPE_CHECKING:
     Decimal: TypeAlias = _Decimal
     """A decimal number."""
 else:
-    __getattr__ = deprecated_aliases(
+    __getattr__ = deprecated_symbols(
         __name__,
         DeprecatedAlias("Decimal", new_module="decimal", since="v1.2.0"),
         DeprecatedAlias(
