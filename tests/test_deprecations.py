@@ -273,6 +273,28 @@ def test_an_alias_declared_by_an_import_is_documented_as_an_attribute() -> None:
         assert len(admonitions(member)) == 1
 
 
+@pytest.mark.parametrize("function", ["deprecated_symbols", "deprecated_aliases"])
+def test_both_names_of_the_table_function_are_recognized(function: str) -> None:
+    """Ensure a table is read the same way under the old and the new name."""
+    code = (
+        f"from frequenz.core.warnings import DeprecatedAlias, {function}\n"
+        f"__getattr__ = {function}(\n"
+        "    __name__, DeprecatedAlias('Old', new_module='pkg.new', since='v1')\n"
+        ")\n"
+    )
+    with griffe.temporary_visited_module(
+        code,
+        extensions=griffe.load_extensions(
+            DeprecationsExtension(checked_packages=_CHECKED)
+        ),
+    ) as module:
+        member = attribute(module, "Old")
+        assert "deprecated" in member.labels
+        assert (
+            member.deprecated == "Deprecated since v1. Use [`pkg.new.Old`][] instead."
+        )
+
+
 def test_an_unknown_target_is_still_referenced(samplepkg: Module) -> None:
     """Ensure an unknown target is still linked, so the broken link is reported.
 

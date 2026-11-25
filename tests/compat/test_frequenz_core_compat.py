@@ -376,14 +376,16 @@ def test_alias_entry_parameters_match_the_extension() -> None:
     }
 
 
-def test_alias_table_takes_entries_after_the_module() -> None:
-    """Ensure `deprecated_aliases()` takes the module and then the entries, positionally.
+@pytest.mark.parametrize("function", ["deprecated_symbols", "deprecated_aliases"])
+def test_alias_table_takes_entries_after_the_module(function: str) -> None:
+    """Ensure the table function takes the module and then the entries, positionally.
 
     The extension reads every positional argument after the first as an entry,
-    and ignores keywords. This is only correct if the parameters stay like this.
+    and ignores keywords. This is only correct if the parameters stay like this,
+    under both names of the function.
     """
     parameters = list(
-        inspect.signature(frequenz.core.warnings.deprecated_aliases).parameters.values()
+        inspect.signature(getattr(frequenz.core.warnings, function)).parameters.values()
     )
     assert [parameter.kind for parameter in parameters[:2]] == [
         inspect.Parameter.POSITIONAL_ONLY,
@@ -392,6 +394,28 @@ def test_alias_table_takes_entries_after_the_module() -> None:
     assert all(
         parameter.kind is inspect.Parameter.KEYWORD_ONLY for parameter in parameters[2:]
     )
+
+
+def test_the_old_table_function_still_builds_the_same_table() -> None:
+    """Ensure `deprecated_aliases()` still works, so reading it still makes sense.
+
+    It warns when called, and then gives a `__getattr__` that warns like the one
+    from `deprecated_symbols()`.
+    """
+    entry = frequenz.core.warnings.DeprecatedAlias("Decimal", new_module="decimal")
+    with pytest.deprecated_call(match="Use .*deprecated_symbols instead"):
+        old = frequenz.core.warnings.deprecated_aliases("mypkg", entry)
+    new = frequenz.core.warnings.deprecated_symbols("mypkg", entry)
+
+    with pytest.deprecated_call() as old_warnings:
+        old_value = old("Decimal")
+    with pytest.deprecated_call() as new_warnings:
+        new_value = new("Decimal")
+
+    assert old_value is new_value
+    assert [str(w.message) for w in old_warnings] == [
+        str(w.message) for w in new_warnings
+    ]
 
 
 def _accepted(code: str, **names: Any) -> bool:
@@ -442,8 +466,8 @@ def test_alias_entries_bind_as_at_runtime(entry: str) -> None:
     """
     accepted = _accepted(entry, DeprecatedAlias=frequenz.core.warnings.DeprecatedAlias)
     code = (
-        "from frequenz.core.warnings import DeprecatedAlias, deprecated_aliases\n"
-        f"__getattr__ = deprecated_aliases(__name__, {entry})\n"
+        "from frequenz.core.warnings import DeprecatedAlias, deprecated_symbols\n"
+        f"__getattr__ = deprecated_symbols(__name__, {entry})\n"
     )
     with griffe.temporary_visited_module(
         code,

@@ -514,18 +514,21 @@ class DeprecationsExtension(Extension):  # pylint: disable=too-many-instance-att
     ```python
     from typing import TYPE_CHECKING, TypeAlias
 
-    from frequenz.core.warnings import DeprecatedAlias, deprecated_aliases
+    from frequenz.core.warnings import DeprecatedAlias, deprecated_symbols
 
     if TYPE_CHECKING:
         from mypkg.newmod import Widget as _Widget
 
         Widget: TypeAlias = _Widget  # plus its usual attribute docstring
     else:
-        __getattr__ = deprecated_aliases(
+        __getattr__ = deprecated_symbols(
             __name__,
             DeprecatedAlias("Widget", new_module="mypkg.newmod", since="v1.2.0"),
         )
     ```
+
+    `deprecated_symbols()` is called `deprecated_aliases()` before
+    `frequenz-core` 1.7.0. The extension reads both names the same way.
 
     The extension marks every alias in the table, even if it isn't declared for
     type checkers. Its notice is built from `default_message`, linking its
@@ -595,7 +598,7 @@ class DeprecationsExtension(Extension):  # pylint: disable=too-many-instance-att
         happens when:
 
         - The entry isn't a `DeprecatedAlias(...)` call written directly in the
-          `deprecated_aliases()` call, for example because it's stored in a
+          `deprecated_symbols()` call, for example because it's stored in a
           constant or unpacked from `*args`.
         - The name isn't a string literal.
         - The positional arguments of the entry are unpacked.
@@ -664,6 +667,7 @@ class DeprecationsExtension(Extension):  # pylint: disable=too-many-instance-att
                         - typing_extensions.deprecated
                         - mypkg.compat.deprecated
                       alias_table_functions:
+                        - frequenz.core.warnings.deprecated_symbols
                         - frequenz.core.warnings.deprecated_aliases
                         - mypkg.compat.moved_to
                       alias_classes:
@@ -698,6 +702,7 @@ class DeprecationsExtension(Extension):  # pylint: disable=too-many-instance-att
             "typing_extensions.deprecated",
         ),
         alias_table_functions: Sequence[str] = (
+            "frequenz.core.warnings.deprecated_symbols",
             "frequenz.core.warnings.deprecated_aliases",
         ),
         alias_classes: Sequence[str] = ("frequenz.core.warnings.DeprecatedAlias",),
@@ -734,7 +739,7 @@ class DeprecationsExtension(Extension):  # pylint: disable=too-many-instance-att
             alias_table_functions: The fully qualified paths of the functions that
                 create a module `__getattr__` from an alias table. Their calls are
                 read as if they were calls to
-                `deprecated_aliases(module, /, *aliases)`: every positional
+                `deprecated_symbols(module, /, *symbols)`: every positional
                 argument after the module is an alias entry, and keyword
                 arguments are ignored.
             alias_classes: The fully qualified paths of the callables that create

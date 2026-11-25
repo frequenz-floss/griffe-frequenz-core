@@ -142,6 +142,7 @@ The extension understands these decorators and helpers:
 |-----------------------------------------------|--------------------------------------|--------------------------|
 | `warnings.deprecated`                         | Used as a decorator                  | The decorated object     |
 | `typing_extensions.deprecated`                | Used as a decorator                  | The decorated object     |
+| `frequenz.core.warnings.deprecated_symbols()` | Assigned to a module's `__getattr__` | All aliases in the table |
 | `frequenz.core.warnings.deprecated_aliases()` | Assigned to a module's `__getattr__` | All aliases in the table |
 | `frequenz.core.warnings.DeprecatedAlias`      | An entry in that table               | The alias                |
 | `frequenz.core.enum.deprecated_member()`      | Used as an enum member's value       | The enum member          |
@@ -230,9 +231,12 @@ its parts.
 When you move or rename something, you might want to keep the old name working
 for a while.
 
-The `deprecated_aliases()` helper lets you do this by setting a module's
+The `deprecated_symbols()` helper lets you do this by setting a module's
 `__getattr__`. You can also declare the old names under `TYPE_CHECKING`, so
 type checkers can still find them.
+
+Before `frequenz-core` 1.7.0, the helper is called `deprecated_aliases()`. The
+extension reads both names the same way.
 
 Each old name is described by a `DeprecatedAlias` entry. You can provide:
 
@@ -249,7 +253,7 @@ For example:
 ```python
 from typing import TYPE_CHECKING, TypeAlias
 
-from frequenz.core.warnings import DeprecatedAlias, deprecated_aliases
+from frequenz.core.warnings import DeprecatedAlias, deprecated_symbols
 
 if TYPE_CHECKING:
     from mypkg.newmod import Gadget as _Gadget
@@ -261,7 +265,7 @@ if TYPE_CHECKING:
     Doohickey: TypeAlias = _Gadget
     """A gadget, formerly known as `Doohickey`."""
 else:
-    __getattr__ = deprecated_aliases(
+    __getattr__ = deprecated_symbols(
         __name__,
         DeprecatedAlias("Widget", new_module="mypkg.newmod", since="v1.2.0"),
         DeprecatedAlias(
@@ -304,7 +308,7 @@ A few other things worth knowing:
   entry, it skips that entry and continues with the others. Arguments such as
   `category` and `stacklevel` don't affect the documentation.
 - **The helper must be assigned directly to `__getattr__`.** A custom `def
-  __getattr__()` that calls `deprecated_aliases()` internally won't be
+  __getattr__()` that calls `deprecated_symbols()` internally won't be
   recognized. Neither will a `__getattr__` created in some other way.
 
 ### Deprecated enum members
@@ -434,13 +438,13 @@ Here are the main limitations:
   the extension can read.
 
 - **Alias entries must appear directly in the call.** Each entry must be a
-  `DeprecatedAlias(...)` call inside `deprecated_aliases()`. Entries stored in
+  `DeprecatedAlias(...)` call inside `deprecated_symbols()`. Entries stored in
   variables or unpacked from a collection can't be read. For example, neither
   of these entries will be marked:
 
   ```python
-  deprecated_aliases(__name__, WIDGET)
-  deprecated_aliases(__name__, *ALIASES)
+  deprecated_symbols(__name__, WIDGET)
+  deprecated_symbols(__name__, *ALIASES)
   ```
 
 - **Arguments can't be unpacked.** Calls to `deprecated_member()`,
@@ -517,7 +521,7 @@ Broken links to replacements are reported separately by `mkdocs-autorefs`.
 | `label`                    | `deprecated`                                | The label added to deprecated objects. `null` means no label.           |
 | `checked_packages`         | `frequenz`                                  | The packages, with their subpackages, whose problems are logged as warnings. |
 | `decorator_functions`      | `warnings.deprecated`, `typing_extensions.deprecated` | The paths of the decorators that deprecate a class or function. |
-| `alias_table_functions`    | `frequenz.core.warnings.deprecated_aliases` | The paths of the functions that create a module `__getattr__`.          |
+| `alias_table_functions`    | `frequenz.core.warnings.deprecated_symbols`, `frequenz.core.warnings.deprecated_aliases` | The paths of the functions that create a module `__getattr__`.          |
 | `alias_classes`            | `frequenz.core.warnings.DeprecatedAlias`    | The paths of the callables that create one alias entry.                 |
 | `member_wrapper_functions` | `frequenz.core.enum.deprecated_member`, `frequenz.core.enum.DeprecatedMember` | The paths of the callables that wrap a deprecated enum member's value. |
 | `default_message`          | `Deprecated since {since}. Use {new_link} instead.` | The notice template for aliases and enum members with `new_name`. See the placeholders below. |
@@ -538,6 +542,7 @@ use your own helper as well as the `frequenz-core` one, list both:
 extensions:
   - griffe_frequenz_core.deprecations:
       alias_table_functions:
+        - frequenz.core.warnings.deprecated_symbols
         - frequenz.core.warnings.deprecated_aliases
         - mypkg.compat.moved_to
 ```
@@ -552,7 +557,7 @@ they replace, because the extension reads their calls the same way:
 - **Decorators** work like `deprecated(message, /, *, category=DeprecationWarning,
   stacklevel=1)`. The message must be positional. The other arguments must be
   passed by keyword.
-- **Alias tables** work like `deprecated_aliases(module, /, *aliases)`. Every
+- **Alias tables** work like `deprecated_symbols(module, /, *symbols)`. Every
   positional argument after the module is an alias entry. Keyword arguments are
   ignored.
 - **Alias entries** work like `DeprecatedAlias(name, /, *, new_module=None,
